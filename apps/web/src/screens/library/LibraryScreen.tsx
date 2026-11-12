@@ -89,29 +89,26 @@ export function LibraryScreen() {
       {firstRun && !error && (
         <section className="welcome" aria-labelledby="welcome-title">
           <h2 id="welcome-title">Hoş geldin. Nereden başlayalım?</h2>
-          <ol className="welcome-steps">
+          <ul className="welcome-steps">
             <WelcomeStep
-              n={1}
               icon={<GraduationCap size={20} />}
               title="İlk dersini çal"
               text={firstLesson ? `“${firstLesson.title}” ile başla. Notalar gitarın üzerinde gösterilir.` : 'Hazır derslerden biriyle başla.'}
               action={firstLesson && <Button variant="primary" icon={<Play size={15} fill="currentColor" />} onClick={() => navigate(playLesson(firstLesson.id))}>Derse başla</Button>}
             />
             <WelcomeStep
-              n={2}
               icon={<Guitar size={20} />}
               title="Gitarını ekle"
               text="İki fotoğrafla kendi gitarını oluştur. İstersen yerleşik modelle devam et."
               action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => navigate({ name: 'guitar' })}>Gitarım</Button>}
             />
             <WelcomeStep
-              n={3}
               icon={<Upload size={20} />}
               title="Kendi tabını yükle"
               text="Guitar Pro veya MusicXML dosyanı sürükleyip bırak."
               action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => document.getElementById('sec-import')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Yükleme alanı</Button>}
             />
-          </ol>
+          </ul>
         </section>
       )}
 
@@ -193,7 +190,6 @@ export function LibraryScreen() {
                   return (
                     <li key={l.id}>
                       <button type="button" className="tab-card lesson-card" onClick={() => navigate(playLesson(l.id))}>
-                        <span className="tab-card-ic" aria-hidden><GraduationCap size={18} /></span>
                         <span className="tab-card-title">{l.title}</span>
                         <span className="tab-card-sub">{l.tempo ? `${l.tempo} BPM` : LEVEL_LABEL[l.level]}</span>
                         {l.description && <span className="tab-card-desc">{l.description}</span>}
@@ -235,12 +231,12 @@ export function LibraryScreen() {
   );
 }
 
-function WelcomeStep({ n, icon, title, text, action }: { n: number; icon: ReactNode; title: string; text: string; action?: ReactNode }) {
+function WelcomeStep({ icon, title, text, action }: { icon: ReactNode; title: string; text: string; action?: ReactNode }) {
   return (
     <li className="welcome-step">
       <div className="welcome-ic" aria-hidden>{icon}</div>
       <div className="welcome-text">
-        <p className="welcome-title"><span className="subtle num">{n}.</span> {title}</p>
+        <p className="welcome-title">{title}</p>
         <p className="muted small">{text}</p>
       </div>
       {action && <div className="welcome-action">{action}</div>}

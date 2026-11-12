@@ -308,7 +308,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
                   tone="danger"
                   icon={<FileMusic size={22} />}
                   title="Tab açılamadı"
-                  description={`${loadErr || state.error} Dosya bozuk olabilir ya da desteklenmeyen bir biçimde olabilir.`}
+                  description={loadErr ?? `${state.error} Dosya bozuk ya da desteklenmeyen bir biçimde olabilir.`}
                   action={
                     <>
                       <Button icon={<ArrowLeft size={16} />} onClick={() => navigate({ name: 'library' })}>Kütüphane</Button>
@@ -339,7 +339,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         </Drawer>
       </div>
 
-      <section className={`tabpanel${showTab ? '' : ' collapsed'}`} aria-label="Tab şeridi" aria-hidden={!showTab}>
+      <section className={`tabpanel${showTab && !failed ? '' : ' collapsed'}`} aria-label="Tab şeridi" aria-hidden={!showTab || failed}>
         <div className="tabpanel-scroll" ref={scroller}>
           <div ref={host} />
         </div>

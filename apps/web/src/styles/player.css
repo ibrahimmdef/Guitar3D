@@ -288,7 +288,7 @@
 /* ---------- Tab strip (alphaTab) ---------- */
 /* Always dark so the alphaTab glyph colours (set in useAlphaTab) work in both themes. */
 .tabpanel {
-  height: 156px;
+  height: 140px;
   background: #121315;
   transition: height var(--dur) var(--ease);
   overflow: hidden;
@@ -506,7 +506,7 @@
 @media (max-width: 560px) {
   .pt-hide-sm,
   .tp-hide-sm,
-  .pt-view {
+  .tp-loop-x {
     display: none;
   }
   .tp-sep {

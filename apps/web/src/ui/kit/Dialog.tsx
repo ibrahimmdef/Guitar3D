@@ -20,7 +20,14 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
         <RD.Overlay className="overlay" />
-        <RD.Content className={`dialog dialog-${variant} dialog-${size}`}>
+        <RD.Content
+          className={`dialog dialog-${variant} dialog-${size}`}
+          // Focus the panel itself, not the close button, so opening does not flash a focus ring.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
+        >
           <header className="dialog-head">
             <div>
               <RD.Title className="dialog-title">{title}</RD.Title>

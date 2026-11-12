@@ -84,3 +84,12 @@ describe('practice flow', () => {
     expect(ladderAfter({ speed: 0.3, clean: 0, target: 1 }, 'stuck').speed).toBe(0.3);
   });
 });
+
+describe('shortcut sheet', () => {
+  it('documents every shortcut the player handles', async () => {
+    const { SHORTCUTS } = await import('./shortcuts');
+    const keys = SHORTCUTS.flatMap((g) => g.items.flatMap((i) => i.keys));
+    for (const k of ['Space', '←', '→', 'L', 'M', '-', '+', '1', '2', '3', '4', 'V', 'T', 'P', '?']) expect(keys).toContain(k);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+});
