@@ -8,7 +8,7 @@ import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeomet
 import {
   bodyDepthAt, FB_TOP, fitDistance, followTarget, fretX, guitarXRange, hitToFret, noteX, speakingFraction, stringY, stringZ,
 } from './geometry';
-import { ACCENT, backdropTexture, createMaterials, labelTexture, NEXT_OUTLINE, woundTexture } from './materials';
+import { ACCENT, createMaterials, labelTexture, NEXT_OUTLINE, woundTexture } from './materials';
 
 export interface Guitar3DProps {
   profile: GuitarProfile;
@@ -20,6 +20,8 @@ export interface Guitar3DProps {
   cameraMode: CameraMode;
   onCameraModeChange?: (m: CameraMode) => void;
   onFretClick?: (string: number, fret: number) => void;
+  /** Called once, after the guitar with all its textures has been drawn for the first time. */
+  onReady?: () => void;
   className?: string;
 }
 
@@ -39,34 +41,40 @@ function useFrame3(profile: GuitarProfile, view: GuitarView) {
 
 /* ------------------------------------------------------------------ scene setup */
 
-function Studio({ depth }: { depth: number }) {
+function Studio({ depth, rot }: { depth: number; rot: number }) {
   const { gl, scene } = useThree();
-  const tex = useMemo(() => backdropTexture(), []);
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     scene.environment = env;
-    scene.environmentIntensity = 0.55;
-    scene.background = new THREE.Color('#0b0c0e');
+    scene.environmentIntensity = 0.5;
+    scene.background = null; // transparent canvas: the app's stage colour shows through
     return () => {
       env.dispose();
       pmrem.dispose();
       scene.environment = null;
     };
   }, [gl, scene]);
+  // the room turns with the guitar as well, so reflections look the same in both views
+  useEffect(() => {
+    scene.environmentRotation.set(0, 0, rot + Math.PI);
+  }, [scene, rot]);
   return (
     <>
+      {/* invisible floor behind the guitar that only catches its soft shadow */}
       <mesh position={[0, 0, -depth - 0.4]} receiveShadow>
         <planeGeometry args={[700, 460]} />
-        <meshStandardMaterial map={tex} roughness={1} metalness={0} envMapIntensity={0.2} />
+        <shadowMaterial transparent opacity={0.5} />
       </mesh>
+      {/* the light rig turns with the guitar so both views are lit the same: key light on the viewer's side */}
+      <group rotation={[0, 0, rot]}>
       <directionalLight
-        position={[-45, 70, 130]}
-        intensity={2.1}
+        position={[-45, -70, 130]}
+        intensity={1.5}
         castShadow
         shadow-mapSize={[4096, 4096]}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.03}
+        shadow-bias={-0.0006}
+        shadow-normalBias={0.06}
         shadow-radius={6}
         shadow-camera-left={-70}
         shadow-camera-right={70}
@@ -75,7 +83,8 @@ function Studio({ depth }: { depth: number }) {
         shadow-camera-near={20}
         shadow-camera-far={320}
       />
-      <directionalLight position={[80, -40, 60]} intensity={0.35} color="#cfd8ff" />
+      <directionalLight position={[80, 40, 60]} intensity={0.15} color="#e6ebff" />
+      </group>
       <hemisphereLight args={['#e8ecf5', '#1a1a1c', 0.25]} />
     </>
   );
@@ -131,7 +140,7 @@ function Guitar({
     [tex.fretboard, profile.finish.fretboard],
   );
   const faceMat = useMemo(
-    () => new THREE.MeshPhysicalMaterial({ map: tex.headstock ?? null, color: tex.headstock ? '#ffffff' : profile.finish.headstock, roughness: 0.45, clearcoat: 0.4, clearcoatRoughness: 0.3, polygonOffset: true, polygonOffsetFactor: -2 }),
+    () => new THREE.MeshPhysicalMaterial({ map: tex.headstock ?? null, color: tex.headstock ? '#ffffff' : profile.finish.headstock, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5, specularIntensity: 0.7, envMapIntensity: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }),
     [tex.headstock, profile.finish.headstock],
   );
   const roseMat = useMemo(
@@ -335,6 +344,7 @@ function markerMaterial(kind: number, label: string, progress: number) {
 }
 
 const planeGeo = new THREE.PlaneGeometry(1, 1);
+const tmpV = new THREE.Vector3();
 const footGeo = new THREE.CircleGeometry(0.5, 32);
 const footMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
 
@@ -355,14 +365,24 @@ function Marker({ profile, note, progress }: { profile: GuitarProfile; note: Fre
   }, [mat, chip]);
   mat.uniforms.uProgress.value = progress;
   const size = now ? 1.0 : 0.92;
+  // keep the bubble legible when the camera pulls back (bounded so chords do not smear together)
+  const scaler = useRef<THREE.Group>(null);
+  useFrame(({ camera }) => {
+    const g = scaler.current;
+    if (!g) return;
+    const d = g.getWorldPosition(tmpV).distanceTo(camera.position);
+    g.scale.setScalar(Math.min(1.5, Math.max(1.15, d * 0.04)));
+  });
   return (
     <>
       {now && fret > 0 && !note.muted && (
         <mesh geometry={footGeo} material={footMat} position={[x, y, FB_TOP + 0.02]} scale={0.9} renderOrder={2} />
       )}
       <Billboard position={[x, y, z]}>
-        <mesh geometry={planeGeo} material={mat} scale={size} renderOrder={now ? 11 : 10} />
-        {chip && <mesh geometry={planeGeo} material={chip} scale={0.46} position={[0.42, 0.42, 0.01]} renderOrder={12} />}
+        <group ref={scaler}>
+          <mesh geometry={planeGeo} material={mat} scale={size} renderOrder={now ? 11 : 10} />
+          {chip && <mesh geometry={planeGeo} material={chip} scale={0.46} position={[0.42, 0.42, 0.01]} renderOrder={12} />}
+        </group>
       </Billboard>
     </>
   );
@@ -380,6 +400,16 @@ function Markers({ profile, notes, beatProgress }: { profile: GuitarProfile; not
       ))}
     </>
   );
+}
+
+/** Mounted inside the Suspense boundary: fires after the first frame that contains the textured guitar. */
+function ReadySignal({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    frames.current += 1;
+    if (frames.current === 2) onReady();
+  });
+  return null;
 }
 
 /* ------------------------------------------------------------------ camera */
@@ -419,11 +449,11 @@ function CameraRig({
     } else if (m === 'neck') {
       const x20 = fretX(L, profile.fretCount);
       const d = fitDistance(-x20 + 8, 14, FOV, aspect);
-      look(frame.toWorld(x20 / 2 + 1, 0, FB_TOP), new THREE.Vector3(-0.12, -0.42, 1), d, smooth);
+      look(frame.toWorld(x20 / 2 + 1, 0, FB_TOP), new THREE.Vector3(-0.04, -0.4, 1), d, smooth);
     } else {
       const x = followX.current ?? fretX(L, 5);
-      const d = Math.max(30, fitDistance(26, 12, FOV, aspect));
-      look(frame.toWorld(x, 0, FB_TOP), new THREE.Vector3(-0.32, -0.5, 1), d, smooth);
+      const d = Math.max(24, fitDistance(22, 10, FOV, aspect));
+      look(frame.toWorld(x, 0, FB_TOP), new THREE.Vector3(-0.14, -0.5, 1), d, smooth);
     }
   };
 
@@ -504,7 +534,15 @@ function CameraRig({
 
 /* ------------------------------------------------------------------ public component */
 
-export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, cameraMode, onCameraModeChange, onFretClick, className }: Guitar3DProps) {
+export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, cameraMode, onCameraModeChange, onFretClick, onReady, className }: Guitar3DProps) {
+  const readyCb = useRef(onReady);
+  readyCb.current = onReady;
+  const readySent = useRef(false);
+  const signalReady = useMemo(() => () => {
+    if (readySent.current) return;
+    readySent.current = true;
+    readyCb.current?.();
+  }, []);
   const geo = useMemo(() => buildGuitar(profile), [profile]);
   useEffect(() => () => {
     Object.values(geo.parts).forEach((g) => g?.dispose());
@@ -537,9 +575,9 @@ export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, camer
         shadows
         dpr={[1, 2]}
         camera={{ fov: FOV, near: 1, far: 2000, position: [0, -60, 260] }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+        gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       >
-        <Studio depth={maxDepth} />
+        <Studio depth={maxDepth} rot={frame.rot} />
         <Suspense fallback={null}>
           <group rotation={[0, 0, frame.rot]}>
             <group ref={guitarRef} position={[-frame.cx, 0, 0]}>
@@ -554,6 +592,7 @@ export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, camer
               />
             </group>
           </group>
+          <ReadySignal onReady={signalReady} />
         </Suspense>
         <CameraRig profile={profile} view={view} mode={cameraMode} notes={notes} onUserMove={onUserMove} focusRef={focusRef} />
       </Canvas>

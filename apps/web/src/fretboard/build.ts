@@ -170,7 +170,10 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
 
   // pickguard (thin, glossy)
   if (p.body.pickguard?.length) {
-    const pg = new THREE.ExtrudeGeometry(shapeFrom(ccw(p.body.pickguard)), { depth: 0.05, bevelEnabled: false, curveSegments: 4 });
+    // the measured outline is coarse: round it with a closed spline
+    const curve = new THREE.CatmullRomCurve3(p.body.pickguard.map(([x, y]) => new THREE.Vector3(x, y, 0)), true, 'centripetal');
+    const smooth = curve.getPoints(160).slice(0, -1).map((v) => [v.x, v.y] as Point2);
+    const pg = new THREE.ExtrudeGeometry(shapeFrom(ccw(smooth)), { depth: 0.05, bevelEnabled: false, curveSegments: 4 });
     pg.translate(0, 0, 0.002);
     parts.pickguard = pg;
   }
@@ -192,7 +195,7 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
     }
     return shapeFrom(pts);
   };
-  const bridge = new THREE.ExtrudeGeometry(bridgeShape(br.lengthCm / 2 - 0.12, br.widthCm / 2 - 0.12, 0.28), {
+  const bridge = new THREE.ExtrudeGeometry(bridgeShape(br.lengthCm / 2 - 0.12, br.widthCm / 2 - 0.12, 0.1), {
     depth: BRIDGE_TOP - 0.36, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 3, curveSegments: 8,
   });
   bridge.translate(0, 0, 0.12);
@@ -439,8 +442,13 @@ function buildHeadstock(p: GuitarProfile, hsm: THREE.Matrix4) {
   const post = new THREE.CylinderGeometry(0.26, 0.28, 1.3, 18).rotateX(Math.PI / 2).translate(0, 0, 0.65);
   const postTop = new THREE.SphereGeometry(0.26, 18, 6, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2).scale(1, 1, 0.35).translate(0, 0, 1.3);
   const gear = new THREE.CylinderGeometry(0.55, 0.55, 0.16, 20).rotateX(Math.PI / 2);
-  const button = new RoundedBoxGeometry(1.25, 1.55, 0.42, 3, 0.19);
-  const shaft = new THREE.CylinderGeometry(0.11, 0.11, 1.6, 10);
+  // oval paddle button with a small collar where the shaft enters it (shaft runs along y)
+  const button = mergeGeometries([
+    new THREE.SphereGeometry(1, 24, 16).scale(0.82, 0.6, 0.34).toNonIndexed(),
+    new THREE.CylinderGeometry(0.2, 0.15, 0.3, 14).translate(0, -0.62, 0).toNonIndexed(),
+  ], false)!;
+  const shaft = new THREE.CylinderGeometry(0.11, 0.11, 1.5, 10);
+  const worm = new THREE.CylinderGeometry(0.2, 0.2, 0.7, 12);
 
   for (const side of [1, -1]) {
     const ds = posts.filter((q) => Math.sign(q.y) === side).map((q) => q.d);
@@ -457,8 +465,10 @@ function buildHeadstock(p: GuitarProfile, hsm: THREE.Matrix4) {
     chrome.push(at(postTop.clone(), q.d, q.y, 0));
     chrome.push(at(gear.clone(), q.d, q.y, -HEAD_THICK - 0.25));
     // worm shaft from under the gear out past the edge, then the button
-    chrome.push(at(shaft.clone(), q.d - 0.6, side * (h + 0.1), -HEAD_THICK - 0.35));
-    chrome.push(at(button.clone(), q.d - 0.6, side * (h + 1.45), -HEAD_THICK - 0.35));
+    const zs = -HEAD_THICK - 0.33;
+    chrome.push(at(worm.clone(), q.d - 0.6, q.y, zs));
+    chrome.push(at(shaft.clone(), q.d - 0.6, side * (h - 0.25), zs));
+    chrome.push(at(button.clone(), q.d - 0.6, side * (h + 1.0), zs, 0, 0, side > 0 ? 0 : Math.PI));
   }
   const hw = merge(chrome);
   hw.applyMatrix4(hsm);
