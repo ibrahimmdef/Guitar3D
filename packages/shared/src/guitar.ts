@@ -10,12 +10,24 @@
  *
  * Ownership: the pipeline workstream owns this file. Other workstreams may read it and
  * propose additive changes only (new optional fields), never rename or remove fields.
+ *
+ * Changelog (additive only):
+ *  - v2.1 (feat/guitar-pipeline): `body.bounds`, `body.lengthCm`, `body.bouts`, `builtIn`,
+ *    `createdAt`/`updatedAt`, `GuitarSummary`, `AppSettings`, `GUITAR_SIZE_PRESETS`,
+ *    `GuitarTextureName`, `BUILTIN_GUITAR_ID`. The `bodyTop` mapping is now pinned to `body.bounds`.
  */
 
 export type Point2 = [number, number];
 
 export interface GuitarTextures {
-  /** Front photo of the body, masked to the outline, rectified so u/v map to body.bounds. */
+  /**
+   * Front photo of the body, masked to the outline (alpha = 0 outside), rectified so u/v map to
+   * `body.bounds` (or to the outline's bounding box when `bounds` is missing):
+   *   u = (x - minX) / (maxX - minX)  → left column = tail end of the body, right column = neck side;
+   *   v = (y - minY) / (maxY - minY)  → bottom row = high e side (-y), top row = low E side (+y).
+   * This is the plain planar mapping a three.js ShapeGeometry in the xy plane gets after normalising
+   * its UVs by the bounds (three.js v = 0 is the bottom row of the image).
+   */
   bodyTop?: string;
   /** Rectified fretboard photo: left edge = nut, right edge = toFret, top row = low E edge. */
   fretboard?: { url: string; toFret: number };
@@ -65,6 +77,12 @@ export interface GuitarProfile {
     outline: Point2[];
     depthCm: number;
     soundhole: { x: number; y: number; radiusCm: number };
+    /** Rectangle covered by `textures.bodyTop`; defaults to the outline's bounding box. */
+    bounds?: { minX: number; maxX: number; minY: number; maxY: number };
+    /** Length of the body along x (neck joint → tail), measured from the outline. */
+    lengthCm?: number;
+    /** Widths of the upper bout, waist and lower bout (full widths across y). */
+    bouts?: { upperCm: number; waistCm: number; lowerCm: number; upperX?: number; waistX?: number; lowerX?: number };
     /** Optional pickguard outline in the guitar frame. */
     pickguard?: Point2[];
     bridge: { x: number; widthCm: number; lengthCm: number };
@@ -83,7 +101,45 @@ export interface GuitarProfile {
   textures: GuitarTextures;
   /** Free-form note about where measurements came from. */
   source?: string;
+  /** True for profiles shipped with the app (read-only on the server, e.g. 'veston'). */
+  builtIn?: boolean;
+  /** ISO timestamps maintained by the server. */
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+/** Id of the built-in profile served by the web app at /guitar/veston.profile.json. */
+export const BUILTIN_GUITAR_ID = 'veston';
+export const BUILTIN_GUITAR_PROFILE_URL = '/guitar/veston.profile.json';
+
+/** Texture slots accepted by `PUT /api/guitars/:id/textures/:name`. */
+export type GuitarTextureName = 'bodyTop' | 'fretboard' | 'headstock' | 'bodyBack';
+export const GUITAR_TEXTURE_NAMES: GuitarTextureName[] = ['bodyTop', 'fretboard', 'headstock', 'bodyBack'];
+
+/** Row of `GET /api/guitars`. Built-in entries carry `builtIn: true` and no measurements. */
+export interface GuitarSummary {
+  id: string;
+  name: string;
+  builtIn?: boolean;
+  totalLengthCm?: number;
+  scaleLengthCm?: number;
+  updatedAt?: string;
+  /** URL of the body-top texture, handy as a thumbnail. */
+  thumbnail?: string;
+}
+
+/** `GET/PUT /api/settings`. */
+export interface AppSettings {
+  activeGuitarId: string;
+}
+
+/** Common acoustic sizes: nominal overall length in inches → centimetres. */
+export const GUITAR_SIZE_PRESETS: { label: string; inches: number; cm: number }[] = [
+  { label: '39"', inches: 39, cm: 99.1 },
+  { label: '40"', inches: 40, cm: 101.6 },
+  { label: '41"', inches: 41, cm: 104.1 },
+  { label: '42"', inches: 42, cm: 106.7 },
+];
 
 /** Camera behaviour requested by the UI. */
 export type CameraMode = 'follow' | 'overview' | 'neck' | 'free';
