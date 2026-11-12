@@ -408,7 +408,7 @@ def main():
         },
         "textures": {
             "fretboard": {"url": "/guitar/fretboard.jpg", "toFret": 20},
-            "headstock": "/guitar/headstock.jpg",
+            "headstock": "/guitar/headstock-face.jpg",
             "rosette": "/guitar/rosette.png",
         },
         "source": "Measured from assets/photos/front-full.jpg by scripts/measure-veston.py "
@@ -416,6 +416,7 @@ def main():
     }
     (OUT / "veston.profile.json").write_text(json.dumps(profile, indent=1))
     build_rosette(img, fr)
+    build_headstock_face(profile["headstock"])
     print("wrote", OUT / "veston.profile.json")
 
     if debug:
@@ -459,6 +460,31 @@ def build_rosette(img, fr, inner=0.78, size=512):
             edge = min(1.0, (1.0 - r) * size / 2, (r - inner + 0.01) * size / 2)
             op[i, j] = (c[0], c[1], c[2], int(255 * max(0.0, edge)))
     out.save(OUT / "rosette.png")
+
+
+def build_headstock_face(head, out_w=512, out_h=1024):
+    """Clean headstock face: the photographed logo on a uniform satin black.
+
+    headstock.jpg (scripts/build-veston-textures.py) also shows the photographed tuner
+    posts and strings, which would double up with the modelled hardware, so only the
+    bright logo strokes above the top tuner pair are kept.
+    """
+    src = Image.open(OUT / "headstock.jpg").convert("RGB").resize((out_w, out_h))
+    sp = src.load()
+    top_tuner = max(head["tunersLowE"] + head["tunersHighE"]) / head["lengthCm"]
+    logo_end = int((1 - top_tuner) * out_h) - 70
+    base = (17, 17, 18)
+    out = Image.new("RGB", (out_w, out_h), base)
+    op = out.load()
+    for j in range(8, logo_end):
+        fade = min(1.0, (logo_end - j) / 20)
+        for i in range(24, out_w - 24):
+            r, g, b = sp[i, j]
+            lum = (r + g + b) / 3
+            a = max(0.0, min(1.0, (lum - 70) / 90)) * fade
+            if a > 0:
+                op[i, j] = tuple(int(base[c] + (235 - base[c]) * a) for c in range(3))
+    out.save(OUT / "headstock-face.jpg", quality=92)
 
 
 if __name__ == "__main__":
