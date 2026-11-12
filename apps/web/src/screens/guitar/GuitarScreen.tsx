@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Camera, Guitar, Plus } from 'lucide-react';
-import { Button, Sheet, Spinner } from '../../ui/kit';
+import { Camera, Guitar } from 'lucide-react';
+import { Sheet, Spinner } from '../../ui/kit';
 import { ScreenHeader } from '../AppShell';
 import { listGuitars, type GuitarSummary } from '../data';
 import { GuitarSetupSlot } from './GuitarSetupSlot';
@@ -22,7 +22,6 @@ export function GuitarScreen() {
       <ScreenHeader
         title="Gitarım"
         description="3D sahnede kendi gitarını gör. İki fotoğraf ve birkaç tıklamayla yeni bir gitar oluştur."
-        actions={<Button variant="primary" icon={<Plus size={16} />} onClick={() => setWizard(true)}>Gitar ekle</Button>}
       />
 
       {!data ? (
