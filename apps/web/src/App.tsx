@@ -1,238 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { TabMeta, TabProgress } from '@guitar3d/shared';
-import { api as server } from './api';
-import { DEMO_TEX } from './demoTab';
-import type { CameraMode, GuitarProfile } from '@guitar3d/shared';
-import { Guitar3D } from './fretboard/Guitar3D';
-import { loadDefaultProfile } from './fretboard/profile';
-import { barRange, useAlphaTab } from './player/useAlphaTab';
-import { analyze } from './tips/analyze';
-import { toSimpleBars } from './tips/model';
-import { Coach } from './ui/Coach';
-import { GuitarPhotos } from './ui/GuitarPhotos';
-
-const fmt = (ms: number) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
+import { AppShell } from './screens/AppShell';
+import { GuitarScreen } from './screens/guitar/GuitarScreen';
+import { LibraryScreen } from './screens/library/LibraryScreen';
+import { PlayerScreen } from './screens/player/PlayerScreen';
+import { SettingsScreen } from './screens/settings/SettingsScreen';
+import { ToastProvider, TooltipProvider } from './ui/kit';
+import { useRoute } from './ui/router';
+import { useSettings, useThemeEffect } from './ui/settings';
 
 export function App() {
-  const host = useRef<HTMLDivElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
-  const { api, state, loadBuffer, loadTex } = useAlphaTab(host, scroller);
-
-  const [profile, setProfile] = useState<GuitarProfile | null>(null);
-  const [cameraMode, setCameraMode] = useState<CameraMode>('follow');
-  const [textures, setTextures] = useState<Record<string, string | null>>({});
-  const [tabs, setTabs] = useState<TabMeta[]>([]);
-  const [tabId, setTabId] = useState<string | null>(null);
-  const [showLib, setShowLib] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(false);
-  const [flip, setFlip] = useState(true);
-
-  const [speed, setSpeed] = useState(1);
-  const [metronome, setMetronome] = useState(false);
-  const [metroVol, setMetroVol] = useState(0.8);
-  const [countIn, setCountIn] = useState(true);
-  const [guitarVol, setGuitarVol] = useState(1);
-  const [loop, setLoop] = useState<[number, number] | null>(null);
-  const [ladder, setLadder] = useState({ speed: 1, clean: 0, target: 1 });
-  const [uploadErr, setUploadErr] = useState<string | null>(null);
-
-  const refreshAssets = useCallback(() => {
-    server.guitarAssets().then((a) => setTextures(a.textures)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    loadDefaultProfile().then(setProfile).catch(() => {});
-    refreshAssets();
-    server.listTabs().then(setTabs).catch(() => {});
-  }, [refreshAssets]);
-
-  useEffect(() => {
-    const t = setTimeout(() => loadTex(DEMO_TEX), 0);
-    return () => clearTimeout(t);
-  }, [loadTex]);
-
-  const report = useMemo(() => (state.score && state.track ? analyze(toSimpleBars(state.track, state.score.tempo)) : null), [state.score, state.track]);
-
-  useEffect(() => {
-    if (!report) return;
-    setLoop(null);
-    setLadder({ speed: report.suggestedStartSpeed, clean: 0, target: 1 });
-    setSpeed(1);
-  }, [report]);
-
-  useEffect(() => {
-    const a = api.current;
-    if (!a) return;
-    a.playbackSpeed = speed;
-  }, [speed, api, state.ready]);
-  useEffect(() => {
-    if (api.current) api.current.metronomeVolume = metronome ? metroVol : 0;
-  }, [metronome, metroVol, api, state.ready]);
-  useEffect(() => {
-    if (api.current) api.current.countInVolume = countIn ? 1 : 0;
-  }, [countIn, api, state.ready]);
-  useEffect(() => {
-    const a = api.current;
-    if (!a || !state.track) return;
-    a.changeTrackMute([state.track], guitarVol === 0);
-    a.changeTrackVolume([state.track], guitarVol);
-  }, [guitarVol, api, state.track, state.ready]);
-  useEffect(() => {
-    const a = api.current;
-    if (!a || !state.score) return;
-    a.playbackRange = loop ? barRange(state.score, loop[0], loop[1]) : null;
-    a.isLooping = !!loop;
-  }, [loop, api, state.score]);
-
-  const openTab = async (t: TabMeta | null) => {
-    setShowLib(false);
-    api.current?.stop();
-    setTabId(t?.id ?? null);
-    if (!t) loadTex(DEMO_TEX);
-    else loadBuffer(await server.tabFile(t.id));
-  };
-
-  const upload = async (file: File) => {
-    setUploadErr(null);
-    try {
-      const meta = await server.uploadTab(file);
-      setTabs((x) => [meta, ...x]);
-      await openTab(meta);
-    } catch (e) {
-      setUploadErr((e as Error).message);
-    }
-  };
-
-  const onBarClick = (bar: number, extend: boolean) => {
-    setLoop((l) => {
-      if (extend && l) return [Math.min(l[0], bar), Math.max(l[1], bar)];
-      if (l && l[0] === bar && l[1] === bar) return null;
-      return [bar, bar];
-    });
-    if (report) setSpeed(ladder.speed);
-  };
-
-  const saveProgress = (best: number) => {
-    if (!tabId || !loop) return;
-    server.getProgress(tabId).then((p: TabProgress) => {
-      const others = p.sections.filter((s) => !(s.startBar === loop[0] && s.endBar === loop[1]));
-      const prev = p.sections.find((s) => s.startBar === loop[0] && s.endBar === loop[1]);
-      server.putProgress({ tabId, sections: [...others, { startBar: loop[0], endBar: loop[1], bestCleanSpeed: Math.max(best, prev?.bestCleanSpeed ?? 0), updatedAt: new Date().toISOString() }] });
-    }).catch(() => {});
-  };
-
-  const onClean = () => {
-    setLadder((l) => {
-      const clean = l.clean + 1;
-      if (clean < 3) return { ...l, clean };
-      const next = Math.min(l.target, Math.round((l.speed + 0.05) * 100) / 100);
-      setSpeed(next);
-      saveProgress(l.speed);
-      return { ...l, speed: next, clean: 0 };
-    });
-  };
-  const onStuck = () => {
-    setLadder((l) => {
-      const next = Math.max(0.3, Math.round((l.speed - 0.05) * 100) / 100);
-      setSpeed(next);
-      return { ...l, speed: next, clean: 0 };
-    });
-  };
-
-  const title = state.score?.title || 'Tab';
-  const progress = state.endMs ? state.timeMs / state.endMs : 0;
+  const route = useRoute();
+  const [settings] = useSettings();
+  useThemeEffect(settings.theme);
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand"><span className="logo">◉</span><span className="brand-name">Guitar3D</span></div>
-        <div className="song">
-          <div className="song-title">{title}</div>
-          <div className="song-sub">{state.score?.artist || (tabId ? '' : 'Demo')} {state.score ? `· ${Math.round(state.score.tempo)} BPM` : ''}</div>
-        </div>
-        <div className="top-actions">
-          <button className="btn" onClick={() => setShowLib((v) => !v)}>Kütüphane</button>
-          <button className="btn" onClick={() => setShowPhotos(true)}>Gitarım</button>
-          <label className="btn primary">
-            Tab yükle
-            <input type="file" hidden accept=".gp,.gp3,.gp4,.gp5,.gpx,.gp7,.xml,.musicxml" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-          </label>
-        </div>
-        {showLib && (
-          <div className="library">
-            <button className={`lib-item${tabId === null ? ' active' : ''}`} onClick={() => openTab(null)}>
-              <b>Isınma Etüdü</b><span>Demo</span>
-            </button>
-            {tabs.map((t) => (
-              <div key={t.id} className={`lib-item${tabId === t.id ? ' active' : ''}`}>
-                <button onClick={() => openTab(t)}><b>{t.title}</b><span>{t.artist || new Date(t.uploadedAt).toLocaleDateString('tr-TR')}</span></button>
-                <button className="icon-btn" aria-label="Sil" onClick={async () => { await server.deleteTab(t.id); setTabs((x) => x.filter((y) => y.id !== t.id)); }}>✕</button>
-              </div>
-            ))}
-            {tabs.length === 0 && <p className="muted small">Henüz yüklenmiş tab yok. Guitar Pro (.gp, .gp5, .gpx) dosyası yükle.</p>}
-          </div>
+    <TooltipProvider>
+      <ToastProvider>
+        {route.name === 'player' ? (
+          <PlayerScreen key={`${route.source.kind}:${route.source.id}`} source={route.source} />
+        ) : (
+          <AppShell route={route}>
+            {route.name === 'library' && <LibraryScreen />}
+            {route.name === 'guitar' && <GuitarScreen />}
+            {route.name === 'settings' && <SettingsScreen />}
+          </AppShell>
         )}
-      </header>
-
-      <main className="stage">
-        <div className="viewport">
-          {profile && <Guitar3D profile={profile} notes={state.notes} beatId={state.beatId} view={flip ? 'player' : 'audience'} cameraMode={cameraMode} onCameraModeChange={setCameraMode} />}
-          <div className="overlay-tl">
-            <div className="chip">Ölçü <b>{state.currentBar + 1}</b>{state.score ? ` / ${state.score.masterBars.length}` : ''}</div>
-            {loop && <div className="chip accent">Döngü {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''} <button className="chip-x" onClick={() => setLoop(null)} aria-label="Döngüyü kapat">✕</button></div>}
-            {state.loading && <div className="chip">Yükleniyor…</div>}
-            {!state.ready && !state.loading && <div className="chip">Ses yükleniyor…</div>}
-            {(state.error || uploadErr) && <div className="chip danger">{state.error || uploadErr}</div>}
-          </div>
-          <div className="overlay-tr">
-            <button className={`chip toggle${cameraMode === 'follow' ? ' on' : ''}`} onClick={() => setCameraMode((m) => (m === 'follow' ? 'overview' : 'follow'))}>Kamera takibi</button>
-            <button className="chip toggle" onClick={() => setFlip((v) => !v)}>{flip ? 'Tab yönü' : 'Karşıdan görünüm'}</button>
-          </div>
-          <div className="legend">
-            <span><i style={{ background: '#F5B83D' }} />şimdi</span>
-            <span className="legend-next"><i className="ring" />sıradaki</span>
-          </div>
-        </div>
-        <Coach report={report} currentBar={state.currentBar} loop={loop} onBarClick={onBarClick} ladder={ladder} onClean={onClean} onStuck={onStuck} />
-      </main>
-
-      <section className="tabstrip" ref={scroller}>
-        <div ref={host} />
-      </section>
-
-      <footer className="controls">
-        <div className="transport">
-          <button className="round" aria-label="Başa sar" onClick={() => api.current?.stop()}>■</button>
-          <button className="round big" aria-label={state.playing ? 'Duraklat' : 'Çal'} disabled={!state.ready} onClick={() => api.current?.playPause()}>
-            {state.playing ? '❚❚' : '▶'}
-          </button>
-          <div className="time">{fmt(state.timeMs)} <span>/ {fmt(state.endMs)}</span></div>
-          <div className="progress"><div style={{ width: `${progress * 100}%` }} /></div>
-        </div>
-        <div className="knobs">
-          <label className="knob">
-            <span>Hız <b>%{Math.round(speed * 100)}</b></span>
-            <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
-          </label>
-          <label className="knob">
-            <span>Gitar sesi <b>{guitarVol === 0 ? 'Kapalı' : `%${Math.round(guitarVol * 100)}`}</b></span>
-            <input type="range" min={0} max={1} step={0.05} value={guitarVol} onChange={(e) => setGuitarVol(Number(e.target.value))} />
-          </label>
-          <label className="knob">
-            <span>
-              <button className={`mini-toggle${metronome ? ' on' : ''}`} onClick={(e) => { e.preventDefault(); setMetronome((v) => !v); }}>Metronom</button>
-              <b>%{Math.round(metroVol * 100)}</b>
-            </span>
-            <input type="range" min={0} max={1} step={0.05} value={metroVol} onChange={(e) => { setMetroVol(Number(e.target.value)); setMetronome(true); }} />
-          </label>
-          <button className={`chip toggle${countIn ? ' on' : ''}`} onClick={() => setCountIn((v) => !v)}>Sayarak başla</button>
-        </div>
-      </footer>
-
-      {showPhotos && <GuitarPhotos textures={textures} onChanged={refreshAssets} onClose={() => setShowPhotos(false)} />}
-    </div>
+      </ToastProvider>
+    </TooltipProvider>
   );
 }
