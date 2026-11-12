@@ -35,6 +35,45 @@ export function woodTexture(base: string, grain: string, seed: number, opts: { w
   return t;
 }
 
+/** Abalone-style rosette: speckled pearl band between two thin cream rings, drawn for a RingGeometry's planar UVs. */
+export function rosetteTexture(inner: number, outer: number, seed = 5) {
+  const S = 1024;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d')!;
+  const r = rng(seed);
+  const toPx = (rad: number) => (rad / outer) * (S / 2);
+  const ri = toPx(inner), ro = toPx(outer);
+  g.translate(S / 2, S / 2);
+  g.fillStyle = '#0d0d0d';
+  g.beginPath();
+  g.arc(0, 0, ro, 0, Math.PI * 2);
+  g.fill();
+  const band0 = ri + (ro - ri) * 0.22, band1 = ri + (ro - ri) * 0.78;
+  for (let i = 0; i < 2600; i++) {
+    const a = r() * Math.PI * 2;
+    const d = band0 + r() * (band1 - band0);
+    const l = 150 + Math.floor(r() * 105);
+    const tint = r() < 0.15 ? `rgb(${l * 0.8},${l * 0.95},${l})` : `rgb(${l},${l},${l})`;
+    g.fillStyle = tint;
+    g.globalAlpha = 0.5 + r() * 0.5;
+    g.beginPath();
+    g.ellipse(Math.cos(a) * d, Math.sin(a) * d, 2 + r() * 5, 1.5 + r() * 3, a, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = '#e8dcc0';
+  for (const rad of [ri + 3, band0 - 4, band1 + 4, ro - 3]) {
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, 0, rad, 0, Math.PI * 2);
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 export function imageTexture(url: string): Promise<THREE.Texture> {
   return new Promise((resolve, reject) => {
     new THREE.TextureLoader().load(

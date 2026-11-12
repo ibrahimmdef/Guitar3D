@@ -28,36 +28,62 @@ export interface GuitarSpec {
     binding: string;
     inlay: string;
     rosette: string;
+    bridge: string;
+    pickguard: string;
+    headstock: string;
   };
+  /** Finish: 'matte' or 'gloss' — drives roughness of the body and neck. */
+  finish: 'matte' | 'gloss';
+  pickguard: boolean;
+  /** Rectified photo of the fretboard covering nut … toFret (see scripts/build-veston-textures.py). */
+  fretboardPhoto?: { url: string; toFret: number };
+  /** Straightened headstock photo and its measured shape (cm). */
+  headstock?: HeadstockShape;
   /** Optional .glb (e.g. generated with Meshy from photos) replacing the procedural body. */
   bodyModel?: { url: string; scale: number; position: [number, number, number]; rotation: [number, number, number] };
 }
 
+export interface HeadstockShape {
+  texture: string;
+  length: number;
+  /** [distance from nut, half width] pairs. */
+  profile: [number, number][];
+  tunersLowE: number[];
+  tunersHighE: number[];
+}
+
+/** Veston dreadnought (matte black, tree-of-life inlay), measured from the owner's photos. */
 export const DEFAULT_SPEC: GuitarSpec = {
   scaleLength: 64.8,
   fretCount: 20,
   bodyJoinFret: 14,
   nutWidth: 4.3,
-  endWidth: 5.7,
+  endWidth: 5.6,
   stringSpacingNut: 3.6,
   stringSpacingSaddle: 5.4,
-  bodyLength: 50,
-  upperBout: 29,
-  lowerBout: 39.5,
-  bodyDepth: 11,
+  bodyLength: 50.5,
+  upperBout: 29.2,
+  lowerBout: 39.7,
+  bodyDepth: 11.5,
   soundholeRadius: 5,
   inlays: [3, 5, 7, 9, 15, 17, 19],
   doubleInlays: [12],
   inlayShape: 'dot',
   colors: {
-    top: '#d9b07a',
-    sides: '#6b3d22',
-    fretboard: '#2a1a12',
-    neck: '#7a4a2a',
-    binding: '#efe6d2',
+    top: '#151515',
+    sides: '#111111',
+    fretboard: '#2c2725',
+    neck: '#141414',
+    binding: '#e8dcc0',
     inlay: '#f3ecdc',
-    rosette: '#3a2a1e',
+    rosette: '#cfd2d6',
+    bridge: '#3b2a22',
+    pickguard: '#0a0a0a',
+    headstock: '#111111',
   },
+  finish: 'matte',
+  pickguard: true,
+  fretboardPhoto: { url: '/guitar/fretboard.jpg', toFret: 20 },
 };
 
 export const FRETBOARD_TOP = 1.0;
@@ -98,10 +124,11 @@ export function stringZ(spec: GuitarSpec, x: number) {
 export function bodyHalfWidth(spec: GuitarSpec, u: number) {
   const L = spec.bodyLength;
   const sup = (t: number, p: number) => (Math.abs(t) >= 1 ? 0 : Math.pow(1 - Math.pow(Math.abs(t), p), 1 / p));
-  const upperC = L * 0.24;
-  const lowerC = L * 0.66;
-  const upper = (spec.upperBout / 2) * sup((u - upperC) / (L * 0.25), 2.7);
-  const lower = (spec.lowerBout / 2) * sup((u - lowerC) / (L * 0.34), 2.3);
+  // Dreadnought: square shoulders (high exponent) and a broad, shallow-waisted lower bout.
+  const upperC = L * 0.23;
+  const lowerC = L * 0.655;
+  const upper = (spec.upperBout / 2) * sup((u - upperC) / (L * 0.235), 3.4);
+  const lower = (spec.lowerBout / 2) * sup((u - lowerC) / (L * 0.345), 2.5);
   return Math.max(upper, lower);
 }
 
