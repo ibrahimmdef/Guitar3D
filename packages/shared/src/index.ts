@@ -4,7 +4,13 @@ export interface TabMeta {
   artist: string;
   fileName: string;
   uploadedAt: string;
+  /** Source format: 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'gp' | 'musicxml' | 'mxl' | 'alphatex' | 'ascii'. */
+  format?: TabFormat;
+  /** ISO time of the last `POST /api/tabs/:id/played`. */
+  lastPlayedAt?: string;
 }
+
+export type TabFormat = 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'musicxml' | 'mxl' | 'alphatex' | 'ascii';
 
 export interface SectionProgress {
   startBar: number;
