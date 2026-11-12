@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react';
 
-/** Tiny hash router: #/library, #/play/<tabId|demo>, #/guitar, #/settings. */
+/**
+ * Tiny hash router:
+ *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
+ * `#/play/demo` is kept as an alias of the warm-up lesson.
+ */
+export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
+
 export type Route =
   | { name: 'library' }
-  | { name: 'player'; tabId: string | null }
+  | { name: 'player'; source: PlaySource }
   | { name: 'guitar' }
   | { name: 'settings' };
 
-export const DEMO_ID = 'demo';
+export const DEMO_LESSON_ID = 'warmup';
 
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const id = parts[1] ? safeDecode(parts[1]) : '';
   switch (parts[0]) {
     case 'play':
-      return { name: 'player', tabId: !parts[1] || parts[1] === DEMO_ID ? null : decodeURIComponent(parts[1]) };
+      return !id || id === 'demo' ? { name: 'player', source: { kind: 'lesson', id: DEMO_LESSON_ID } } : { name: 'player', source: { kind: 'tab', id } };
+    case 'lesson':
+      return { name: 'player', source: { kind: 'lesson', id: id || DEMO_LESSON_ID } };
     case 'guitar':
       return { name: 'guitar' };
     case 'settings':
@@ -23,10 +32,18 @@ export function parseRoute(hash: string): Route {
   }
 }
 
+function safeDecode(s: string) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 export function routeHref(r: Route): string {
   switch (r.name) {
     case 'player':
-      return `#/play/${r.tabId ? encodeURIComponent(r.tabId) : DEMO_ID}`;
+      return `#/${r.source.kind === 'lesson' ? 'lesson' : 'play'}/${encodeURIComponent(r.source.id)}`;
     case 'guitar':
       return '#/guitar';
     case 'settings':
@@ -35,6 +52,9 @@ export function routeHref(r: Route): string {
       return '#/library';
   }
 }
+
+export const playTab = (id: string): Route => ({ name: 'player', source: { kind: 'tab', id } });
+export const playLesson = (id: string): Route => ({ name: 'player', source: { kind: 'lesson', id } });
 
 export function navigate(r: Route) {
   window.location.hash = routeHref(r);

@@ -33,7 +33,17 @@ export const SHORTCUTS: { group: string; items: Shortcut[] }[] = [
   },
 ];
 
-function isTyping(t: EventTarget | null) {
+/**
+ * Name of a key event as used in hotkey maps: "Space", lower-case letters, or KeyboardEvent.key
+ * for everything else. Returns null for chords with Ctrl/Cmd/Alt (left to the browser).
+ */
+export function hotkeyName(e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>): string | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  if (e.key === ' ' || e.key === 'Spacebar') return 'Space';
+  return e.key.length === 1 ? e.key.toLocaleLowerCase('en') : e.key;
+}
+
+export function isTyping(t: EventTarget | null) {
   const el = t as HTMLElement | null;
   if (!el) return false;
   if (el.isContentEditable) return true;
@@ -56,11 +66,11 @@ export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, enab
   useEffect(() => {
     if (!enabled) return;
     const on = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+      if (e.defaultPrevented || isTyping(e.target)) return;
       if (document.querySelector('[role="dialog"][data-state="open"]')) return;
-      const key = e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toLowerCase() : e.key;
-      const fn = ref.current[key];
-      if (!fn) return;
+      const key = hotkeyName(e);
+      const fn = key ? ref.current[key] : undefined;
+      if (!fn || !key) return;
       // Let buttons/switches keep Space/Enter activation when they have focus.
       if (key === 'Space' && (e.target as HTMLElement)?.closest?.('button, [role="slider"], [role="switch"]')) {
         (e.target as HTMLElement).blur?.();

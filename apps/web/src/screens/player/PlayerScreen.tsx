@@ -1,32 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, FileMusic, Play } from 'lucide-react';
+import { ArrowLeft, FileMusic, GraduationCap } from 'lucide-react';
 import type { CameraMode, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import { api as server } from '../../api';
-import { DEMO_TEX } from '../../demoTab';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
 import { Coach, type Ladder } from '../../ui/Coach';
 import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
-import { navigate } from '../../ui/router';
+import { ladderAfter } from '../../ui/practiceFlow';
+import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
 import { markPlayed, useSettings } from '../../ui/settings';
 import { useHotkeys } from '../../ui/shortcuts';
 import { ShortcutList } from '../../ui/ShortcutList';
 import { fetchTabFile, listTabs } from '../data';
+import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
 import { StageGuitar } from './StageGuitar';
 import { Transport } from './Transport';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
-export function PlayerScreen({ tabId }: { tabId: string | null }) {
+export function PlayerScreen({ source }: { source: PlaySource }) {
+  const tabId = source.kind === 'tab' ? source.id : null;
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const { api, state, loadBuffer, loadTex, seekTick, seekBar } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
-  const [meta, setMeta] = useState<TabMeta | null>(null);
+  const [meta, setMeta] = useState<Pick<TabMeta, 'title' | 'artist'> | null>(null);
+  const [guitarReady, setGuitarReady] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -48,21 +51,34 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
     setLoadErr(null);
     setMeta(null);
     api.current?.stop();
-    if (!tabId) {
-      const t = setTimeout(() => loadTex(DEMO_TEX), 0);
-      return () => clearTimeout(t);
-    }
-    markPlayed(tabId);
     setFetching(true);
-    fetchTabFile(tabId)
-      .then((buf) => alive && loadBuffer(buf))
-      .catch((e: Error) => alive && setLoadErr(e.message))
-      .finally(() => alive && setFetching(false));
-    listTabs().then((ts) => alive && setMeta(ts.find((t) => t.id === tabId) ?? null)).catch(() => {});
+    markPlayed(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
+    const done = () => alive && setFetching(false);
+    // Defer one tick so the alphaTab instance created by useAlphaTab exists (StrictMode remounts).
+    const t = setTimeout(() => {
+      if (source.kind === 'lesson') {
+        loadLesson(source.id)
+          .then(({ meta: m, content }) => {
+            if (!alive) return;
+            setMeta(m ? { title: m.title, artist: '' } : null);
+            if (content.kind === 'tex') loadTex(content.tex);
+            else loadBuffer(content.data);
+          })
+          .catch((e: Error) => alive && setLoadErr(e.message))
+          .finally(done);
+      } else {
+        fetchTabFile(source.id)
+          .then((buf) => alive && loadBuffer(buf))
+          .catch((e: Error) => alive && setLoadErr(e.message))
+          .finally(done);
+        listTabs().then((ts) => alive && setMeta(ts.find((x) => x.id === source.id) ?? null)).catch(() => {});
+      }
+    }, 0);
     return () => {
       alive = false;
+      clearTimeout(t);
     };
-  }, [tabId, loadTex, loadBuffer, api]);
+  }, [source.kind, source.id, loadTex, loadBuffer, api]);
 
   const report = useMemo(() => (state.score && state.track ? analyze(toSimpleBars(state.track, state.score.tempo)) : null), [state.score, state.track]);
 
@@ -152,23 +168,35 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
   }, [tabId, loop]);
 
   const onClean = useCallback(() => {
-    const clean = ladder.clean + 1;
-    if (clean < 3) {
-      setLadder({ ...ladder, clean });
-      return;
-    }
-    const next = Math.min(ladder.target, clampSpeed(ladder.speed + 0.05));
-    setSpeed(next);
+    const { leveledUp, ...next } = ladderAfter(ladder, 'clean');
+    setLadder(next);
+    if (next.clean !== 0) return;
+    setSpeed(next.speed);
     saveProgress(ladder.speed);
-    setLadder({ ...ladder, speed: next, clean: 0 });
-    toast({ tone: 'success', title: next > ladder.speed ? `Harika! Hız ${Math.round(next * 100)}% oldu.` : 'Hedef hıza ulaştın.', description: 'Üç temiz tur tamamlandı.' });
+    toast({
+      tone: 'success',
+      title: leveledUp ? `Üç temiz tur! Hız %${Math.round(next.speed * 100)} oldu.` : 'Hedef hıza ulaştın.',
+      description: leveledUp ? 'Aynı bölümü yeni hızda dene.' : 'Bu bölüm tamam. Haritadan sıradaki zor ölçüyü seç.',
+    });
   }, [ladder, saveProgress, toast]);
 
   const onStuck = useCallback(() => {
-    const next = Math.max(0.3, clampSpeed(ladder.speed - 0.05));
-    setSpeed(next);
-    setLadder({ ...ladder, speed: next, clean: 0 });
+    const { leveledUp: _l, ...next } = ladderAfter(ladder, 'stuck');
+    setSpeed(next.speed);
+    setLadder(next);
   }, [ladder]);
+
+  const pickBar = useCallback((bar: number) => {
+    setAbPending(null);
+    setLoop([bar, bar]);
+    setSpeed(ladder.speed);
+    seekBar(bar);
+  }, [ladder.speed, seekBar]);
+
+  const playLoop = useCallback(() => {
+    if (loop) seekBar(loop[0]);
+    if (!state.playing) api.current?.play();
+  }, [loop, seekBar, state.playing, api]);
 
   const setView = (v: GuitarView) => setSettings({ view: v });
   const setCamera = (m: CameraMode) => setSettings({ cameraMode: m });
@@ -197,13 +225,16 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
   });
 
   /* ---------- View ---------- */
-  const title = state.score?.title || meta?.title || (tabId ? 'Tab' : 'Isınma Etüdü');
+  const title = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
   const subtitle = [
-    state.score?.artist || meta?.artist || (tabId ? '' : 'Demo'),
+    source.kind === 'lesson' ? 'Ders' : state.score?.artist || meta?.artist || '',
     state.score ? `${Math.round(state.score.tempo)} BPM` : '',
   ].filter(Boolean).join(' · ');
   const busy = fetching || state.loading;
   const hasScore = !!state.score && !loadErr;
+  const failed = !!(loadErr || state.error);
+  // One loading state for the whole stage: tab, guitar (incl. textures) and sound.
+  const loadingLabel = failed ? null : busy || !state.score ? 'Tab yükleniyor…' : !guitarReady ? 'Gitar hazırlanıyor…' : !state.ready ? 'Ses hazırlanıyor…' : null;
 
   return (
     <div className={`player${showPractice ? ' practice-open' : ''}`}>
@@ -230,9 +261,10 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
             view={view}
             cameraMode={cameraMode}
             onCameraModeChange={setCamera}
+            onReady={() => setGuitarReady(true)}
           />
 
-          {hasScore && (
+          {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
               <span className="hud-chip num">Ölçü <b>{state.currentBar + 1}</b><span className="subtle"> / {barCount}</span></span>
               {loop && (
@@ -241,20 +273,17 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
                 </span>
               )}
               {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
+              {!state.playing && state.tick > 0 && <span className="hud-chip">Duraklatıldı</span>}
             </div>
           )}
 
-          {!loadErr && busy && (
-            <div className="stage-status" role="status">
-              <Spinner label="Tab yükleniyor" /> Tab yükleniyor…
+          {loadingLabel && (
+            <div className="stage-loading" role="status" aria-live="polite">
+              <Spinner label={loadingLabel} />
+              <span>{loadingLabel}</span>
             </div>
           )}
-          {!loadErr && !busy && hasScore && !state.ready && (
-            <div className="stage-status stage-status-corner" role="status">
-              <Spinner label="Ses hazırlanıyor" /> Ses hazırlanıyor…
-            </div>
-          )}
-          {(loadErr || state.error) && (
+          {failed && (
             <div className="stage-center">
               <div className="stage-card">
                 <EmptyState
@@ -265,7 +294,7 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
                   action={
                     <>
                       <Button icon={<ArrowLeft size={16} />} onClick={() => navigate({ name: 'library' })}>Kütüphane</Button>
-                      {tabId && <Button variant="primary" icon={<Play size={16} />} onClick={() => navigate({ name: 'player', tabId: null })}>Demoyu aç</Button>}
+                      {source.id !== DEMO_LESSON_ID && <Button variant="primary" icon={<GraduationCap size={16} />} onClick={() => navigate(playLesson(DEMO_LESSON_ID))}>Bir dersle başla</Button>}
                     </>
                   }
                 />
@@ -275,7 +304,20 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
         </main>
 
         <Drawer open={showPractice} onClose={togglePractice} title="Pratik" shortcut="P" className="practice-drawer">
-          <Coach report={report} currentBar={state.currentBar} loop={loop} onBarClick={onBarClick} ladder={ladder} onClean={onClean} onStuck={onStuck} />
+          <Coach
+            report={report}
+            currentBar={state.currentBar}
+            loop={loop}
+            onBarClick={onBarClick}
+            ladder={ladder}
+            onClean={onClean}
+            onStuck={onStuck}
+            playing={state.playing}
+            speed={speed}
+            onPickBar={pickBar}
+            onSlowDown={() => setSpeed(ladder.speed)}
+            onPlay={playLoop}
+          />
         </Drawer>
       </div>
 
@@ -286,7 +328,7 @@ export function PlayerScreen({ tabId }: { tabId: string | null }) {
       </section>
 
       <Transport
-        ready={state.ready}
+        ready={state.ready && !loadingLabel}
         hasScore={hasScore}
         playing={state.playing}
         timeMs={state.timeMs}
