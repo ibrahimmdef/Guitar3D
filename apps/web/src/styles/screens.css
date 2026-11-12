@@ -72,7 +72,8 @@
   flex-direction: column;
   gap: var(--sp-8);
 }
-.screen-narrow {
+/* Narrow screens keep the same left edge as wide ones; only the content column is limited. */
+.screen-narrow > * {
   max-width: 720px;
 }
 .screen-head {
@@ -632,11 +633,20 @@
   line-height: 1.45;
 }
 .lesson-card {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
-    'ic title'
-    'ic sub'
-    'desc desc'
-    'meta meta';
+    'title'
+    'sub'
+    'desc'
+    'meta';
+}
+/* Cards in a row share one height. */
+.lib-grid > li {
+  display: flex;
+}
+.lib-grid > li > .tab-card {
+  height: 100%;
 }
 .welcome {
   display: flex;

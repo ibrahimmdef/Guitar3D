@@ -79,6 +79,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
         layoutMode: 'horizontal',
         staveProfile: 'tab',
         scale: 0.95,
+        padding: [16, 4, 16, 4],
         resources: {
           mainGlyphColor: GLYPH,
           secondaryGlyphColor: MUTED,
@@ -88,7 +89,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
           scoreInfoColor: GLYPH,
         },
       },
-      notation: { elements: { scoreTitle: false, scoreSubTitle: false, scoreArtist: false, scoreAlbum: false, scoreWords: false, scoreMusic: false, scoreWordsAndMusic: false, scoreCopyright: false, guitarTuning: false, trackNames: false } },
+      notation: { elements: { effectDynamics: false, scoreTitle: false, scoreSubTitle: false, scoreArtist: false, scoreAlbum: false, scoreWords: false, scoreMusic: false, scoreWordsAndMusic: false, scoreCopyright: false, guitarTuning: false, trackNames: false } },
       player: {
         playerMode: 'EnabledSynthesizer',
         soundFont: '/soundfont/sonivox.sf2',

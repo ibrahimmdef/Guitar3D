@@ -564,3 +564,8 @@
     --h: 36px;
   }
 }
+
+.dialog:focus,
+.dialog:focus-visible {
+  outline: none;
+}
