@@ -212,7 +212,9 @@
 .seg-item:hover {
   color: var(--text);
 }
-.seg-item[data-state='on'] {
+/* Tooltip triggers overwrite data-state, so selection is read from ARIA instead. */
+.seg-item[aria-checked='true'],
+.seg-item[aria-pressed='true'] {
   background: var(--seg-on);
   color: var(--text);
   box-shadow: var(--shadow-1);
@@ -549,5 +551,16 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch screens: larger hit targets (after the size variants so it wins). */
+@media (pointer: coarse) {
+  .seg .seg-item {
+    height: 36px;
+    min-width: 36px;
+  }
+  .btn-sm {
+    --h: 36px;
   }
 }
