@@ -1216,7 +1216,7 @@
    "url": "/guitar/fretboard.jpg",
    "toFret": 20
   },
-  "headstock": "/guitar/headstock.jpg",
+  "headstock": "/guitar/headstock-face.jpg",
   "rosette": "/guitar/rosette.png"
  },
  "source": "Measured from assets/photos/front-full.jpg by scripts/measure-veston.py (perspective-corrected with the fret positions, scaled to 42\" = 106.7 cm)."

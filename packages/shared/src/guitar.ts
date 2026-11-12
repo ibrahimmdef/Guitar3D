@@ -23,6 +23,12 @@ export interface GuitarTextures {
   headstock?: string;
   /** Back photo of the body (optional), same mapping as bodyTop but mirrored across y. */
   bodyBack?: string;
+  /**
+   * Square RGBA ring texture of the rosette (optional), centred on body.soundhole: the texture's
+   * inscribed circle is the rosette's outer edge and the soundhole edge sits at 78 % of that
+   * radius (transparent inside).
+   */
+  rosette?: string;
 }
 
 export interface GuitarFinish {
