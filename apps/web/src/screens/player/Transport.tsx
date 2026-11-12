@@ -1,14 +1,12 @@
 import { Metronome, PanelBottom, Pause, Play, Repeat, SkipBack, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import { Button, IconButton, Popover, SegmentedControl, Slider, Toggle, Tooltip } from '../../ui/kit';
+import { formatPercent, formatTime } from '../../ui/format';
 import { Scrubber } from './Scrubber';
 
 export const SPEED_PRESETS = [0.5, 0.75, 0.9, 1] as const;
 
-export const fmtTime = (ms: number) => {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
-const pct = (v: number) => `%${Math.round(v * 100)}`;
+const fmtTime = formatTime;
+const pct = formatPercent;
 
 export interface TransportProps {
   ready: boolean;

@@ -15,9 +15,8 @@
   align-items: center;
   gap: var(--sp-4);
   min-height: var(--topbar-h);
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg);
 }
 .pt-left {
   display: flex;
@@ -68,7 +67,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 40%, #16181c 0%, var(--stage) 70%);
+  background: var(--stage);
 }
 .stage-canvas {
   position: absolute;
@@ -89,9 +88,7 @@
   height: 28px;
   padding: 0 10px;
   border-radius: var(--r-full);
-  background: rgba(14, 15, 18, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.07);
   color: #d9dbe0;
   font-size: var(--fs-sm);
 }
@@ -104,7 +101,6 @@
 }
 .hud-accent {
   color: var(--accent);
-  border-color: rgba(245, 184, 61, 0.35);
 }
 .stage-status {
   position: absolute;
@@ -116,8 +112,7 @@
   gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--r-full);
-  background: rgba(14, 15, 18, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   color: #d9dbe0;
   font-size: var(--fs-md);
 }
@@ -141,7 +136,6 @@
   width: min(440px, 100%);
   border-radius: var(--r-lg);
   background: var(--surface-1);
-  border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-3);
 }
 
@@ -181,7 +175,7 @@
   width: 40px;
   height: 6px;
   border-radius: var(--r-full);
-  background: linear-gradient(90deg, var(--surface-3), color-mix(in srgb, var(--accent) 45%, var(--surface-3)));
+  background: linear-gradient(90deg, var(--surface-3), color-mix(in srgb, var(--text) 40%, var(--surface-3)));
 }
 .heatmap {
   display: grid;
@@ -196,7 +190,7 @@
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   /* Difficulty = amber intensity over the neutral surface. */
-  background: color-mix(in srgb, var(--accent) calc(var(--h) * 45%), var(--surface-3));
+  background: color-mix(in srgb, var(--text) calc(var(--h) * 40%), var(--surface-3));
   color: var(--text);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -207,7 +201,7 @@
   border-color: var(--border-strong);
 }
 .heatmap .cell.current {
-  border-color: var(--text);
+  border-color: var(--accent);
   color: var(--text);
 }
 .heatmap .cell.looped {
@@ -237,8 +231,8 @@
   align-items: center;
   padding: 0 7px;
   border-radius: var(--r-full);
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface-3);
+  color: var(--text-2);
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
 }
@@ -259,7 +253,6 @@
   padding: var(--sp-4);
   border-radius: var(--r-lg);
   background: var(--surface-2);
-  border: 1px solid var(--border);
 }
 .ladder-top {
   display: flex;
@@ -296,14 +289,12 @@
 /* Always dark so the alphaTab glyph colours (set in useAlphaTab) work in both themes. */
 .tabpanel {
   height: 156px;
-  background: #101114;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: #121315;
   transition: height var(--dur) var(--ease);
   overflow: hidden;
 }
 .tabpanel.collapsed {
   height: 0;
-  border-top-width: 0;
 }
 .tabpanel-scroll {
   height: 100%;
@@ -332,8 +323,7 @@
   gap: var(--sp-4);
   min-height: var(--transport-h);
   padding: var(--sp-2) var(--sp-4);
-  background: var(--surface-1);
-  border-top: 1px solid var(--border);
+  background: var(--bg);
 }
 .tp-group {
   display: flex;
@@ -366,7 +356,6 @@
   border-radius: 50%;
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 2px 10px rgba(245, 184, 61, 0.25);
   transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 .play-btn:hover:not(:disabled) {
@@ -377,7 +366,6 @@
 }
 .play-btn:disabled {
   opacity: 0.4;
-  box-shadow: none;
   cursor: not-allowed;
 }
 .play-ic {
@@ -388,7 +376,8 @@
   font-weight: var(--fw-semibold);
 }
 .tp-speed.is-changed {
-  color: var(--accent);
+  background: var(--surface-active);
+  color: var(--text);
 }
 .tp-loop {
   display: inline-flex;
@@ -440,7 +429,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--fill);
   transform-origin: left center;
 }
 .scrubber-loop {
@@ -533,4 +522,104 @@
     top: var(--sp-2);
     left: var(--sp-2);
   }
+}
+
+/* ---------- Single stage loading state ---------- */
+.stage-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  background: var(--stage);
+  color: #a3a6ad;
+  font-size: var(--fs-md);
+}
+.stage-loading .spinner {
+  width: 22px;
+  height: 22px;
+  border-color: rgba(255, 255, 255, 0.12);
+  border-top-color: #ececee;
+}
+
+/* ---------- Practice flow (top of the practice drawer) ---------- */
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.flow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-1);
+}
+.flow-steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+.flow-dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+.flow-steps li.done .flow-dot {
+  background: var(--surface-active);
+  color: var(--text);
+}
+.flow-steps li.current {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+.flow-steps li.current .flow-dot {
+  background: var(--text);
+  color: var(--bg);
+}
+.flow-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+.flow-body h3 {
+  font-size: var(--fs-base);
+}
+.flow-body .btn {
+  margin-top: var(--sp-1);
+}
+.flow-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.flow-title-row > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flow-body .ladder-actions {
+  width: 100%;
+}
+.flow-body .kbd {
+  margin: 0 2px;
 }

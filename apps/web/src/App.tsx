@@ -16,7 +16,7 @@ export function App() {
     <TooltipProvider>
       <ToastProvider>
         {route.name === 'player' ? (
-          <PlayerScreen key={route.tabId ?? 'demo'} tabId={route.tabId} />
+          <PlayerScreen key={`${route.source.kind}:${route.source.id}`} source={route.source} />
         ) : (
           <AppShell route={route}>
             {route.name === 'library' && <LibraryScreen />}

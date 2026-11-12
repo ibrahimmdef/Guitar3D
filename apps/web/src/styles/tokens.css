@@ -5,21 +5,23 @@
  */
 :root {
   /* Surfaces: near-black graphite, each step slightly lifted. */
-  --bg: #0b0c0e;
-  --surface-1: #121316;
-  --surface-2: #18191d;
-  --surface-3: #202227;
-  --surface-hover: rgba(255, 255, 255, 0.05);
+  --bg: #0d0e10;
+  --surface-1: #151618;
+  --surface-2: #1b1c1f;
+  --surface-3: #232427;
+  --surface-hover: rgba(255, 255, 255, 0.045);
   --surface-active: rgba(255, 255, 255, 0.08);
-  --stage: #0e0f12;
+  --stage: #0d0e10;
 
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.13);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.11);
 
-  /* Text. Contrast on --surface-1: text 16.4:1, text-2 7.9:1, text-3 4.7:1. */
-  --text: #ecedef;
-  --text-2: #a4a8b0;
-  --text-3: #80858e;
+  /* Text. Contrast on --surface-1: text 15.9:1, text-2 7.6:1, text-3 4.6:1. */
+  --text: #ececee;
+  --text-2: #a3a6ad;
+  --text-3: #80848c;
+  /* Neutral fill for sliders and progress: colour is kept for meaning only. */
+  --fill: #d9dadd;
 
   /* Single accent: warm amber (same as the note bubbles on the guitar). */
   --accent: #f5b83d;
@@ -91,10 +93,10 @@
 
 /* Light theme (optional, chosen in Ayarlar). The 3D stage stays dark in both themes. */
 :root[data-theme='light'] {
-  --bg: #f4f4f2;
+  --bg: #f6f6f4;
   --surface-1: #ffffff;
-  --surface-2: #f7f7f5;
-  --surface-3: #ececea;
+  --surface-2: #f1f1ef;
+  --surface-3: #e8e8e5;
   --surface-hover: rgba(0, 0, 0, 0.04);
   --surface-active: rgba(0, 0, 0, 0.07);
   --border: rgba(0, 0, 0, 0.08);
@@ -102,6 +104,7 @@
   --text: #17181a;
   --text-2: #50545b;
   --text-3: #6b6f76;
+  --fill: #3a3c40;
   --accent: #f5b83d;
   --accent-hover: #e9a925;
   --accent-ink: #1c1405;
