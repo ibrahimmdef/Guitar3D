@@ -29,13 +29,12 @@ export interface GuitarMaterials {
 function satin(color: string, gloss: number) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    roughness: 0.52 - gloss * 0.35,
+    roughness: 0.62 - gloss * 0.45,
     metalness: 0,
-    clearcoat: 0.35 + gloss * 0.5,
-    clearcoatRoughness: 0.42 - gloss * 0.3,
-    sheen: 0.25,
-    sheenRoughness: 0.6,
-    sheenColor: new THREE.Color('#6d6f74'),
+    clearcoat: 0.1 + gloss * 0.8,
+    clearcoatRoughness: 0.55 - gloss * 0.45,
+    specularIntensity: 0.6 + gloss * 0.4,
+    envMapIntensity: 0.5 + gloss * 0.5,
   });
 }
 
@@ -49,8 +48,8 @@ export function createMaterials(finish: GuitarFinish, wound: THREE.Texture): Gui
     neck: satin(finish.neck, g),
     headstock: satin(finish.headstock, g),
     binding: new THREE.MeshPhysicalMaterial({ color: finish.binding ?? finish.top, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.25 }),
-    pickguard: new THREE.MeshPhysicalMaterial({ color: finish.pickguard ?? '#050505', roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.08 }),
-    bridge: new THREE.MeshPhysicalMaterial({ color: finish.bridge, roughness: 0.55, sheen: 0.3, sheenColor: new THREE.Color('#5a4032') }),
+    pickguard: new THREE.MeshPhysicalMaterial({ color: finish.pickguard ?? '#050505', roughness: 0.4, clearcoat: 0.35, clearcoatRoughness: 0.35, envMapIntensity: 0.35 }),
+    bridge: new THREE.MeshPhysicalMaterial({ color: finish.bridge, roughness: 0.6, specularIntensity: 0.5 }),
     bone: new THREE.MeshPhysicalMaterial({ color: '#efe9d8', roughness: 0.42, clearcoat: 0.2 }),
     pin: new THREE.MeshPhysicalMaterial({ color: '#f3f1ea', roughness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.15 }),
     chrome: new THREE.MeshPhysicalMaterial({ color: chromeColor, metalness: 1, roughness: 0.14 }),
@@ -77,22 +76,6 @@ export function woundTexture() {
   g.fillRect(0, 0, 8, 64);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-
-/** Soft radial studio backdrop (dark grey centre falling off to near black). */
-export function backdropTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 512;
-  const g = c.getContext('2d')!;
-  const grd = g.createRadialGradient(256, 236, 10, 256, 256, 300);
-  grd.addColorStop(0, '#3a3c40');
-  grd.addColorStop(0.45, '#232427');
-  grd.addColorStop(1, '#0d0e10');
-  g.fillStyle = grd;
-  g.fillRect(0, 0, 512, 512);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
