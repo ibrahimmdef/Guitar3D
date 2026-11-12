@@ -1,0 +1,139 @@
+/*
+ * Guitar3D design tokens.
+ * One neutral graphite "studio" palette, a single warm amber accent (shared with the 3D note
+ * bubbles) and two semantic colours. Everything else is built from these variables.
+ */
+:root {
+  /* Surfaces: near-black graphite, each step slightly lifted. */
+  --bg: #0d0e10;
+  --surface-1: #151618;
+  --surface-2: #1b1c1f;
+  --surface-3: #232427;
+  --surface-hover: rgba(255, 255, 255, 0.045);
+  --surface-active: rgba(255, 255, 255, 0.08);
+  --stage: #0d0e10;
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.11);
+
+  /* Text. Contrast on --surface-1: text 15.4:1, text-2 7.4:1, text-3 4.8:1 (4.5:1 on surface-2). */
+  --text: #ececee;
+  --text-2: #a3a6ad;
+  --text-3: #80848c;
+  /* Neutral fill for sliders and progress: colour is kept for meaning only. */
+  --fill: #d9dadd;
+  --seg-on: #34363a;
+
+  /* Single accent: warm amber (same as the note bubbles on the guitar). */
+  --accent: #f5b83d;
+  --accent-hover: #ffc75a;
+  --accent-ink: #1c1405; /* text on accent: 11.6:1 */
+  --accent-soft: rgba(245, 184, 61, 0.14);
+  --accent-line: rgba(245, 184, 61, 0.45);
+
+  /* Semantic only. */
+  --success: #4cc38a;
+  --success-soft: rgba(76, 195, 138, 0.14);
+  --danger: #f2666b;
+  --danger-soft: rgba(242, 102, 107, 0.14);
+
+  --focus: #f5b83d;
+  --scrim: rgba(4, 5, 7, 0.62);
+
+  /* Type */
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --lh-tight: 1.2;
+  --lh: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* Spacing (4px grid) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-full: 999px;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* Sizes */
+  --control-h: 32px;
+  --control-h-lg: 40px;
+  --topbar-h: 56px;
+  --transport-h: 64px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  color-scheme: dark;
+}
+
+/* Light theme (optional, chosen in Ayarlar). The 3D stage stays dark in both themes. */
+:root[data-theme='light'] {
+  --bg: #f6f6f4;
+  --surface-1: #ffffff;
+  --surface-2: #f1f1ef;
+  --surface-3: #e8e8e5;
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --surface-active: rgba(0, 0, 0, 0.07);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --text: #17181a;
+  --text-2: #50545b;
+  --text-3: #676b72;
+  --fill: #3a3c40;
+  --seg-on: #ffffff;
+  --accent: #f5b83d;
+  --accent-hover: #e9a925;
+  --accent-ink: #1c1405;
+  --accent-soft: rgba(214, 145, 18, 0.14);
+  --accent-line: rgba(196, 130, 10, 0.55);
+  --success: #1e8a57;
+  --success-soft: rgba(30, 138, 87, 0.12);
+  --danger: #c9363c;
+  --danger-soft: rgba(201, 54, 60, 0.1);
+  --focus: #b97a06;
+  --scrim: rgba(20, 20, 22, 0.35);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+/* Touch screens: 40px controls (HIG recommends 44pt; 40 keeps the transport on one row). */
+@media (pointer: coarse) {
+  :root {
+    --control-h: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
+}

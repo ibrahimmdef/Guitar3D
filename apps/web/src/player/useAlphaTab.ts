@@ -14,11 +14,21 @@ export interface PlayerState {
   currentBar: number;
   timeMs: number;
   endMs: number;
+  /** Playback position in MIDI ticks (repeats unrolled) and the song's end tick. */
+  tick: number;
+  endTick: number;
+  /**
+   * Fraction (0..1) of the current beat that has elapsed, i.e. how close the next beat is.
+   * Updated on every player position event (~every 50 ms); for per-frame smoothness use
+   * `getBeatProgress()` returned by the hook.
+   */
+  beatProgress: number;
   error: string | null;
 }
 
-const GLYPH = '#e8ebf2';
-const MUTED = '#5b6273';
+/** Tab colours tuned for the dark tab panel (see styles/player.css .tabpanel). */
+const GLYPH = '#d9dbe0';
+const MUTED = '#6f747d';
 
 function nextSoundingBeat(beat: model.Beat | null): model.Beat | null {
   let b = beat?.nextBeat ?? null;
@@ -54,8 +64,11 @@ function pickGuitarTrack(score: model.Score) {
 export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroller: React.RefObject<HTMLDivElement | null>) {
   const apiRef = useRef<AlphaTabApi | null>(null);
   const [s, setS] = useState<PlayerState>({
-    ready: false, loading: false, playing: false, score: null, track: null, notes: [], beatId: 0, currentBar: 0, timeMs: 0, endMs: 0, error: null,
+    ready: false, loading: false, playing: false, score: null, track: null, notes: [], beatId: 0, currentBar: 0,
+    timeMs: 0, endMs: 0, tick: 0, endTick: 0, beatProgress: 0, error: null,
   });
+  // Last known beat window, used to interpolate beatProgress between position events.
+  const clock = useRef({ progress: 0, durationMs: 0, at: 0, playing: false });
   const patch = useCallback((p: Partial<PlayerState>) => setS((o) => ({ ...o, ...p })), []);
 
   useEffect(() => {
@@ -66,16 +79,17 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
         layoutMode: 'horizontal',
         staveProfile: 'tab',
         scale: 0.95,
+        padding: [16, 4, 16, 4],
         resources: {
           mainGlyphColor: GLYPH,
           secondaryGlyphColor: MUTED,
-          staffLineColor: '#3a4150',
-          barSeparatorColor: '#4a5263',
-          barNumberColor: '#7c8597',
+          staffLineColor: '#33363d',
+          barSeparatorColor: '#43464e',
+          barNumberColor: '#80858e',
           scoreInfoColor: GLYPH,
         },
       },
-      notation: { elements: { scoreTitle: false, scoreSubTitle: false, scoreArtist: false, scoreAlbum: false, scoreWords: false, scoreMusic: false, scoreWordsAndMusic: false, scoreCopyright: false, guitarTuning: false, trackNames: false } },
+      notation: { elements: { effectDynamics: false, scoreTitle: false, scoreSubTitle: false, scoreArtist: false, scoreAlbum: false, scoreWords: false, scoreMusic: false, scoreWordsAndMusic: false, scoreCopyright: false, guitarTuning: false, trackNames: false } },
       player: {
         playerMode: 'EnabledSynthesizer',
         soundFont: '/soundfont/sonivox.sf2',
@@ -96,7 +110,11 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
       if (api.tracks.length !== 1 || api.tracks[0] !== track) api.renderTracks([track]);
     });
     api.playerReady.on(() => patch({ ready: true }));
-    api.playerStateChanged.on((e) => patch({ playing: e.state === synth.PlayerState.Playing }));
+    api.playerStateChanged.on((e) => {
+      const playing = e.state === synth.PlayerState.Playing;
+      clock.current = { ...clock.current, playing, at: performance.now() };
+      patch({ playing });
+    });
     let beatId = 0;
     let lastBeat: model.Beat | null = null;
     const showBeat = (beat: model.Beat) => {
@@ -108,10 +126,15 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     api.playedBeatChanged.on(showBeat);
     // Seeking while paused does not emit playedBeatChanged, so resolve the beat from the tick cache.
     api.playerPositionChanged.on((e) => {
-      patch({ timeMs: e.currentTime, endMs: e.endTime });
       const track = api.tracks[0];
-      if (!track || !api.tickCache) return;
-      const hit = api.tickCache.findBeat(new Set([track.index]), e.currentTick);
+      const hit = track && api.tickCache ? api.tickCache.findBeat(new Set([track.index]), e.currentTick) : null;
+      let beatProgress = 0;
+      if (hit) {
+        const span = hit.end - hit.start;
+        beatProgress = span > 0 ? Math.min(1, Math.max(0, (e.currentTick - hit.start) / span)) : 0;
+        clock.current = { ...clock.current, progress: beatProgress, durationMs: hit.duration, at: performance.now() };
+      }
+      patch({ timeMs: e.currentTime, endMs: e.endTime, tick: e.currentTick, endTick: e.endTick, beatProgress });
       if (hit) showBeat(hit.beat);
     });
     api.error.on((e) => patch({ error: String((e as Error)?.message ?? e), loading: false }));
@@ -132,7 +155,33 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     apiRef.current?.tex(tex);
   }, [patch]);
 
-  return { api: apiRef, state: s, loadBuffer, loadTex };
+  /** Interpolated beat progress for render loops (e.g. inside useFrame). */
+  const getBeatProgress = useCallback(() => {
+    const c = clock.current;
+    if (!c.playing || c.durationMs <= 0) return c.progress;
+    const speed = apiRef.current?.playbackSpeed ?? 1;
+    return Math.min(1, c.progress + ((performance.now() - c.at) * speed) / c.durationMs);
+  }, []);
+
+  const seekTick = useCallback((tick: number) => {
+    const a = apiRef.current;
+    if (a) a.tickPosition = Math.max(0, tick);
+  }, []);
+
+  /** Jump to the start of a bar (0-based). Uses score ticks, so repeats are not unrolled. */
+  const seekBar = useCallback((bar: number) => {
+    const a = apiRef.current;
+    const mbs = a?.score?.masterBars;
+    if (!a || !mbs?.length) return;
+    a.tickPosition = mbs[Math.max(0, Math.min(mbs.length - 1, bar))].start;
+  }, []);
+
+  return { api: apiRef, state: s, loadBuffer, loadTex, getBeatProgress, seekTick, seekBar };
+}
+
+/** True when the score has repeats, so score ticks differ from playback ticks. */
+export function hasRepeats(score: model.Score) {
+  return score.masterBars.some((m) => m.isRepeatStart || m.repeatCount > 0 || m.alternateEndings !== 0);
 }
 
 /** Tick range covering bars [from, to] (inclusive, 0-based). */
