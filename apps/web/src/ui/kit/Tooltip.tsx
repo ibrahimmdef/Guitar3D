@@ -11,13 +11,15 @@ interface Props {
   shortcut?: string;
   side?: 'top' | 'bottom' | 'left' | 'right';
   children: ReactNode;
+  /** Extra props (e.g. from a parent Radix `asChild` trigger) are forwarded to the child. */
+  [rest: string]: unknown;
 }
 
 /** Wraps a single focusable child. Shows on hover and keyboard focus. */
-export function Tooltip({ content, shortcut, side = 'top', children }: Props) {
+export function Tooltip({ content, shortcut, side = 'top', children, ...rest }: Props) {
   return (
     <RT.Root>
-      <RT.Trigger asChild>{children}</RT.Trigger>
+      <RT.Trigger asChild {...rest}>{children}</RT.Trigger>
       <RT.Portal>
         <RT.Content className="tooltip" side={side} sideOffset={6} collisionPadding={8}>
           {content}

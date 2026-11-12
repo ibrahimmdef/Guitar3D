@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { api } from '../api';
 import { rectifyFretboard } from '../fretboard/textures';
+import { ImageUp } from 'lucide-react';
+import { Button } from './kit';
 
 type Pt = [number, number];
 const STEPS = [
@@ -10,7 +12,8 @@ const STEPS = [
   { key: 'fretHigh', label: '12. perde teli, ince e kenarı' },
 ] as const;
 
-export function GuitarPhotos({ textures, onChanged, onClose }: { textures: Record<string, string | null>; onChanged: () => void; onClose: () => void }) {
+/** Legacy photo calibration (fretboard + body textures). Rendered inside a Sheet by the guitar screen. */
+export function GuitarPhotos({ textures, onChanged }: { textures: Record<string, string | null>; onChanged: () => void }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [pts, setPts] = useState<Pt[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -18,6 +21,8 @@ export function GuitarPhotos({ textures, onChanged, onClose }: { textures: Recor
   const [err, setErr] = useState<string | null>(null);
   const imgEl = useRef<HTMLImageElement>(null);
   const rectified = useRef<HTMLCanvasElement | null>(null);
+  const fbInput = useRef<HTMLInputElement>(null);
+  const topInput = useRef<HTMLInputElement>(null);
 
   const pick = (file: File) => {
     const url = URL.createObjectURL(file);
@@ -69,60 +74,49 @@ export function GuitarPhotos({ textures, onChanged, onClose }: { textures: Recor
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <h2>Gitarının fotoğrafları</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Kapat">✕</button>
-        </div>
-
-        <section>
-          <h3>Fretboard</h3>
-          <p className="muted">
-            Sapı üstten, düz ve iyi ışıkta çek. Nut'tan en az 12. perdeye kadar görünsün. Sonra fotoğrafta sırayla 4 noktaya tıkla, uygulama perspektifi düzeltip desenleri 3D sapa birebir yerleştirir.
-          </p>
-          <div className="row">
-            <label className="btn">
-              Fotoğraf seç
-              <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
-            </label>
-            {textures.fretboard && (
-              <button className="btn ghost" onClick={async () => { await api.deleteTexture('fretboard'); onChanged(); }}>Fotoğrafı kaldır</button>
-            )}
-          </div>
-          {img && (
-            <>
-              <p className="step">
-                {pts.length < 4 ? <>Adım {pts.length + 1}/4: <b>{STEPS[pts.length].label}</b></> : 'Önizleme hazır. Desenler perdelere oturduysa kaydet.'}
-              </p>
-              <div className="calib">
-                <img ref={imgEl} src={img.src} onClick={click} alt="Fretboard fotoğrafı" />
-                {pts.map((p, i) => (
-                  <span key={i} className="calib-pt" style={{ left: `${(p[0] / img.naturalWidth) * 100}%`, top: `${(p[1] / img.naturalHeight) * 100}%` }}>{i + 1}</span>
-                ))}
-              </div>
-              {preview && <img className="rectified" src={preview} alt="Düzeltilmiş fretboard" />}
-              <div className="row">
-                <button className="btn ghost" onClick={() => { setPts([]); setPreview(null); }}>Noktaları sıfırla</button>
-                <button className="btn primary" disabled={!preview || busy} onClick={save}>{busy ? 'Kaydediliyor…' : 'Gitara uygula'}</button>
-              </div>
-            </>
+    <div className="photos">
+      <section className="photos-sec">
+        <h3>Fretboard fotoğrafı</h3>
+        <p className="muted small">
+          Sapı üstten, düz ve iyi ışıkta çek. Nut'tan en az 12. perdeye kadar görünsün. Sonra fotoğrafta sırayla 4 noktaya tıkla; uygulama perspektifi düzeltip deseni 3D sapa yerleştirir.
+        </p>
+        <div className="row">
+          <Button icon={<ImageUp size={16} />} onClick={() => fbInput.current?.click()}>Fotoğraf seç</Button>
+          <input ref={fbInput} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
+          {textures.fretboard && (
+            <Button variant="ghost" onClick={async () => { await api.deleteTexture('fretboard'); onChanged(); }}>Fotoğrafı kaldır</Button>
           )}
-        </section>
+        </div>
+        {img && (
+          <>
+            <p className="calib-step" aria-live="polite">
+              {pts.length < 4 ? <>Adım {pts.length + 1}/4: <b>{STEPS[pts.length].label}</b></> : 'Önizleme hazır. Desen perdelere oturduysa uygula.'}
+            </p>
+            <div className="calib">
+              <img ref={imgEl} src={img.src} onClick={click} alt="Fretboard fotoğrafı; işaretlemek için tıkla" />
+              {pts.map((p, i) => (
+                <span key={i} className="calib-pt" style={{ left: `${(p[0] / img.naturalWidth) * 100}%`, top: `${(p[1] / img.naturalHeight) * 100}%` }}>{i + 1}</span>
+              ))}
+            </div>
+            {preview && <img className="rectified" src={preview} alt="Düzeltilmiş fretboard önizlemesi" />}
+            <div className="row">
+              <Button variant="ghost" onClick={() => { setPts([]); setPreview(null); }}>Noktaları sıfırla</Button>
+              <Button variant="primary" disabled={!preview || busy} onClick={save}>{busy ? 'Kaydediliyor…' : 'Gitara uygula'}</Button>
+            </div>
+          </>
+        )}
+      </section>
 
-        <section>
-          <h3>Gövde</h3>
-          <p className="muted">Gövdenin tam önden çekilmiş, sap yukarı bakacak şekilde kırpılmış fotoğrafı. Gövde kenarları kareye değsin.</p>
-          <div className="row">
-            <label className="btn">
-              Gövde fotoğrafı seç
-              <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => e.target.files?.[0] && uploadTop(e.target.files[0])} />
-            </label>
-            {textures.top && <button className="btn ghost" onClick={async () => { await api.deleteTexture('top'); onChanged(); }}>Fotoğrafı kaldır</button>}
-          </div>
-        </section>
-        {err && <p className="error">{err}</p>}
-      </div>
+      <section className="photos-sec">
+        <h3>Gövde fotoğrafı</h3>
+        <p className="muted small">Gövdenin tam önden çekilmiş, sap yukarı bakacak şekilde kırpılmış fotoğrafı. Gövde kenarları kareye değsin.</p>
+        <div className="row">
+          <Button icon={<ImageUp size={16} />} onClick={() => topInput.current?.click()} disabled={busy}>Gövde fotoğrafı seç</Button>
+          <input ref={topInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => e.target.files?.[0] && uploadTop(e.target.files[0])} />
+          {textures.top && <Button variant="ghost" onClick={async () => { await api.deleteTexture('top'); onChanged(); }}>Fotoğrafı kaldır</Button>}
+        </div>
+      </section>
+      {err && <p className="form-error" role="alert">{err}</p>}
     </div>
   );
 }

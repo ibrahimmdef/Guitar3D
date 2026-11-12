@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
+import { CircleExclamationPoint, CircleCheck, Info, X } from 'lucide-react';
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 
 export type ToastTone = 'info' | 'success' | 'danger';
@@ -14,7 +14,7 @@ const Ctx = createContext<Push>(() => {});
 
 export const useToast = () => useContext(Ctx);
 
-const ICON = { info: Info, success: CircleCheck, danger: CircleAlert };
+const ICON = { info: Info, success: CircleCheck, danger: CircleExclamationPoint };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
