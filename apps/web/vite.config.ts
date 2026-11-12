@@ -5,7 +5,8 @@ import { alphaTab } from '@coderline/alphatab-vite';
 export default defineConfig({
   plugins: [react(), alphaTab()],
   server: {
-    port: 5173,
-    proxy: { '/api': 'http://localhost:3001' },
+    port: Number(process.env.WEB_PORT ?? 5173),
+    strictPort: true,
+    proxy: { '/api': `http://localhost:${process.env.PORT ?? 3001}` },
   },
 });
