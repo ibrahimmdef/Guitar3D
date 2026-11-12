@@ -25,6 +25,21 @@ Uygulama açılışta bir demo etüt yükler. "Tab yükle" ile `.gp`, `.gp5`, `.
   - Fretboard fotoğrafında 4 noktaya tıklarsın. Uygulama perspektifi düzeltir ve fotoğrafı 3D sapa birebir giydirir.
   - Gövde fotoğrafı da gövdenin üst yüzüne giydirilir.
 
+## Veston modeli
+
+Varsayılan model, sahibinin Veston dreadnought gitarıdır:
+- mat siyah gövde ve krem binding
+- siyah pickguard ve sedef görünümlü rozet
+- hayat ağacı kakmalı fretboard
+
+Fretboard ve headstock dokuları `assets/photos/front-neck.jpg` fotoğrafından üretilir:
+
+```bash
+python3 scripts/build-veston-textures.py
+```
+
+Fotoğraf hafif açılı çekildiği için 20 perde teli fotoğrafta tek tek ölçüldü. Dokular perde perde düzeltildi, böylece fotoğraftaki perdeler 3D perdelerle tam çakışıyor. Ölçümler betiğin başındadır. Betiğin çıktıları `apps/web/public/guitar/` klasörüne yazılır.
+
 ## Gitarının ölçüleri
 
 `data/guitar/guitar.json` dosyası `apps/web/src/fretboard/guitarSpec.ts` içindeki `GuitarSpec` alanlarını ezer. Örnek:

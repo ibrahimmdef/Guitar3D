@@ -47,6 +47,10 @@ export function App() {
 
   useEffect(() => {
     server.guitarSpec().then((p) => setSpec((s) => mergeSpec(s, p))).catch(() => {});
+    fetch('/guitar/headstock.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((h) => h && setSpec((s) => (s.headstock ? s : { ...s, headstock: { texture: '/guitar/headstock.jpg', ...h } })))
+      .catch(() => {});
     refreshAssets();
     server.listTabs().then(setTabs).catch(() => {});
   }, [refreshAssets]);
@@ -192,7 +196,7 @@ export function App() {
           </div>
           <div className="overlay-tr">
             <button className={`chip toggle${follow ? ' on' : ''}`} onClick={() => setFollow((v) => !v)}>Kamera takibi</button>
-            <button className="chip toggle" onClick={() => setFlip((v) => !v)}>{flip ? 'Tab yönü' : 'Ayna yönü'}</button>
+            <button className="chip toggle" onClick={() => setFlip((v) => !v)}>{flip ? 'Tab yönü' : 'Karşıdan görünüm'}</button>
           </div>
           <div className="legend">
             {STRING_NAMES.map((n, i) => (
