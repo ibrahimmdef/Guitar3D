@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { api as server } from './api';
 import { DEMO_TEX } from './demoTab';
-import { DEFAULT_SPEC, mergeSpec, type GuitarSpec } from './fretboard/guitarSpec';
-import { Guitar3D, STRING_COLORS, STRING_NAMES, type GuitarTextures } from './fretboard/Guitar3D';
+import type { CameraMode, GuitarProfile } from '@guitar3d/shared';
+import { Guitar3D } from './fretboard/Guitar3D';
+import { loadDefaultProfile } from './fretboard/profile';
 import { barRange, useAlphaTab } from './player/useAlphaTab';
 import { analyze } from './tips/analyze';
 import { toSimpleBars } from './tips/model';
@@ -20,14 +21,14 @@ export function App() {
   const scroller = useRef<HTMLDivElement>(null);
   const { api, state, loadBuffer, loadTex } = useAlphaTab(host, scroller);
 
-  const [spec, setSpec] = useState<GuitarSpec>(DEFAULT_SPEC);
+  const [profile, setProfile] = useState<GuitarProfile | null>(null);
+  const [cameraMode, setCameraMode] = useState<CameraMode>('follow');
   const [textures, setTextures] = useState<Record<string, string | null>>({});
   const [tabs, setTabs] = useState<TabMeta[]>([]);
   const [tabId, setTabId] = useState<string | null>(null);
   const [showLib, setShowLib] = useState(false);
   const [showPhotos, setShowPhotos] = useState(false);
   const [flip, setFlip] = useState(true);
-  const [follow, setFollow] = useState(true);
 
   const [speed, setSpeed] = useState(1);
   const [metronome, setMetronome] = useState(false);
@@ -39,18 +40,11 @@ export function App() {
   const [uploadErr, setUploadErr] = useState<string | null>(null);
 
   const refreshAssets = useCallback(() => {
-    server.guitarAssets().then((a) => {
-      setTextures(a.textures);
-      setSpec((s) => (a.bodyModel && !s.bodyModel ? { ...s, bodyModel: { url: a.bodyModel, scale: 1, position: [-60, 0, -5], rotation: [0, 0, 0] } } : s));
-    }).catch(() => {});
+    server.guitarAssets().then((a) => setTextures(a.textures)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    server.guitarSpec().then((p) => setSpec((s) => mergeSpec(s, p))).catch(() => {});
-    fetch('/guitar/headstock.json')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((h) => h && setSpec((s) => (s.headstock ? s : { ...s, headstock: { texture: '/guitar/headstock.jpg', ...h } })))
-      .catch(() => {});
+    loadDefaultProfile().then(setProfile).catch(() => {});
     refreshAssets();
     server.listTabs().then(setTabs).catch(() => {});
   }, [refreshAssets]);
@@ -149,7 +143,6 @@ export function App() {
   };
 
   const title = state.score?.title || 'Tab';
-  const guitarTextures: GuitarTextures = { fretboard: textures.fretboard ?? undefined, top: textures.top ?? undefined };
   const progress = state.endMs ? state.timeMs / state.endMs : 0;
 
   return (
@@ -186,7 +179,7 @@ export function App() {
 
       <main className="stage">
         <div className="viewport">
-          <Guitar3D spec={spec} notes={state.notes} beatId={state.beatId} flip={flip} follow={follow} textures={guitarTextures} />
+          {profile && <Guitar3D profile={profile} notes={state.notes} beatId={state.beatId} view={flip ? 'player' : 'audience'} cameraMode={cameraMode} onCameraModeChange={setCameraMode} />}
           <div className="overlay-tl">
             <div className="chip">Ölçü <b>{state.currentBar + 1}</b>{state.score ? ` / ${state.score.masterBars.length}` : ''}</div>
             {loop && <div className="chip accent">Döngü {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''} <button className="chip-x" onClick={() => setLoop(null)} aria-label="Döngüyü kapat">✕</button></div>}
@@ -195,13 +188,11 @@ export function App() {
             {(state.error || uploadErr) && <div className="chip danger">{state.error || uploadErr}</div>}
           </div>
           <div className="overlay-tr">
-            <button className={`chip toggle${follow ? ' on' : ''}`} onClick={() => setFollow((v) => !v)}>Kamera takibi</button>
+            <button className={`chip toggle${cameraMode === 'follow' ? ' on' : ''}`} onClick={() => setCameraMode((m) => (m === 'follow' ? 'overview' : 'follow'))}>Kamera takibi</button>
             <button className="chip toggle" onClick={() => setFlip((v) => !v)}>{flip ? 'Tab yönü' : 'Karşıdan görünüm'}</button>
           </div>
           <div className="legend">
-            {STRING_NAMES.map((n, i) => (
-              <span key={n + i}><i style={{ background: STRING_COLORS[i] }} />{n}</span>
-            ))}
+            <span><i style={{ background: '#F5B83D' }} />şimdi</span>
             <span className="legend-next"><i className="ring" />sıradaki</span>
           </div>
         </div>

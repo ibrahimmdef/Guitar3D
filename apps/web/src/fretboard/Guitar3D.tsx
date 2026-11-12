@@ -1,446 +1,601 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, OrbitControls, useGLTF } from '@react-three/drei';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Billboard, CameraControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import type { FretNote } from '@guitar3d/shared';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import type { CameraMode, FretNote, GuitarProfile, GuitarView } from '@guitar3d/shared';
+import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry } from './build';
 import {
-  bodyHalfWidth, bodyStartX, FRETBOARD_TOP, fretboardEndX, fretX, noteX, stringY, stringZ, widthAt,
-  type GuitarSpec, type HeadstockShape,
-} from './guitarSpec';
-import { imageTexture, rosetteTexture, woodTexture } from './textures';
+  bodyDepthAt, FB_TOP, fitDistance, followTarget, fretX, guitarXRange, hitToFret, noteX, speakingFraction, stringY, stringZ,
+} from './geometry';
+import { ACCENT, createMaterials, labelTexture, NEXT_OUTLINE, woundTexture } from './materials';
 
-export const STRING_COLORS = ['#ff5d73', '#ffa53b', '#ffe14d', '#41d69a', '#45b4ff', '#a97cff'];
-export const STRING_NAMES = ['e', 'B', 'G', 'D', 'A', 'E'];
-/** Calibrated uploads from the "Gitarım" dialog cover nut … 12th fret. */
-const UPLOAD_PHOTO_FRET = 12;
-
-export interface GuitarTextures {
-  fretboard?: string;
-  top?: string;
-}
-
-interface Props {
-  spec: GuitarSpec;
+export interface Guitar3DProps {
+  profile: GuitarProfile;
   notes: FretNote[];
   beatId: number;
-  /** true: player/tab view (neck left, high e on top); false: audience view. */
-  flip: boolean;
-  follow: boolean;
-  textures: GuitarTextures;
+  /** 0..1: how far we are towards the next note (drives the approach arc of 'next' markers). */
+  beatProgress?: number;
+  view: GuitarView;
+  cameraMode: CameraMode;
+  onCameraModeChange?: (m: CameraMode) => void;
+  onFretClick?: (string: number, fret: number) => void;
+  /** Called once, after the guitar with all its textures has been drawn for the first time. */
+  onReady?: () => void;
+  className?: string;
 }
 
-function useTex(url: string | undefined) {
-  const [tex, setTex] = useState<THREE.Texture | null>(null);
+const FOV = 30;
+const DEG = Math.PI / 180;
+
+/** Guitar frame → world: the view rotates (never mirrors) the guitar about z and centres it. */
+function useFrame3(profile: GuitarProfile, view: GuitarView) {
+  return useMemo(() => {
+    const [x0, x1] = guitarXRange(profile);
+    const cx = (x0 + x1) / 2;
+    const rot = view === 'player' ? Math.PI : 0;
+    const m = new THREE.Matrix4().makeRotationZ(rot).multiply(new THREE.Matrix4().makeTranslation(-cx, 0, 0));
+    return { cx, rot, matrix: m, length: x1 - x0, toWorld: (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).applyMatrix4(m) };
+  }, [profile, view]);
+}
+
+/* ------------------------------------------------------------------ scene setup */
+
+function Studio({ depth, rot }: { depth: number; rot: number }) {
+  const { gl, scene } = useThree();
   useEffect(() => {
-    let alive = true;
-    setTex(null);
-    if (url) imageTexture(url).then((t) => alive && setTex(t)).catch(() => alive && setTex(null));
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = env;
+    scene.environmentIntensity = 0.5;
+    scene.background = null; // transparent canvas: the app's stage colour shows through
     return () => {
-      alive = false;
+      env.dispose();
+      pmrem.dispose();
+      scene.environment = null;
     };
-  }, [url]);
+  }, [gl, scene]);
+  // the room turns with the guitar as well, so reflections look the same in both views
+  useEffect(() => {
+    scene.environmentRotation.set(0, 0, rot + Math.PI);
+  }, [scene, rot]);
+  return (
+    <>
+      {/* invisible floor behind the guitar that only catches its soft shadow */}
+      <mesh position={[0, 0, -depth - 0.4]} receiveShadow>
+        <planeGeometry args={[700, 460]} />
+        <shadowMaterial transparent opacity={0.5} />
+      </mesh>
+      {/* the light rig turns with the guitar so both views are lit the same: key light on the viewer's side */}
+      <group rotation={[0, 0, rot]}>
+      <directionalLight
+        position={[-45, -70, 130]}
+        intensity={1.5}
+        castShadow
+        shadow-mapSize={[4096, 4096]}
+        shadow-bias={-0.0006}
+        shadow-normalBias={0.06}
+        shadow-radius={6}
+        shadow-camera-left={-70}
+        shadow-camera-right={70}
+        shadow-camera-top={45}
+        shadow-camera-bottom={-45}
+        shadow-camera-near={20}
+        shadow-camera-far={320}
+      />
+      <directionalLight position={[80, 40, 60]} intensity={0.15} color="#e6ebff" />
+      </group>
+      <hemisphereLight args={['#e8ecf5', '#1a1a1c', 0.25]} />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ guitar */
+
+interface Textures {
+  fretboard?: THREE.Texture;
+  headstock?: THREE.Texture;
+  rosette?: THREE.Texture;
+}
+
+function useGuitarTextures(profile: GuitarProfile): Textures {
+  const gl = useThree((s) => s.gl);
+  const urls = useMemo(() => {
+    const u: Record<string, string> = {};
+    if (profile.textures.fretboard?.url) u.fretboard = profile.textures.fretboard.url;
+    if (profile.textures.headstock) u.headstock = profile.textures.headstock;
+    if (profile.textures.rosette) u.rosette = profile.textures.rosette;
+    return u;
+  }, [profile]);
+  // useTexture suspends: the guitar appears only once every texture is decoded.
+  const tex = useTexture(urls) as unknown as Textures;
+  useLayoutEffect(() => {
+    const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    for (const t of Object.values(tex) as THREE.Texture[]) {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = aniso;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      t.needsUpdate = true;
+    }
+  }, [tex, gl]);
   return tex;
 }
 
-function setUV(geo: THREE.BufferGeometry, fn: (x: number, y: number) => [number, number]) {
-  const p = geo.attributes.position;
-  const uv = new Float32Array(p.count * 2);
-  for (let i = 0; i < p.count; i++) {
-    const [u, v] = fn(p.getX(i), p.getY(i));
-    uv[i * 2] = u;
-    uv[i * 2 + 1] = v;
-  }
-  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-}
+function Guitar({
+  profile, geo, notes, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick,
+}: {
+  profile: GuitarProfile;
+  geo: GuitarGeometry;
+  notes: FretNote[];
+  beatId: number;
+  beatProgress: number;
+  onFretboardClick: (e: ThreeEvent<MouseEvent>) => void;
+  onFretboardDoubleClick: (e: ThreeEvent<MouseEvent>) => void;
+}) {
+  const tex = useGuitarTextures(profile);
+  const wound = useMemo(() => woundTexture(), []);
+  const mats = useMemo(() => createMaterials(profile.finish, wound), [profile.finish, wound]);
+  const fbMat = useMemo(
+    () => new THREE.MeshPhysicalMaterial({ map: tex.fretboard ?? null, color: tex.fretboard ? '#ffffff' : profile.finish.fretboard, roughness: 0.62, clearcoat: 0.08 }),
+    [tex.fretboard, profile.finish.fretboard],
+  );
+  const faceMat = useMemo(
+    () => new THREE.MeshPhysicalMaterial({ map: tex.headstock ?? null, color: tex.headstock ? '#ffffff' : profile.finish.headstock, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5, specularIntensity: 0.7, envMapIntensity: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }),
+    [tex.headstock, profile.finish.headstock],
+  );
+  const roseMat = useMemo(
+    () => (tex.rosette ? new THREE.MeshPhysicalMaterial({ map: tex.rosette, transparent: true, roughness: 0.3, clearcoat: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }) : null),
+    [tex.rosette],
+  );
+  const staticStrings = useMemo(() => buildStaticStrings(geo.strings), [geo]);
+  useEffect(() => () => {
+    staticStrings.plain.dispose();
+    staticStrings.wound.dispose();
+  }, [staticStrings]);
+  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
-const rough = (spec: GuitarSpec, matte: number, gloss: number) => (spec.finish === 'matte' ? matte : gloss);
-
-function Body({ spec, topUrl }: { spec: GuitarSpec; topUrl?: string }) {
-  const photo = useTex(topUrl);
-  const holeX = bodyStartX(spec) - spec.bodyLength * 0.25 - spec.soundholeRadius * 0.2;
-  const R = spec.soundholeRadius;
-
-  const { geo, top, back } = useMemo(() => {
-    const x0 = bodyStartX(spec);
-    const pts: THREE.Vector2[] = [];
-    const N = 140;
-    for (let i = 0; i <= N; i++) {
-      const u = (spec.bodyLength * i) / N;
-      pts.push(new THREE.Vector2(x0 - u, Math.max(0.01, bodyHalfWidth(spec, u))));
-    }
-    for (let i = N; i >= 0; i--) {
-      const u = (spec.bodyLength * i) / N;
-      pts.push(new THREE.Vector2(x0 - u, -Math.max(0.01, bodyHalfWidth(spec, u))));
-    }
-    const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), {
-      depth: spec.bodyDepth, bevelEnabled: true, bevelSize: 0.35, bevelThickness: 0.35, bevelSegments: 3, curveSegments: 4,
-    });
-    g.translate(0, 0, -spec.bodyDepth);
-    const minX = x0 - spec.bodyLength, half = spec.lowerBout / 2;
-    // Front photo: neck pointing up, low E (+y) on the image's left.
-    setUV(g, (x, y) => [(half - y) / (2 * half), (x - minX) / spec.bodyLength]);
-    const ring = (z: number) => pts.map((p) => new THREE.Vector3(p.x, p.y, z));
-    return {
-      geo: g,
-      top: new THREE.BufferGeometry().setFromPoints(ring(0.36)),
-      back: new THREE.BufferGeometry().setFromPoints(ring(-spec.bodyDepth - 0.36)),
-    };
-  }, [spec]);
-
-  const pickguard = useMemo(() => {
-    const s = new THREE.Shape();
-    // Teardrop hugging the soundhole on the treble (high e, −y) side.
-    s.absellipse(0, 0, 8.2, 5.2, 0, Math.PI * 2, false, 0);
-    const g = new THREE.ShapeGeometry(s, 48);
-    g.rotateZ(-0.32);
-    g.translate(holeX - 2.6, -(R + 3.6), 0);
-    return g;
-  }, [holeX, R]);
-
-  const rosette = useMemo(() => rosetteTexture(R + 0.3, R + 2.0), [R]);
-  const bridgeX = -spec.scaleLength;
+  const parts = geo.parts;
+  const solid = (k: keyof typeof parts, mat: THREE.Material, cast = true) =>
+    parts[k] ? <mesh key={k} geometry={parts[k]} material={mat} castShadow={cast} receiveShadow /> : null;
 
   return (
     <group>
-      <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial key={photo ? 'photo' : 'plain'} attach="material-0" color={photo ? '#ffffff' : spec.colors.top} map={photo ?? null} roughness={rough(spec, 0.62, 0.22)} />
-        <meshStandardMaterial attach="material-1" color={spec.colors.sides} roughness={rough(spec, 0.6, 0.25)} />
-      </mesh>
-      <lineLoop geometry={top}>
-        <lineBasicMaterial color={spec.colors.binding} />
-      </lineLoop>
-      <lineLoop geometry={back}>
-        <lineBasicMaterial color={spec.colors.binding} />
-      </lineLoop>
-      {!photo && (
-        <>
-          {spec.pickguard && (
-            <mesh geometry={pickguard} position={[0, 0, 0.37]}>
-              <meshStandardMaterial color={spec.colors.pickguard} roughness={0.12} metalness={0.1} />
-            </mesh>
-          )}
-          <mesh position={[holeX, 0, 0.38]}>
-            <ringGeometry args={[R + 0.3, R + 2.0, 96]} />
-            <meshStandardMaterial map={rosette} roughness={0.25} metalness={0.3} />
-          </mesh>
-          <mesh position={[holeX, 0, 0.39]}>
-            <circleGeometry args={[R + 0.3, 64]} />
-            <meshBasicMaterial color="#0a0604" />
-          </mesh>
-          <mesh position={[holeX, 0, -spec.bodyDepth * 0.8]}>
-            <circleGeometry args={[R * 0.95, 48]} />
-            <meshStandardMaterial color="#5a3d26" roughness={0.9} />
-          </mesh>
-        </>
-      )}
-      <mesh position={[bridgeX - 1.1, 0, 0.62]} castShadow>
-        <boxGeometry args={[3.0, 15.5, 0.5]} />
-        <meshStandardMaterial color={spec.colors.bridge} roughness={0.55} />
-      </mesh>
-      <mesh position={[bridgeX, 0, 1.0]}>
-        <boxGeometry args={[0.28, 7.6, 0.45]} />
-        <meshStandardMaterial color="#f3ecdc" roughness={0.3} />
-      </mesh>
-      {Array.from({ length: 6 }, (_, i) => (
-        <mesh key={i} position={[bridgeX - 1.9, stringY(spec, i + 1, -spec.scaleLength, false), 0.92]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.26, 0.22, 0.18, 20]} />
-          <meshStandardMaterial color="#f5f0e4" roughness={0.3} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function fretboardSegment(spec: GuitarSpec, xa: number, xb: number) {
-  const shape = new THREE.Shape([
-    new THREE.Vector2(xa, widthAt(spec, xa) / 2),
-    new THREE.Vector2(xb, widthAt(spec, xb) / 2),
-    new THREE.Vector2(xb, -widthAt(spec, xb) / 2),
-    new THREE.Vector2(xa, -widthAt(spec, xa) / 2),
-  ]);
-  const g = new THREE.ExtrudeGeometry(shape, { depth: 0.6, bevelEnabled: false });
-  g.translate(0, 0, FRETBOARD_TOP - 0.6);
-  // Photo rows: top = low E edge (+y).
-  setUV(g, (x, y) => [(x - xa) / (xb - xa), 0.5 + y / widthAt(spec, x)]);
-  return g;
-}
-
-function Headstock({ spec, shape }: { spec: GuitarSpec; shape?: HeadstockShape }) {
-  const photo = useTex(shape?.texture);
-  const geo = useMemo(() => {
-    const profile: [number, number][] = shape?.profile ?? [[0, 2.2], [2, 3.4], [18.5, 3.9]];
-    const hw = (x: number) => {
-      for (let i = 1; i < profile.length; i++) {
-        const [x0, w0] = profile[i - 1], [x1, w1] = profile[i];
-        if (x <= x1) return w0 + ((w1 - w0) * (x - x0)) / (x1 - x0 || 1);
-      }
-      return profile[profile.length - 1][1];
-    };
-    const outline = [...profile.map(([x, w]) => new THREE.Vector2(x, w)), ...[...profile].reverse().map(([x, w]) => new THREE.Vector2(x, -w))];
-    const s = new THREE.Shape(outline);
-    const body = new THREE.ExtrudeGeometry(s, { depth: 1.4, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08, bevelSegments: 2 });
-    body.translate(0, 0, -1.4);
-    const face = new THREE.ShapeGeometry(s, 4);
-    const len = profile[profile.length - 1][0];
-    setUV(face, (x, y) => [0.5 - y / (2 * hw(x)), x / len]);
-    return { body, face, hw, len };
-  }, [shape]);
-
-  const chrome = <meshStandardMaterial color="#d6d8dc" metalness={1} roughness={0.18} />;
-  const tuners = [
-    ...(shape?.tunersLowE ?? [13.5, 10, 6]).map((x) => ({ x, side: 1 })),
-    ...(shape?.tunersHighE ?? [13.5, 10, 6]).map((x) => ({ x, side: -1 })),
-  ];
-
-  return (
-    <group position={[0.3, 0, FRETBOARD_TOP - 0.25]} rotation={[0, 0.24, 0]}>
-      <mesh geometry={geo.body} castShadow>
-        <meshStandardMaterial color={spec.colors.headstock} roughness={rough(spec, 0.55, 0.2)} />
-      </mesh>
-      <mesh geometry={geo.face} position={[0, 0, 0.09]}>
-        {/* keyed: three.js only recompiles a material for a newly added map when it is recreated */}
-        <meshStandardMaterial key={photo ? 'photo' : 'plain'} color={photo ? '#ffffff' : spec.colors.headstock} map={photo} roughness={0.5} />
-      </mesh>
-      {tuners.map(({ x, side }, i) => {
-        const w = geo.hw(x);
-        return (
-          <group key={i} position={[x, side * w, -0.75]}>
-            <mesh position={[0, side * 1.0, 0]} rotation={[0, 0, 0]}>
-              <cylinderGeometry args={[0.18, 0.18, 2.0, 12]} />
-              {chrome}
-            </mesh>
-            <mesh position={[0, side * 2.2, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 1.7]}>
-              <cylinderGeometry args={[0.85, 0.85, 0.45, 6]} />
-              {chrome}
-            </mesh>
-            <mesh position={[0, -side * 1.0, -0.85]}>
-              <boxGeometry args={[1.9, 1.4, 0.5]} />
-              {chrome}
-            </mesh>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-function Neck({ spec, fretboardUrl }: { spec: GuitarSpec; fretboardUrl?: string }) {
-  const uploaded = useTex(fretboardUrl);
-  const builtIn = useTex(fretboardUrl ? undefined : spec.fretboardPhoto?.url);
-  const photo = uploaded ?? builtIn;
-  const photoFret = uploaded ? UPLOAD_PHOTO_FRET : (spec.fretboardPhoto?.toFret ?? UPLOAD_PHOTO_FRET);
-  const end = fretboardEndX(spec);
-  const split = fretX(spec, Math.min(photoFret, spec.fretCount));
-  const segA = useMemo(() => fretboardSegment(spec, 0, split), [spec, split]);
-  const segB = useMemo(() => (split > end + 0.01 ? fretboardSegment(spec, split, end) : null), [spec, split, end]);
-  const ebony = useMemo(() => woodTexture(spec.colors.fretboard, '#141110', 3, { lines: 70, wobble: 3 }), [spec.colors.fretboard]);
-  const bodyX = bodyStartX(spec);
-
-  const inlays: { x: number; y: number }[] = [];
-  const covered = (n: number) => !!photo && n <= photoFret;
-  for (const n of spec.inlays) if (n <= spec.fretCount && !covered(n)) inlays.push({ x: (fretX(spec, n - 1) + fretX(spec, n)) / 2, y: 0 });
-  for (const n of spec.doubleInlays) {
-    if (covered(n)) continue;
-    const x = (fretX(spec, n - 1) + fretX(spec, n)) / 2;
-    const off = widthAt(spec, x) * 0.24;
-    inlays.push({ x, y: off }, { x, y: -off });
-  }
-
-  return (
-    <group>
-      <mesh position={[bodyX / 2 + 0.2, 0, FRETBOARD_TOP - 0.6]} rotation={[0, 0, Math.PI / 2]} scale={[1.65, 1, 1]} castShadow>
-        <cylinderGeometry args={[1.35, 1.35, -bodyX + 0.4, 24, 1, false, Math.PI / 2, Math.PI]} />
-        <meshStandardMaterial color={spec.colors.neck} roughness={rough(spec, 0.55, 0.2)} />
-      </mesh>
-      <mesh geometry={segA} castShadow>
-        <meshStandardMaterial map={photo ?? ebony} roughness={0.7} />
-      </mesh>
-      {segB && (
-        <mesh geometry={segB} castShadow>
-          <meshStandardMaterial map={ebony} roughness={0.7} />
+      {solid('top', mats.top, false)}
+      {solid('sides', mats.sides)}
+      {solid('back', mats.back)}
+      {solid('binding', mats.binding)}
+      {solid('neck', mats.neck)}
+      {solid('headstock', mats.headstock)}
+      {solid('pickguard', mats.pickguard, false)}
+      {solid('bridge', mats.bridge)}
+      {solid('bone', mats.bone)}
+      {solid('pin', mats.pin)}
+      {solid('chrome', mats.chrome)}
+      {solid('fret', mats.fret)}
+      {solid('dot', mats.dot, false)}
+      {parts.interior && <mesh geometry={parts.interior} material={mats.interior} material-side={THREE.DoubleSide} />}
+      {parts.hole && <mesh geometry={parts.hole} material={mats.hole} />}
+      <mesh geometry={geo.fretboard} material={fbMat} receiveShadow onClick={onFretboardClick} onDoubleClick={onFretboardDoubleClick} />
+      <mesh geometry={geo.headstockFace} material={faceMat} receiveShadow />
+      {roseMat && (
+        <mesh position={[geo.rosette.x, geo.rosette.y, 0.004]} material={roseMat} receiveShadow>
+          <ringGeometry args={[geo.rosette.inner, geo.rosette.outer, 128, 1]} />
         </mesh>
       )}
-      <mesh position={[0.15, 0, FRETBOARD_TOP + 0.18]}>
-        <boxGeometry args={[0.45, spec.nutWidth + 0.1, 0.4]} />
-        <meshStandardMaterial color="#f5efe1" roughness={0.3} />
-      </mesh>
-      {Array.from({ length: spec.fretCount }, (_, i) => {
-        const x = fretX(spec, i + 1);
-        return (
-          <mesh key={i} position={[x, 0, FRETBOARD_TOP + 0.04]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.065, 0.065, widthAt(spec, x) - 0.15, 8]} />
-            <meshStandardMaterial color="#d8d8d8" metalness={0.9} roughness={0.25} />
-          </mesh>
-        );
-      })}
-      {inlays.map((d, i) => (
-        <mesh key={i} position={[d.x, d.y, FRETBOARD_TOP + 0.003]}>
-          {spec.inlayShape === 'diamond' ? <circleGeometry args={[0.42, 4]} /> : spec.inlayShape === 'block' ? <planeGeometry args={[1.4, 3.2]} /> : <circleGeometry args={[0.3, 32]} />}
-          <meshStandardMaterial color={spec.colors.inlay} roughness={0.2} metalness={0.1} />
-        </mesh>
-      ))}
-      <Headstock spec={spec} shape={spec.headstock} />
+      <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
+      <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
+      <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} plain={mats.plainString} woundMat={mats.woundString} />
+      <Markers profile={profile} notes={notes} beatProgress={beatProgress} />
     </group>
   );
 }
 
-const UP = new THREE.Vector3(0, 1, 0);
+/* ------------------------------------------------------------------ strings that vibrate */
 
-function Strings({ spec, notes, beatId }: { spec: GuitarSpec; notes: FretNote[]; beatId: number }) {
-  const refs = useRef<(THREE.Mesh | null)[]>([]);
-  const struck = useRef<number[]>(Array(6).fill(-10));
-  const clock = useThree((s) => s.clock);
+interface Vib {
+  amp: { value: number };
+  node: { value: number };
+  time: { value: number };
+  glow: number;
+}
+
+function vibratingMaterial(base: THREE.MeshPhysicalMaterial, vib: Vib) {
+  const m = base.clone();
+  m.emissive = new THREE.Color(ACCENT);
+  m.emissiveIntensity = 0;
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uAmp = vib.amp;
+    shader.uniforms.uNode = vib.node;
+    shader.uniforms.uTime = vib.time;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float along;\nuniform float uAmp;\nuniform float uNode;\nuniform float uTime;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        float sNorm = clamp(along / max(uNode, 0.001), 0.0, 1.0);
+        float env = along < uNode ? sin(3.14159265 * sNorm) : 0.0;
+        transformed.y += uAmp * env * sin(uTime * 97.0);
+        transformed.z += uAmp * 0.35 * env * cos(uTime * 97.0);`,
+      );
+  };
+  m.customProgramCacheKey = () => 'vibrating-string';
+  return m;
+}
+
+function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat }: {
+  geo: GuitarGeometry; profile: GuitarProfile; notes: FretNote[]; beatId: number;
+  plain: THREE.MeshPhysicalMaterial; woundMat: THREE.MeshPhysicalMaterial;
+}) {
+  const items = useMemo(() => geo.strings.map((s) => {
+    const vib: Vib = { amp: { value: 0 }, node: { value: 1 }, time: { value: 0 }, glow: 0 };
+    const geometry = tube(segmentPoints(s.speaking[0], s.speaking[1], 48), s.radius);
+    const material = vibratingMaterial(s.wound ? woundMat : plain, vib);
+    return { s, vib, geometry, material };
+  }), [geo, plain, woundMat]);
+  useEffect(() => () => items.forEach((i) => {
+    i.geometry.dispose();
+    i.material.dispose();
+  }), [items]);
+
+  // pluck the strings of the current beat
   useEffect(() => {
-    for (const n of notes) if (n.state === 'now') struck.current[n.string - 1] = clock.elapsedTime;
-  }, [beatId, notes, clock]);
+    for (const n of notes) {
+      if (n.state !== 'now' || n.muted) continue;
+      const it = items.find((i) => i.s.string === n.string);
+      if (!it) continue;
+      it.vib.amp.value = Math.min(0.06, 0.02 + it.s.radius * 0.5);
+      it.vib.node.value = speakingFraction(n.fret);
+      it.vib.glow = 1;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beatId, items]);
+  void profile;
 
-  const strings = useMemo(
-    () =>
-      Array.from({ length: 6 }, (_, i) => {
-        const s = i + 1;
-        const a = new THREE.Vector3(0.1, stringY(spec, s, 0, false), stringZ(spec, 0));
-        const b = new THREE.Vector3(-spec.scaleLength, stringY(spec, s, -spec.scaleLength, false), stringZ(spec, -spec.scaleLength));
-        const dir = b.clone().sub(a);
-        return {
-          mid: a.clone().add(b).multiplyScalar(0.5),
-          len: dir.length(),
-          quat: new THREE.Quaternion().setFromUnitVectors(UP, dir.normalize()),
-          radius: 0.018 + i * 0.012,
-          wound: s >= 3,
-        };
-      }),
-    [spec],
-  );
-
-  useFrame(({ clock: c }) => {
-    strings.forEach((st, i) => {
-      const m = refs.current[i];
-      if (!m) return;
-      const age = c.elapsedTime - struck.current[i];
-      const amp = age < 1.2 ? Math.exp(-age * 4) * 0.09 : 0;
-      m.position.set(st.mid.x, st.mid.y + Math.sin(c.elapsedTime * 90) * amp, st.mid.z);
-      (m.material as THREE.MeshStandardMaterial).emissiveIntensity = age < 1.2 ? Math.exp(-age * 3) * 1.6 : 0;
-    });
+  useFrame((state, dt) => {
+    for (const it of items) {
+      it.vib.time.value = state.clock.elapsedTime;
+      it.vib.amp.value *= Math.exp(-dt * 3.2);
+      it.vib.glow *= Math.exp(-dt * 2.4);
+      it.material.emissiveIntensity = it.vib.glow * 0.9;
+    }
   });
-
   return (
     <>
-      {strings.map((st, i) => (
-        <mesh key={i} ref={(el) => { refs.current[i] = el; }} position={st.mid} quaternion={st.quat}>
-          <cylinderGeometry args={[st.radius, st.radius, st.len, 8]} />
-          <meshStandardMaterial color={st.wound ? '#c9a46a' : '#e8e8e8'} metalness={0.95} roughness={0.25} emissive={STRING_COLORS[i]} emissiveIntensity={0} />
-        </mesh>
+      {items.map((i) => <mesh key={i.s.string} geometry={i.geometry} material={i.material} castShadow />)}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ note markers */
+
+const markerVertex = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const markerFragment = /* glsl */ `
+uniform sampler2D uLabel;
+uniform int uKind;          // 0 now, 1 next, 2 muted-now, 3 muted-next, 4 technique chip
+uniform float uProgress;
+uniform vec3 uAccent;
+uniform vec3 uLine;
+uniform float uOpacity;
+varying vec2 vUv;
+float fill(float d) { return clamp(0.5 - d / max(fwidth(d), 1e-4), 0.0, 1.0); }
+void main() {
+  vec2 p = vUv * 2.0 - 1.0;
+  float r = length(p);
+  float glyph = texture2D(uLabel, vUv).a;
+  vec4 c = vec4(0.0);
+  if (uKind == 0) {
+    float shadow = (1.0 - smoothstep(0.78, 1.0, r)) * 0.45;
+    c = vec4(0.0, 0.0, 0.0, shadow);
+    vec3 face = mix(uAccent * 1.08, uAccent * 0.82, smoothstep(-0.9, 0.9, -p.y));
+    c = mix(c, vec4(face, 1.0), fill(r - 0.84));
+    c.rgb = mix(c.rgb, vec3(1.0, 0.96, 0.86), fill(abs(r - 0.81) - 0.035) * 0.75);
+    c.rgb = mix(c.rgb, vec3(0.07, 0.055, 0.03), glyph);
+  } else if (uKind == 1) {
+    c = vec4(0.04, 0.04, 0.05, fill(r - 0.74) * 0.62);
+    c = mix(c, vec4(uLine, 1.0), fill(abs(r - 0.72) - 0.06));
+    float a = atan(p.x, p.y);
+    float a01 = (a < 0.0 ? a + 6.2831853 : a) / 6.2831853;
+    float arc = fill(abs(r - 0.9) - 0.065) * step(a01, uProgress);
+    c = mix(c, vec4(uAccent, 1.0), arc);
+    c = mix(c, vec4(uLine, 1.0), glyph);
+  } else if (uKind == 2 || uKind == 3) {
+    vec3 col = uKind == 2 ? uAccent : uLine;
+    c = vec4(0.04, 0.04, 0.05, fill(r - 0.8) * 0.7);
+    c = mix(c, vec4(col, 1.0), fill(abs(r - 0.78) - 0.045));
+    float d = min(abs(p.x - p.y), abs(p.x + p.y)) * 0.7071 - 0.075;
+    c = mix(c, vec4(col, 1.0), fill(d) * fill(r - 0.5));
+  } else {
+    c = vec4(0.09, 0.09, 0.1, fill(r - 0.92) * 0.92);
+    c = mix(c, vec4(uLine, 1.0), fill(abs(r - 0.9) - 0.05) * 0.6);
+    c = mix(c, vec4(1.0), glyph);
+  }
+  c.a *= uOpacity;
+  if (c.a < 0.004) discard;
+  gl_FragColor = c;
+  #include <colorspace_fragment>
+}`;
+
+const TECH_GLYPH: Record<NonNullable<FretNote['technique']>, string> = {
+  hammer: 'h', pull: 'p', slide: '/', bend: '↑', harmonic: '◇',
+};
+
+function markerMaterial(kind: number, label: string, progress: number) {
+  return new THREE.ShaderMaterial({
+    vertexShader: markerVertex,
+    fragmentShader: markerFragment,
+    uniforms: {
+      uLabel: { value: labelTexture(label) },
+      uKind: { value: kind },
+      uProgress: { value: progress },
+      uAccent: { value: new THREE.Color(ACCENT) },
+      uLine: { value: new THREE.Color(NEXT_OUTLINE) },
+      uOpacity: { value: 1 },
+    },
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+}
+
+const planeGeo = new THREE.PlaneGeometry(1, 1);
+const tmpV = new THREE.Vector3();
+const footGeo = new THREE.CircleGeometry(0.5, 32);
+const footMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
+
+function Marker({ profile, note, progress }: { profile: GuitarProfile; note: FretNote; progress: number }) {
+  const L = profile.scaleLengthCm;
+  const fret = Math.min(Math.max(0, note.fret), profile.fretCount);
+  const x = noteX(L, fret);
+  const y = stringY(profile, note.string, Math.min(0, x));
+  const z = stringZ(profile, Math.min(0, x)) + 0.62;
+  const now = note.state === 'now';
+  const label = note.finger !== undefined && note.finger !== null ? String(note.finger === 0 ? 'T' : note.finger) : String(fret);
+  const kind = note.muted ? (now ? 2 : 3) : now ? 0 : 1;
+  const mat = useMemo(() => markerMaterial(kind, label, progress), [kind, label]); // eslint-disable-line react-hooks/exhaustive-deps
+  const chip = useMemo(() => (note.technique ? markerMaterial(4, TECH_GLYPH[note.technique], 0) : null), [note.technique]);
+  useEffect(() => () => {
+    mat.dispose();
+    chip?.dispose();
+  }, [mat, chip]);
+  mat.uniforms.uProgress.value = progress;
+  const size = now ? 1.0 : 0.92;
+  // keep the bubble legible when the camera pulls back (bounded so chords do not smear together)
+  const scaler = useRef<THREE.Group>(null);
+  useFrame(({ camera }) => {
+    const g = scaler.current;
+    if (!g) return;
+    const d = g.getWorldPosition(tmpV).distanceTo(camera.position);
+    g.scale.setScalar(Math.min(1.5, Math.max(1.15, d * 0.04)));
+  });
+  return (
+    <>
+      {now && fret > 0 && !note.muted && (
+        <mesh geometry={footGeo} material={footMat} position={[x, y, FB_TOP + 0.02]} scale={0.9} renderOrder={2} />
+      )}
+      <Billboard position={[x, y, z]}>
+        <group ref={scaler}>
+          <mesh geometry={planeGeo} material={mat} scale={size} renderOrder={now ? 11 : 10} />
+          {chip && <mesh geometry={planeGeo} material={chip} scale={0.46} position={[0.42, 0.42, 0.01]} renderOrder={12} />}
+        </group>
+      </Billboard>
+    </>
+  );
+}
+
+function Markers({ profile, notes, beatProgress }: { profile: GuitarProfile; notes: FretNote[]; beatProgress: number }) {
+  const shown = useMemo(() => {
+    const nowKeys = new Set(notes.filter((n) => n.state === 'now').map((n) => `${n.string}:${n.fret}`));
+    return notes.filter((n) => n.string >= 1 && n.string <= 6 && (n.state === 'now' || !nowKeys.has(`${n.string}:${n.fret}`)));
+  }, [notes]);
+  return (
+    <>
+      {shown.map((n) => (
+        <Marker key={`${n.state}-${n.string}-${n.fret}-${n.muted ? 'x' : ''}`} profile={profile} note={n} progress={beatProgress} />
       ))}
     </>
   );
 }
 
-function Bubble({ spec, note, beatId }: { spec: GuitarSpec; note: FretNote; beatId: number }) {
-  const group = useRef<THREE.Group>(null);
-  const born = useRef(0);
-  const clock = useThree((s) => s.clock);
-  useEffect(() => {
-    born.current = clock.elapsedTime;
-  }, [beatId, clock]);
-  const x = noteX(spec, note.fret);
-  const y = stringY(spec, note.string, x, false);
-  const z = stringZ(spec, x) + 0.25;
-  const color = STRING_COLORS[note.string - 1];
-  const now = note.state === 'now';
-
-  useFrame(({ clock: c }) => {
-    if (!group.current) return;
-    const age = c.elapsedTime - born.current;
-    const pop = now ? Math.min(1, age * 8) : 1;
-    const pulse = now ? 1 + Math.sin(c.elapsedTime * 8) * 0.05 : 1;
-    group.current.scale.setScalar((0.6 + 0.4 * pop) * pulse);
-  });
-
-  return (
-    <group ref={group} position={[x, y, z]}>
-      {now ? (
-        <>
-          <mesh>
-            <circleGeometry args={[0.95, 48]} />
-            <meshBasicMaterial color={color} transparent opacity={0.95} toneMapped={false} />
-          </mesh>
-          <mesh position={[0, 0, -0.01]}>
-            <ringGeometry args={[1.0, 1.35, 48]} />
-            <meshBasicMaterial color={color} transparent opacity={0.35} toneMapped={false} />
-          </mesh>
-        </>
-      ) : (
-        <mesh>
-          <ringGeometry args={[0.78, 0.95, 48]} />
-          <meshBasicMaterial color={color} transparent opacity={0.8} toneMapped={false} />
-        </mesh>
-      )}
-      <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-        <div className={now ? 'bubble-label now' : 'bubble-label next'}>{note.fret}</div>
-      </Html>
-    </group>
-  );
-}
-
-function GlbBody({ spec }: { spec: GuitarSpec }) {
-  const m = spec.bodyModel!;
-  const gltf = useGLTF(m.url);
-  return <primitive object={gltf.scene} scale={m.scale} position={m.position} rotation={m.rotation} />;
-}
-
-function CameraRig({ spec, notes, follow, sign }: { spec: GuitarSpec; notes: FretNote[]; follow: boolean; sign: number }) {
-  const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
-  const camera = useThree((s) => s.camera);
-  const focus = useRef(fretX(spec, 5));
-  useEffect(() => {
-    const now = notes.filter((n) => n.state === 'now');
-    if (now.length) {
-      const xs = now.map((n) => noteX(spec, n.fret));
-      focus.current = Math.min(fretX(spec, 4), Math.max(fretX(spec, 15), (Math.min(...xs) + Math.max(...xs)) / 2));
-    }
-  }, [notes, spec]);
-  useFrame((_, dt) => {
-    if (!follow || !controls) return;
-    const dx = (sign * focus.current - controls.target.x) * Math.min(1, dt * 2.2);
-    if (Math.abs(dx) < 1e-4) return;
-    controls.target.x += dx;
-    camera.position.x += dx;
-    controls.update();
+/** Mounted inside the Suspense boundary: fires after the first frame that contains the textured guitar. */
+function ReadySignal({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    frames.current += 1;
+    if (frames.current === 2) onReady();
   });
   return null;
 }
 
-export function Guitar3D({ spec, notes, beatId, flip, follow, textures }: Props) {
-  // The tab view is the audience view turned 180° in-plane (not mirrored), so logos and photos stay readable.
-  const sign = flip ? -1 : 1;
-  const startX = sign * fretX(spec, 5);
+/* ------------------------------------------------------------------ camera */
+
+function CameraRig({
+  profile, view, mode, notes, onUserMove, focusRef,
+}: {
+  profile: GuitarProfile;
+  view: GuitarView;
+  mode: CameraMode;
+  notes: FretNote[];
+  onUserMove: () => void;
+  focusRef: React.MutableRefObject<((p: THREE.Vector3) => void) | null>;
+}) {
+  const ref = useRef<CameraControls>(null);
+  const size = useThree((s) => s.size);
+  const frame = useFrame3(profile, view);
+  const followX = useRef<number | null>(null);
+  const L = profile.scaleLengthCm;
+  const aspect = size.width / Math.max(1, size.height);
+  const userMoved = useRef(false);
+
+  // camera direction expressed in the guitar frame so both views look the same
+  const look = (target: THREE.Vector3, dirGuitar: THREE.Vector3, dist: number, smooth: boolean) => {
+    const c = ref.current;
+    if (!c) return;
+    const dir = dirGuitar.clone().normalize().applyAxisAngle(new THREE.Vector3(0, 0, 1), frame.rot);
+    const pos = target.clone().addScaledVector(dir, dist);
+    void c.setLookAt(pos.x, pos.y, pos.z, target.x, target.y, target.z, smooth);
+  };
+
+  const apply = (m: CameraMode, smooth: boolean) => {
+    if (m === 'free') return;
+    if (m === 'overview') {
+      const d = fitDistance(frame.length * 1.08, 52, FOV, aspect);
+      look(new THREE.Vector3(0, 0, -3), new THREE.Vector3(0.05, -0.32, 1), d, smooth);
+    } else if (m === 'neck') {
+      const x20 = fretX(L, profile.fretCount);
+      const d = fitDistance(-x20 + 8, 14, FOV, aspect);
+      look(frame.toWorld(x20 / 2 + 1, 0, FB_TOP), new THREE.Vector3(-0.04, -0.4, 1), d, smooth);
+    } else {
+      const x = followX.current ?? fretX(L, 5);
+      const d = Math.max(24, fitDistance(22, 10, FOV, aspect));
+      look(frame.toWorld(x, 0, FB_TOP), new THREE.Vector3(-0.14, -0.5, 1), d, smooth);
+    }
+  };
+
+  // dev hook for headless screenshots: window.__g3dCamera.apply('neck')
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { __g3dCamera?: unknown }).__g3dCamera = { apply: (m: CameraMode) => apply(m, false), controls: ref.current };
+  });
+
+  // mode or view changes: re-apply (smoothly); a new mode clears the user override
+  useEffect(() => {
+    userMoved.current = false;
+    apply(mode, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, view, profile]);
+
+  // aspect changes re-fit framed modes without animation
+  useEffect(() => {
+    if (!userMoved.current && (mode === 'overview' || mode === 'neck')) apply(mode, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aspect]);
+
+  // follow the played position
+  useEffect(() => {
+    const frets = notes.filter((n) => n.state === 'now').map((n) => n.fret);
+    const next = followTarget(L, frets.length ? frets : notes.map((n) => n.fret), followX.current);
+    if (next === followX.current) return;
+    followX.current = next;
+    if (mode === 'follow' && !userMoved.current) apply('follow', true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const onStart = () => {
+      if (!userMoved.current) {
+        userMoved.current = true;
+        onUserMove();
+      }
+    };
+    c.addEventListener('controlstart', onStart);
+    return () => c.removeEventListener('controlstart', onStart);
+  }, [onUserMove]);
+
+  useEffect(() => {
+    focusRef.current = (p: THREE.Vector3) => {
+      const c = ref.current;
+      if (!c) return;
+      const pos = new THREE.Vector3();
+      const tgt = new THREE.Vector3();
+      c.getPosition(pos);
+      c.getTarget(tgt);
+      const dir = pos.sub(tgt).normalize();
+      const eye = p.clone().addScaledVector(dir, 26);
+      userMoved.current = true;
+      onUserMove();
+      void c.setLookAt(eye.x, eye.y, eye.z, p.x, p.y, p.z, true);
+    };
+  }, [focusRef, onUserMove]);
+
   return (
-    <Canvas key={flip ? 'tab' : 'audience'} shadows dpr={[1, 2]} camera={{ position: [startX - sign * 3, -17, 22], fov: 34, near: 0.5, far: 500 }} gl={{ antialias: true }}>
-      <color attach="background" args={['#12151c']} />
-      <fog attach="fog" args={['#12151c', 90, 220]} />
-      <ambientLight intensity={0.7} />
-      <hemisphereLight args={['#e6ecff', '#2a1d12', 0.8]} />
-      <directionalLight position={[10, -20, 40]} intensity={1.8} castShadow shadow-mapSize={[2048, 2048]} />
-      <directionalLight position={[-30, 25, 12]} intensity={0.9} color="#cfe0ff" />
-      <pointLight position={[startX, 8, 14]} intensity={70} distance={60} color="#ffe3c2" />
-      <group rotation={[0, 0, flip ? Math.PI : 0]}>
-        {spec.bodyModel ? (
-          <Suspense fallback={null}>
-            <GlbBody spec={spec} />
-          </Suspense>
-        ) : (
-          <Body spec={spec} topUrl={textures.top} />
-        )}
-        <Neck spec={spec} fretboardUrl={textures.fretboard} />
-        <Strings spec={spec} notes={notes} beatId={beatId} />
-        {notes.map((n) => (
-          <Bubble key={`${n.state}-${n.string}-${n.fret}`} spec={spec} note={n} beatId={beatId} />
-        ))}
-      </group>
-      <ContactShadows position={[0, 0, -spec.bodyDepth - 0.6]} rotation={[Math.PI / 2, 0, 0]} opacity={0.5} scale={160} blur={2.5} far={20} />
-      <OrbitControls makeDefault target={[startX, 0, 0]} enableDamping minDistance={12} maxDistance={140} />
-      <CameraRig spec={spec} notes={notes} follow={follow} sign={sign} />
-    </Canvas>
+    <CameraControls
+      ref={ref}
+      makeDefault
+      smoothTime={0.45}
+      draggingSmoothTime={0.12}
+      minDistance={10}
+      maxDistance={320}
+      minPolarAngle={18 * DEG}
+      maxPolarAngle={162 * DEG}
+      minAzimuthAngle={-80 * DEG}
+      maxAzimuthAngle={80 * DEG}
+      dollyToCursor
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ public component */
+
+export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, cameraMode, onCameraModeChange, onFretClick, onReady, className }: Guitar3DProps) {
+  const readyCb = useRef(onReady);
+  readyCb.current = onReady;
+  const readySent = useRef(false);
+  const signalReady = useMemo(() => () => {
+    if (readySent.current) return;
+    readySent.current = true;
+    readyCb.current?.();
+  }, []);
+  const geo = useMemo(() => buildGuitar(profile), [profile]);
+  useEffect(() => () => {
+    Object.values(geo.parts).forEach((g) => g?.dispose());
+    geo.fretboard.dispose();
+    geo.headstockFace.dispose();
+  }, [geo]);
+  const frame = useFrame3(profile, view);
+  const focusRef = useRef<((p: THREE.Vector3) => void) | null>(null);
+  const guitarRef = useRef<THREE.Group>(null);
+  const modeCb = useRef(onCameraModeChange);
+  modeCb.current = onCameraModeChange;
+  const onUserMove = useMemo(() => () => modeCb.current?.('free'), []);
+  const maxDepth = useMemo(() => bodyDepthAt(profile, guitarXRange(profile)[0]), [profile]);
+
+  const onFretboardClick = (e: ThreeEvent<MouseEvent>) => {
+    if (!onFretClick || e.delta > 4 || !guitarRef.current) return;
+    e.stopPropagation();
+    const local = guitarRef.current.worldToLocal(e.point.clone());
+    const hit = hitToFret(profile, local.x, local.y);
+    onFretClick(hit.string, hit.fret);
+  };
+  const onFretboardDoubleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    focusRef.current?.(e.point.clone());
+  };
+
+  return (
+    <div className={className} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <Canvas
+        shadows
+        dpr={[1, 2]}
+        camera={{ fov: FOV, near: 1, far: 2000, position: [0, -60, 260] }}
+        gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      >
+        <Studio depth={maxDepth} rot={frame.rot} />
+        <Suspense fallback={null}>
+          <group rotation={[0, 0, frame.rot]}>
+            <group ref={guitarRef} position={[-frame.cx, 0, 0]}>
+              <Guitar
+                profile={profile}
+                geo={geo}
+                notes={notes}
+                beatId={beatId}
+                beatProgress={beatProgress}
+                onFretboardClick={onFretboardClick}
+                onFretboardDoubleClick={onFretboardDoubleClick}
+              />
+            </group>
+          </group>
+          <ReadySignal onReady={signalReady} />
+        </Suspense>
+        <CameraRig profile={profile} view={view} mode={cameraMode} notes={notes} onUserMove={onUserMove} focusRef={focusRef} />
+      </Canvas>
+    </div>
   );
 }
