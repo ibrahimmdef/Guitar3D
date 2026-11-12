@@ -230,10 +230,15 @@
   grid-area: title;
   font-weight: var(--fw-semibold);
   font-size: var(--fs-base);
-  white-space: nowrap;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
   padding-right: 28px;
+}
+.lesson-card .tab-card-title {
+  padding-right: 0;
 }
 .tab-card-sub {
   grid-area: sub;

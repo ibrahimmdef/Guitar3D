@@ -22,6 +22,7 @@
   --text-3: #80848c;
   /* Neutral fill for sliders and progress: colour is kept for meaning only. */
   --fill: #d9dadd;
+  --seg-on: #34363a;
 
   /* Single accent: warm amber (same as the note bubbles on the guitar). */
   --accent: #f5b83d;
@@ -105,6 +106,7 @@
   --text-2: #50545b;
   --text-3: #6b6f76;
   --fill: #3a3c40;
+  --seg-on: #ffffff;
   --accent: #f5b83d;
   --accent-hover: #e9a925;
   --accent-ink: #1c1405;

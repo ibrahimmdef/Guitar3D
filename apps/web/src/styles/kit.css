@@ -213,8 +213,9 @@
   color: var(--text);
 }
 .seg-item[data-state='on'] {
-  background: var(--surface-active);
+  background: var(--seg-on);
   color: var(--text);
+  box-shadow: var(--shadow-1);
 }
 .seg-ic {
   display: inline-flex;

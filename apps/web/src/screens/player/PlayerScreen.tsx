@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, FileMusic, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Box, FileMusic, GraduationCap } from 'lucide-react';
 import type { CameraMode, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import { api as server } from '../../api';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
 import { Coach, type Ladder } from '../../ui/Coach';
+import { ErrorBoundary } from '../../ui/ErrorBoundary';
 import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
 import { ladderAfter } from '../../ui/practiceFlow';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
@@ -253,16 +254,33 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
 
       <div className="player-body">
         <main className="stage" aria-label="3D gitar">
-          <StageGuitar
-            className="stage-canvas"
-            notes={state.notes}
-            beatId={state.beatId}
-            beatProgress={state.beatProgress}
-            view={view}
-            cameraMode={cameraMode}
-            onCameraModeChange={setCamera}
-            onReady={() => setGuitarReady(true)}
-          />
+          <ErrorBoundary
+            onError={() => setGuitarReady(true)}
+            fallback={(retry) => (
+              <div className="stage-center">
+                <div className="stage-card">
+                  <EmptyState
+                    tone="danger"
+                    icon={<Box size={22} />}
+                    title="3D sahne gösterilemedi"
+                    description="Tarayıcın WebGL'i desteklemiyor olabilir. Tab ve ses çalışmaya devam eder."
+                    action={<Button onClick={retry}>Tekrar dene</Button>}
+                  />
+                </div>
+              </div>
+            )}
+          >
+            <StageGuitar
+              className="stage-canvas"
+              notes={state.notes}
+              beatId={state.beatId}
+              beatProgress={state.beatProgress}
+              view={view}
+              cameraMode={cameraMode}
+              onCameraModeChange={setCamera}
+              onReady={() => setGuitarReady(true)}
+            />
+          </ErrorBoundary>
 
           {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
@@ -273,7 +291,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
                 </span>
               )}
               {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
-              {!state.playing && state.tick > 0 && <span className="hud-chip">Duraklatıldı</span>}
+              {!state.playing && state.timeMs > 500 && <span className="hud-chip">Duraklatıldı</span>}
             </div>
           )}
 

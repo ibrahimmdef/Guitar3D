@@ -501,9 +501,6 @@
     flex: 1;
     justify-content: flex-end;
   }
-  .tabpanel {
-    height: 132px;
-  }
 }
 
 @media (max-width: 560px) {

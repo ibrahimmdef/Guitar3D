@@ -108,7 +108,8 @@ export function LibraryScreen() {
               n={3}
               icon={<Upload size={20} />}
               title="Kendi tabını yükle"
-              text="Guitar Pro veya MusicXML dosyanı aşağıdaki alana bırak."
+              text="Guitar Pro veya MusicXML dosyanı sürükleyip bırak."
+              action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => document.getElementById('sec-import')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Yükleme alanı</Button>}
             />
           </ol>
         </section>
@@ -194,7 +195,7 @@ export function LibraryScreen() {
                       <button type="button" className="tab-card lesson-card" onClick={() => navigate(playLesson(l.id))}>
                         <span className="tab-card-ic" aria-hidden><GraduationCap size={18} /></span>
                         <span className="tab-card-title">{l.title}</span>
-                        <span className="tab-card-sub">{[LEVEL_LABEL[l.level], l.tempo ? `${l.tempo} BPM` : ''].filter(Boolean).join(' · ')}</span>
+                        <span className="tab-card-sub">{l.tempo ? `${l.tempo} BPM` : LEVEL_LABEL[l.level]}</span>
                         {l.description && <span className="tab-card-desc">{l.description}</span>}
                         <span className="tab-card-meta">{played ? `Son çalma ${played}` : 'Yeni'}</span>
                         <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
