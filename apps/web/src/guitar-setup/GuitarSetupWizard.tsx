@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Undo2, Wand2 } from 'lucide-react';
 import type { GuitarFinish, GuitarProfile } from '@guitar3d/shared';
-import { GUITAR_SIZE_PRESETS } from '@guitar3d/shared';
+import { Button, SegmentedControl, Slider, Toggle } from '../ui/kit';
+import { StageGuitar } from '../screens/player/StageGuitar';
 import {
   assembleProfile,
+  autoLandmarks,
   buildHeadstock,
   circleFromClicks,
-  colorDistance,
   detectFrets,
   detectSoundhole,
   downscale,
@@ -13,9 +15,7 @@ import {
   fretboardWidths,
   luminance,
   maskedMedianColor,
-  otsuThreshold,
   rectifyBodyTop,
-  sampleBackground,
   sampleColorAt,
   scaleFrame,
   segmentGuitar,
@@ -38,8 +38,12 @@ import {
 import { canvasToBlob, loadPhoto, maskOverlay, rgbaToCanvas, type LoadedPhoto } from './dom';
 import { PhotoCanvas, type Handle } from './PhotoCanvas';
 import { guitarsApi } from './api';
+import { setActiveGuitar } from './activeGuitar';
+import { Field, FinishEditor, MakeActiveToggle, NumberInput, SizePresets, type FinishKey } from './controls';
 
 export interface GuitarSetupWizardProps {
+  /** 'photo': full step-by-step flow; 'quick': one front photo + size, landmarks guessed. */
+  mode?: 'photo' | 'quick';
   /** Called with the stored profile (texture URLs filled in) after saving. */
   onSaved?: (profile: GuitarProfile) => void;
   onCancel?: () => void;
@@ -47,47 +51,76 @@ export interface GuitarSetupWizardProps {
   api?: typeof guitarsApi;
 }
 
-const STEPS = ['Ön fotoğraf', 'Ölçü noktaları', 'Fretboard', 'Headstock', 'Renkler', 'Kaydet'] as const;
+type StepKey = 'front' | 'marks' | 'size' | 'fretboard' | 'headstock' | 'colors' | 'preview';
+const STEP_LABEL: Record<StepKey, string> = {
+  front: 'Ön fotoğraf',
+  marks: 'Noktalar',
+  size: 'Boy',
+  fretboard: 'Klavye',
+  headstock: 'Kafa',
+  colors: 'Renkler',
+  preview: 'Önizleme',
+};
+const FLOWS: Record<'photo' | 'quick', StepKey[]> = {
+  photo: ['front', 'marks', 'size', 'fretboard', 'headstock', 'colors', 'preview'],
+  quick: ['front', 'size', 'preview'],
+};
+const OPTIONAL: StepKey[] = ['fretboard', 'headstock'];
+
 const SEG_DIM = 900;
 const LANDMARKS = [
-  { key: 'headTip', label: 'Headstock ucu' },
-  { key: 'nut', label: 'Nut (sapın başı, ortası)' },
-  { key: 'fret', label: 'Bilinen perde teli (ortası)' },
-  { key: 'saddle', label: 'Köprüdeki eğer (saddle)' },
-  { key: 'bodyEnd', label: 'Gövdenin alt ucu' },
+  { label: 'Kafanın ucu', help: 'Kafanın (headstock) en üst noktasına, ortadan tıkla.' },
+  { label: 'Eşik (nut)', help: 'Tellerin kafadan sapa geçtiği beyaz çubuğun ortasına tıkla.' },
+  { label: 'Perde teli', help: 'Bildiğin bir perde telinin ortasına tıkla (12. perde genelde iki noktayla işaretlidir). Emin değilsen atla.' },
+  { label: 'Köprü eşiği (saddle)', help: 'Köprüdeki ince beyaz çubuğun ortasına tıkla.' },
+  { label: 'Gövdenin alt ucu', help: 'Gövdenin en alt noktasına, ortadan tıkla.' },
 ] as const;
-const FB_POINTS = ['Nut, kalın E kenarı', 'Nut, ince e kenarı', 'Son perde, kalın E kenarı', 'Son perde, ince e kenarı'];
-
+const FB_POINTS = ['Eşikte kalın E kenarı', 'Eşikte ince e kenarı', 'Son perdede kalın E kenarı', 'Son perdede ince e kenarı'];
 type HeadMode = 'low' | 'high' | 'tunersLow' | 'tunersHigh';
-type ColorKey = 'top' | 'neck' | 'binding' | 'fretboard' | 'headstock';
+const HEAD_LABEL: Record<HeadMode, string> = { low: 'Kalın E kenarı', high: 'İnce e kenarı', tunersLow: 'Kalın taraf burgular', tunersHigh: 'İnce taraf burgular' };
+const ACCENT = '#f5b83d';
+const BLUE = '#6aa8ff';
+
+type Click = { kind: 'fg' | 'bg'; p: Pt };
+type Hole = SoundholeGuess | { x: number; y: number; radiusCm: number };
+
+const fmt = (v: number, d = 1) => v.toLocaleString('tr-TR', { maximumFractionDigits: d, minimumFractionDigits: d });
 
 /**
- * Step-by-step "create your guitar from photos" wizard. Plain markup, styled only through CSS
- * variables (`--gs-*` with app-token fallbacks) so the UI workstream can restyle it.
+ * "Add your guitar from photos". Full mode: front photo → segmentation → landmark clicks → size →
+ * optional fretboard / headstock photos → colours → 3D preview → save. Quick mode: front photo +
+ * size, landmarks guessed from the silhouette (still draggable).
  */
-export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: GuitarSetupWizardProps) {
-  const [step, setStep] = useState(0);
+export function GuitarSetupWizard({ mode = 'photo', onSaved, onCancel, api = guitarsApi }: GuitarSetupWizardProps) {
+  const flow = FLOWS[mode];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = flow[stepIdx];
+  const [visited, setVisited] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  // a. front photo + segmentation
+  // front photo + segmentation
   const [front, setFront] = useState<LoadedPhoto | null>(null);
-  const [small, setSmall] = useState<{ image: RGBAImage; scale: number; distance: Float32Array; otsu: number } | null>(null);
-  const [threshold, setThreshold] = useState(60);
-  const [seed, setSeed] = useState<Pt | null>(null);
+  const [small, setSmall] = useState<{ image: RGBAImage; scale: number } | null>(null);
+  const [clicks, setClicks] = useState<Click[]>([]);
+  const [clickKind, setClickKind] = useState<'fg' | 'bg'>('fg');
+  const [threshold, setThreshold] = useState<number | null>(null);
   const [seg, setSeg] = useState<SegmentResult | null>(null);
+  const distCache = useRef<{ key: string; distance: Float32Array } | null>(null);
 
-  // b. landmarks + size
-  const [marks, setMarks] = useState<Pt[]>([]);
+  // landmarks + size
+  const [marks, setMarks] = useState<(Pt | null)[]>([]);
   const [fretN, setFretN] = useState(12);
-  const [size, setSize] = useState<SizeSpec>({ kind: 'total', cm: 106.7 });
+  const [sizeKind, setSizeKind] = useState<SizeSpec['kind']>('total');
+  const [sizeCm, setSizeCm] = useState(104.1);
   const [lefty, setLefty] = useState(false);
   const [solution, setSolution] = useState<FrameSolution | null>(null);
   const [body, setBody] = useState<BodyMeasurements | null>(null);
-  const [hole, setHole] = useState<SoundholeGuess | { x: number; y: number; radiusCm: number } | null>(null);
+  const [hole, setHole] = useState<Hole | null>(null);
+  const [manualHole, setManualHole] = useState<Hole | null>(null);
   const [holeClicks, setHoleClicks] = useState<Pt[] | null>(null);
 
-  // c. fretboard
+  // fretboard
   const [neck, setNeck] = useState<LoadedPhoto | null>(null);
   const [fbClicks, setFbClicks] = useState<Pt[]>([]);
   const [lastFret, setLastFret] = useState(12);
@@ -97,18 +130,17 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
   const [endWidth, setEndWidth] = useState(5.6);
   const [fretCount, setFretCount] = useState(20);
 
-  // d. headstock
-  const [headSrc, setHeadSrc] = useState<'neck' | 'front'>('neck');
+  // headstock
+  const [headPhotoFile, setHeadPhotoFile] = useState<LoadedPhoto | null>(null);
   const [headMode, setHeadMode] = useState<HeadMode>('low');
   const [headPts, setHeadPts] = useState<Record<HeadMode, Pt[]>>({ low: [], high: [], tunersLow: [], tunersHigh: [] });
   const [head, setHead] = useState<HeadstockResult | null>(null);
   const [headPreview, setHeadPreview] = useState<HTMLCanvasElement | null>(null);
 
-  // e. finish
+  // finish + save
   const [finish, setFinish] = useState<GuitarFinish>(DEFAULT_FINISH);
-  const [colorPick, setColorPick] = useState<ColorKey | null>(null);
-
-  // f. save
+  const [topFromPhoto, setTopFromPhoto] = useState(true);
+  const [picking, setPicking] = useState<FinishKey | null>(null);
   const [name, setName] = useState('Gitarım');
   const [makeActive, setMakeActive] = useState(true);
 
@@ -125,109 +157,94 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
     }
   }, []);
 
-  // ---------- a. segmentation ----------
+  // ---------- front photo + segmentation ----------
   const pickFront = (file: File) =>
     run('Fotoğraf okunuyor…', async () => {
-      const ph = await loadPhoto(file);
-      const ds = downscale(ph.rgba, SEG_DIM);
-      const distance = colorDistance(ds.image, sampleBackground(ds.image));
-      const otsu = otsuThreshold(distance);
+      const ph = await loadPhoto(file).catch(() => {
+        throw new Error('Bu dosya bir fotoğraf olarak açılamadı. JPEG ya da PNG dene.');
+      });
+      if (Math.min(ph.rgba.width, ph.rgba.height) < 300) throw new Error('Fotoğraf çok küçük; en az 300 piksel olmalı.');
       setFront(ph);
-      setSmall({ ...ds, distance, otsu });
-      setThreshold(Math.round(otsu));
-      setSeed(null);
+      setSmall(downscale(ph.rgba, SEG_DIM));
+      distCache.current = null;
+      setClicks([]);
+      setThreshold(null);
       setMarks([]);
       setSolution(null);
       setBody(null);
       setHole(null);
+      setManualHole(null);
     });
 
   useEffect(() => {
     if (!small) return;
     const t = setTimeout(() => {
       try {
-        setSeg(segmentGuitar(small.image, { threshold, seed: seed ? [seed[0] * small.scale, seed[1] * small.scale] : undefined }, small.distance));
+        const s = (p: Pt): Pt => [p[0] * small.scale, p[1] * small.scale];
+        const fgSeeds = clicks.filter((c) => c.kind === 'fg').map((c) => s(c.p));
+        const bgSeeds = clicks.filter((c) => c.kind === 'bg').map((c) => s(c.p));
+        const key = JSON.stringify([fgSeeds, bgSeeds]);
+        const cached = distCache.current?.key === key ? distCache.current.distance : undefined;
+        const r = segmentGuitar(small.image, { fgSeeds, bgSeeds, threshold: threshold ?? undefined }, cached);
+        distCache.current = { key, distance: r.distance };
+        setSeg(r);
       } catch (e) {
         setError((e as Error).message);
       }
-    }, 120);
+    }, 100);
     return () => clearTimeout(t);
-  }, [small, threshold, seed]);
+  }, [small, clicks, threshold]);
 
-  const maskCanvas = useMemo(() => (seg ? maskOverlay(seg.mask) : null), [seg]);
+  const maskCanvas = useMemo(() => (seg ? maskOverlay(seg.mask, [245, 184, 61, 105]) : null), [seg]);
+  const share = seg && small ? seg.area / (small.image.width * small.image.height) : 0;
+  const modelMode = !!seg && seg.foreground.length > 0;
 
-  // ---------- b. landmarks ----------
-  const landmarks = (): Landmarks | null =>
-    marks.length < 5 ? null : { headTip: marks[0], nut: marks[1], fret: { n: fretN, p: marks[2] }, saddle: marks[3], bodyEnd: marks[4] };
+  // ---------- landmarks ----------
+  const guessMarks = useCallback(() => {
+    if (!seg || !small) return null;
+    const a = autoLandmarks(seg.mask);
+    if (!a) return null;
+    const up = (p: Pt): Pt => [p[0] / small.scale, p[1] / small.scale];
+    return [up(a.headTip), up(a.nut), null, up(a.saddle), up(a.bodyEnd)] as (Pt | null)[];
+  }, [seg, small]);
 
-  const measure = () =>
-    run('Gövde ölçülüyor…', () => {
-      const lm = landmarks();
-      if (!lm || !seg || !small || !front) throw new Error('Önce beş noktanın hepsini işaretle.');
-      const sol = solveFrame(lm, size, lefty ? 'right' : 'left');
-      const f = scaleFrame(sol.frame, small.scale);
-      const b = extractBody(seg.mask, f, sol.scaleLengthCm);
-      const sh = detectSoundhole(luminance(small.image), f, sol.scaleLengthCm);
-      setSolution(sol);
-      setBody(b);
-      setHole(sh);
-      setFinish((o) => ({ ...o, top: toHex(maskedMedianColor(small.image, b.bodyMask)) }));
-    });
+  const landmarks: Landmarks | null = useMemo(() => {
+    if (marks.length < 5 || !marks[0] || !marks[1] || !marks[3] || !marks[4]) return null;
+    return { headTip: marks[0], nut: marks[1], fret: marks[2] ? { n: fretN, p: marks[2] } : undefined, saddle: marks[3], bodyEnd: marks[4] };
+  }, [marks, fretN]);
 
-  const frontHandles: Handle[] = useMemo(() => {
-    if (step === 1 && holeClicks) return holeClicks.map((p, i) => ({ p, label: i ? 'kenar' : 'merkez', color: '#f5a524' }));
-    if (step === 1) return marks.map((p, i) => ({ p, label: LANDMARKS[i].label.split(' (')[0] }));
-    if (step === 0 && seed) return [{ p: seed, label: 'gövde', color: '#f5a524' }];
-    return [];
-  }, [step, marks, seed, holeClicks]);
+  // ---------- measurement (size step) ----------
+  const sizeError = !Number.isFinite(sizeCm)
+    ? 'Bir boy seç ya da gir.'
+    : sizeKind === 'total'
+      ? sizeCm < 80 || sizeCm > 125 ? 'Toplam boy 80–125 cm arasında olmalı.' : null
+      : sizeCm < 45 || sizeCm > 72 ? 'Tel boyu 45–72 cm arasında olmalı.' : null;
 
-  const frontOverlay = useCallback(
-    (g: CanvasRenderingContext2D, k: number) => {
-      if (!front) return;
-      if (step === 0 && maskCanvas) g.drawImage(maskCanvas, 0, 0, front.rgba.width, front.rgba.height);
-      if (step === 1 && solution && body) {
-        g.lineWidth = 2 / k;
-        g.strokeStyle = '#4c8dff';
-        g.beginPath();
-        body.outline.forEach(([x, y], i) => {
-          const p = toImage(solution.frame, [x, y]);
-          if (i) g.lineTo(p[0], p[1]);
-          else g.moveTo(p[0], p[1]);
-        });
-        g.closePath();
-        g.stroke();
-        if (hole) {
-          const c = toImage(solution.frame, [hole.x, hole.y]);
-          g.strokeStyle = '#f5a524';
-          g.beginPath();
-          g.arc(c[0], c[1], hole.radiusCm * solution.frame.pxPerCm, 0, Math.PI * 2);
-          g.stroke();
-        }
+  useEffect(() => {
+    if (step !== 'size' && step !== 'preview') return;
+    if (!landmarks || !seg || !small || !front || sizeError) return;
+    const t = setTimeout(() => {
+      try {
+        const sol = solveFrame(landmarks, { kind: sizeKind, cm: sizeCm }, { lowESide: lefty ? 'right' : 'left', imageLongSidePx: Math.max(front.rgba.width, front.rgba.height) });
+        const f = scaleFrame(sol.frame, small.scale);
+        const b = extractBody(seg.mask, f, sol.scaleLengthCm);
+        setSolution(sol);
+        setBody(b);
+        setHole(detectSoundhole(luminance(small.image), f, sol.scaleLengthCm, { body: b.bounds }));
+        if (topFromPhoto) setFinish((o) => ({ ...o, top: toHex(maskedMedianColor(small.image, b.bodyMask)) }));
+        setError(null);
+      } catch (e) {
+        setSolution(null);
+        setBody(null);
+        setError((e as Error).message);
       }
-      if (step === 3 && headSrc === 'front') drawHeadPts(g, k, headPts);
-    },
-    [front, step, maskCanvas, solution, body, hole, headSrc, headPts],
-  );
+    }, 150);
+    return () => clearTimeout(t);
+  }, [step, landmarks, seg, small, front, sizeKind, sizeCm, lefty, sizeError, topFromPhoto]);
 
-  const pickFrontPoint = (p: Pt) => {
-    if (step === 0) return setSeed(p);
-    if (step === 1) {
-      if (holeClicks) {
-        const next = [...holeClicks, p];
-        if (next.length === 2 && solution) {
-          setHole(circleFromClicks(solution.frame, next[0], next[1]));
-          setHoleClicks(null);
-        } else setHoleClicks(next);
-        return;
-      }
-      if (marks.length < 5) setMarks([...marks, p]);
-      return;
-    }
-    if (step === 3 && headSrc === 'front') addHeadPt(p);
-    if (step === 4 && colorPick && front) pickColor(front.rgba, p);
-  };
+  const shownHole = manualHole ?? hole;
 
-  // ---------- c. fretboard ----------
+  // ---------- fretboard ----------
   const neckPhoto = neck ?? front;
   const pickNeck = (file: File) =>
     run('Fotoğraf okunuyor…', async () => {
@@ -236,94 +253,133 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
       setFrets(null);
       setFbPreview(null);
     });
-
   const detect = () =>
     run('Perdeler aranıyor…', () => {
-      if (!neckPhoto || fbClicks.length < 4) throw new Error('Dört köşeyi işaretle.');
-      const lines = detectFrets(luminance(neckPhoto.rgba), { nut: { low: fbClicks[0], high: fbClicks[1] }, last: { n: lastFret, low: fbClicks[2], high: fbClicks[3] } });
-      setFrets(lines);
+      if (!neckPhoto || fbClicks.length < 4) throw new Error('Önce klavyenin dört köşesini işaretle.');
+      if (lastFret < 3 || lastFret > 24) throw new Error('Son perde 3 ile 24 arasında olmalı.');
+      setFrets(detectFrets(luminance(neckPhoto.rgba), { nut: { low: fbClicks[0], high: fbClicks[1] }, last: { n: lastFret, low: fbClicks[2], high: fbClicks[3] } }));
     });
-
   useEffect(() => {
     if (!frets || !neckPhoto) return;
     const t = setTimeout(() => {
       setFbPreview(rgbaToCanvas(warpFretboard(neckPhoto.rgba, frets, lastFret, 1024, 128)));
       if (solution) {
         const w = fretboardWidths(frets, solution.scaleLengthCm, fretCount);
-        if (w.nutWidthCm > 3.5 && w.nutWidthCm < 6) setNutWidth(w.nutWidthCm);
-        if (w.endWidthCm > 4 && w.endWidthCm < 7.5) setEndWidth(w.endWidthCm);
+        if (w.nutWidthCm > 3.5 && w.nutWidthCm < 6) setNutWidth(Math.round(w.nutWidthCm * 100) / 100);
+        if (w.endWidthCm > 4 && w.endWidthCm < 7.5) setEndWidth(Math.round(w.endWidthCm * 100) / 100);
       }
     }, 150);
     return () => clearTimeout(t);
   }, [frets, neckPhoto, lastFret, solution, fretCount]);
 
-  const fbHandles: Handle[] = useMemo(() => {
-    if (frets) return frets.flatMap((l) => [
-      { p: l.low, label: String(l.n), color: l.confidence > 0.3 ? '#4c8dff' : '#e5484d' },
-      { p: l.high, label: '', color: l.confidence > 0.3 ? '#4c8dff' : '#e5484d' },
-    ]);
-    return fbClicks.map((p, i) => ({ p, label: String(i + 1) }));
-  }, [frets, fbClicks]);
-
-  const fbOverlay = useCallback(
-    (g: CanvasRenderingContext2D, k: number) => {
-      if (step === 3 && headSrc === 'neck') return drawHeadPts(g, k, headPts);
-      if (!frets) return;
-      g.lineWidth = 2 / k;
-      for (const l of frets) {
-        g.strokeStyle = l.confidence > 0.3 ? 'rgba(76,141,255,0.9)' : 'rgba(229,72,77,0.9)';
-        g.beginPath();
-        g.moveTo(l.low[0], l.low[1]);
-        g.lineTo(l.high[0], l.high[1]);
-        g.stroke();
-      }
-    },
-    [frets, step, headSrc, headPts],
-  );
-
-  // ---------- d. headstock ----------
-  const addHeadPt = (p: Pt) => setHeadPts((o) => ({ ...o, [headMode]: [...o[headMode], p] }));
-  const headPhoto = headSrc === 'neck' ? neckPhoto : front;
+  // ---------- headstock ----------
+  const headPhoto = headPhotoFile ?? neck ?? front;
+  const pickHead = (file: File) =>
+    run('Fotoğraf okunuyor…', async () => {
+      setHeadPhotoFile(await loadPhoto(file));
+      setHeadPts({ low: [], high: [], tunersLow: [], tunersHigh: [] });
+      setHead(null);
+      setHeadPreview(null);
+    });
   const buildHead = () =>
-    run('Headstock düzleştiriliyor…', () => {
+    run('Kafa düzleştiriliyor…', () => {
       if (!headPhoto) throw new Error('Fotoğraf yok.');
-      let ppc: number;
-      if (headSrc === 'front' || !neck) {
-        if (!solution) throw new Error('Önce ölçü adımını tamamla.');
-        ppc = solution.frame.pxPerCm;
-      } else {
-        if (fbClicks.length < 2) throw new Error('Ölçek için fretboard adımında nut uçlarını işaretle.');
-        ppc = Math.hypot(fbClicks[0][0] - fbClicks[1][0], fbClicks[0][1] - fbClicks[1][1]) / nutWidth;
-      }
-      const res = buildHeadstock(headPhoto.rgba, {
-        lowSide: headPts.low,
-        highSide: headPts.high,
-        tunersLowE: headPts.tunersLow,
-        tunersHighE: headPts.tunersHigh,
-        pxPerCmAcross: ppc,
-      }, 256, 512);
+      if (headPts.low.length < 2 || headPts.high.length < 2) throw new Error('Her iki kenar için en az ikişer nokta işaretle.');
+      // scale across: the first edge points sit at the nut, which is nutWidth wide
+      const ppc = Math.hypot(headPts.low[0][0] - headPts.high[0][0], headPts.low[0][1] - headPts.high[0][1]) / nutWidth;
+      const res = buildHeadstock(headPhoto.rgba, { lowSide: headPts.low, highSide: headPts.high, tunersLowE: headPts.tunersLow, tunersHighE: headPts.tunersHigh, pxPerCmAcross: ppc }, 256, 512);
+      if (res.lengthCm < 8 || res.lengthCm > 30) throw new Error(`Kafa ${fmt(res.lengthCm)} cm çıktı; ilk noktaların eşikte olduğundan emin ol.`);
       setHead(res);
       setHeadPreview(rgbaToCanvas(res.texture));
     });
 
-  // ---------- e. colours ----------
-  const pickColor = (img: RGBAImage, p: Pt) => {
-    if (!colorPick) return;
-    const hex = toHex(sampleColorAt(img, p, 5));
-    setFinish((o) => ({ ...o, [colorPick]: hex, ...(colorPick === 'top' ? { sides: o.sides } : {}) }));
-    setColorPick(null);
+  // ---------- clicks on the front photo ----------
+  const onFrontPick = (p: Pt) => {
+    if (!front) return;
+    if (step === 'front') return setClicks((c) => [...c, { kind: clickKind, p }]);
+    if (step === 'marks') {
+      if (marks.length < 5) setMarks((m) => [...m, p]);
+      return;
+    }
+    if (step === 'size' && holeClicks && solution) {
+      const next = [...holeClicks, p];
+      if (next.length === 2) {
+        setManualHole(circleFromClicks(solution.frame, next[0], next[1]));
+        setHoleClicks(null);
+      } else setHoleClicks(next);
+      return;
+    }
+    if (step === 'colors' && picking) {
+      const hex = toHex(sampleColorAt(front.rgba, p, 5));
+      setFinish((o) => ({ ...o, [picking]: hex, ...(picking === 'sides' ? { back: hex } : {}) }));
+      if (picking === 'top') setTopFromPhoto(false);
+      setPicking(null);
+    }
   };
 
-  // ---------- f. save ----------
-  const save = () =>
-    run('Kaydediliyor…', async () => {
-      if (!front || !solution || !body || !hole) throw new Error('Ölçü adımı tamamlanmadı.');
-      const profile = assembleProfile({
-        name,
+  const markHandles: { h: Handle; i: number }[] = marks.flatMap((p, i) => (p ? [{ h: { p, label: LANDMARKS[i].label, color: ACCENT }, i }] : []));
+  const frontHandles: Handle[] = useMemo(() => {
+    if (step === 'front') return clicks.map((c) => ({ p: c.p, label: c.kind === 'fg' ? 'gitar' : 'arka plan', color: c.kind === 'fg' ? ACCENT : BLUE }));
+    if (step === 'size' && holeClicks) return holeClicks.map((p) => ({ p, label: 'merkez', color: BLUE }));
+    if (step === 'marks' || step === 'size') return markHandles.map((m) => m.h);
+    return [];
+  }, [step, clicks, holeClicks, markHandles]);
+
+  const frontOverlay = useCallback(
+    (g: CanvasRenderingContext2D, k: number) => {
+      if (!front) return;
+      if (step === 'front' && maskCanvas) g.drawImage(maskCanvas, 0, 0, front.rgba.width, front.rgba.height);
+      if ((step === 'size' || step === 'marks') && marks.length > 1) {
+        // centre line through the clicks
+        g.lineWidth = 1.5 / k;
+        g.strokeStyle = 'rgba(245,184,61,0.6)';
+        g.setLineDash([6 / k, 6 / k]);
+        g.beginPath();
+        marks.filter((p): p is Pt => !!p).forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
+        g.stroke();
+        g.setLineDash([]);
+      }
+      if (step === 'size' && solution && body) {
+        g.lineWidth = 2.5 / k;
+        g.strokeStyle = BLUE;
+        g.beginPath();
+        body.outline.forEach(([x, y], i) => {
+          const p = toImage(solution.frame, [x, y]);
+          if (i) g.lineTo(p[0], p[1]);
+          else g.moveTo(p[0], p[1]);
+        });
+        g.closePath();
+        g.stroke();
+        if (shownHole) {
+          const c = toImage(solution.frame, [shownHole.x, shownHole.y]);
+          const e = toImage(solution.frame, [shownHole.x + shownHole.radiusCm, shownHole.y]);
+          g.strokeStyle = ACCENT;
+          g.beginPath();
+          g.arc(c[0], c[1], Math.hypot(e[0] - c[0], e[1] - c[1]), 0, Math.PI * 2);
+          g.stroke();
+        }
+      }
+    },
+    [front, step, maskCanvas, marks, solution, body, shownHole],
+  );
+
+  const onFrontDrag = (hi: number, p: Pt) => {
+    if (step === 'marks' || step === 'size') {
+      const i = markHandles[hi]?.i;
+      if (i != null) setMarks((m) => m.map((q, j) => (j === i ? p : q)));
+    } else if (step === 'front') setClicks((c) => c.map((q, j) => (j === hi ? { ...q, p } : q)));
+  };
+
+  // ---------- preview profile ----------
+  const draft = useMemo(() => {
+    if (!solution || !body || !shownHole) return null;
+    try {
+      return assembleProfile({
+        name: name.trim() || 'Gitarım',
         totalLengthCm: solution.totalLengthCm,
         scaleLengthCm: solution.scaleLengthCm,
         body,
-        soundhole: hole,
+        soundhole: shownHole,
         saddleX: -solution.scaleFromSaddleCm,
         fretCount,
         nutWidthCm: nutWidth,
@@ -331,7 +387,45 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
         headstock: head ?? undefined,
         finish,
       });
-      let saved = await api.create(profile);
+    } catch {
+      return null;
+    }
+  }, [solution, body, shownHole, name, fretCount, nutWidth, endWidth, head, finish]);
+
+  // photo textures for the preview (object URLs, revoked when they change)
+  const [previewTex, setPreviewTex] = useState<GuitarProfile['textures']>({});
+  useEffect(() => {
+    if (step !== 'preview') return;
+    let alive = true;
+    const urls: string[] = [];
+    (async () => {
+      const t: GuitarProfile['textures'] = {};
+      if (frets && neckPhoto) {
+        const u = URL.createObjectURL(await canvasToBlob(rgbaToCanvas(warpFretboard(neckPhoto.rgba, frets, lastFret, 1024, 128)), 'image/jpeg'));
+        urls.push(u);
+        t.fretboard = { url: u, toFret: lastFret };
+      }
+      if (head) {
+        const u = URL.createObjectURL(await canvasToBlob(rgbaToCanvas(head.texture), 'image/jpeg'));
+        urls.push(u);
+        t.headstock = u;
+      }
+      if (alive) setPreviewTex(t);
+    })().catch(() => {});
+    return () => {
+      alive = false;
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [step, frets, neckPhoto, lastFret, head]);
+  const previewProfile = useMemo(() => (draft ? ({ ...draft, id: 'wizard-preview', textures: previewTex } as GuitarProfile) : null), [draft, previewTex]);
+
+  // ---------- save ----------
+  const save = () =>
+    run('Kaydediliyor…', async () => {
+      if (!name.trim()) throw new Error('Gitarına bir ad ver.');
+      if (!front || !solution || !body || !draft) throw new Error('Ölçüm tamamlanmadı; boy adımına dön.');
+      let saved = await api.create({ ...draft, name: name.trim() });
+      setBusy('Dokular yükleniyor…');
       const top = rectifyBodyTop(front.rgba, solution.frame, body.outline, body.bounds, 16);
       saved = await api.putTexture(saved.id, 'bodyTop', await canvasToBlob(rgbaToCanvas(top), 'image/png'));
       if (frets && neckPhoto) {
@@ -339,217 +433,333 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
         saved = await api.putTexture(saved.id, 'fretboard', await canvasToBlob(rgbaToCanvas(fb), 'image/jpeg', 0.9), lastFret);
       }
       if (head) saved = await api.putTexture(saved.id, 'headstock', await canvasToBlob(rgbaToCanvas(head.texture), 'image/jpeg', 0.9));
-      if (makeActive) await api.setActiveGuitar(saved.id);
+      if (makeActive) await setActiveGuitar(saved.id, saved);
       onSaved?.(saved);
     });
 
-  const canNext = [!!seg, !!body && !!hole, true, true, true, false][step];
+  // ---------- navigation ----------
+  const problem = (k: StepKey): string | null => {
+    switch (k) {
+      case 'front':
+        if (!front) return 'Önce gitarın tamamını gösteren bir ön fotoğraf yükle.';
+        if (!seg || seg.area === 0) return 'Gitar algılanamadı. Gövdeye tıkla ya da eşiği düşür.';
+        if (share < 0.02) return 'Seçili alan çok küçük. Gitarın üzerine tıkla ya da eşiği düşür.';
+        if (share > 0.7) return 'Arka plan da seçilmiş görünüyor. “Arka plan” modunda taşan yere tıkla ya da eşiği yükselt.';
+        return null;
+      case 'marks':
+        if (!landmarks) return `Eksik nokta: ${LANDMARKS[Math.min(marks.length, 4)].label}.`;
+        return null;
+      case 'size':
+        if (sizeError) return sizeError;
+        if (!landmarks) return 'Gitarın şekli tanınamadı. Tam modda noktaları elle işaretle.';
+        if (!solution || !body) return 'Ölçüm bekleniyor…';
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const goTo = (i: number) => {
+    setError(null);
+    setPicking(null);
+    setHoleClicks(null);
+    const target = flow[i];
+    if (target === 'size' && mode === 'quick' && marks.length === 0) {
+      const g = guessMarks();
+      if (g) setMarks(g);
+    }
+    setStepIdx(i);
+    setVisited((v) => Math.max(v, i));
+  };
+  const next = () => {
+    const p = problem(step);
+    if (p) return setError(p);
+    goTo(stepIdx + 1);
+  };
+  const optionalDone = step === 'fretboard' ? !!frets : step === 'headstock' ? !!head : true;
+  const nextLabel = OPTIONAL.includes(step) && !optionalDone ? 'Atla' : 'İleri';
+
+  const markIdx = marks.length;
+  const progress = ((stepIdx + 1) / flow.length) * 100;
 
   return (
-    <div className="guitar-setup" style={S.root}>
-      <ol style={S.steps}>
-        {STEPS.map((s, i) => (
-          <li key={s} style={{ ...S.stepItem, ...(i === step ? S.stepActive : {}) }}>
-            <button type="button" style={S.linkBtn} disabled={i > step && !canNext} onClick={() => setStep(i)}>
-              {i + 1}. {s}
-            </button>
-          </li>
-        ))}
-      </ol>
+    <div className="gs-wizard">
+      <div className="gs-progress">
+        <div className="gs-progress-head">
+          <span className="gs-progress-label">Adım {stepIdx + 1} / {flow.length} · <b>{STEP_LABEL[step]}</b>{OPTIONAL.includes(step) && <span className="gs-optional">isteğe bağlı</span>}</span>
+        </div>
+        <div className="gs-progress-bar" role="progressbar" aria-valuemin={1} aria-valuemax={flow.length} aria-valuenow={stepIdx + 1} aria-label="İlerleme">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+        <ol className="gs-steps">
+          {flow.map((k, i) => (
+            <li key={k}>
+              <button type="button" className={`gs-step${i === stepIdx ? ' is-current' : ''}${i < stepIdx ? ' is-done' : ''}`} disabled={i > visited} onClick={() => goTo(i)}>
+                {STEP_LABEL[k]}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
 
-      {step === 0 && (
-        <section style={S.section}>
-          <p style={S.muted}>
-            Gitarın tamamını önden, düz bir zeminin önünde çek. Kenarlar kadraja değmesin. Sonra gövdenin içine bir kez tıkla; mavi alan gitarı
-            kaplayana kadar eşiği ayarla.
+      {step === 'front' && (
+        <section className="gs-section">
+          <p className="gs-lead">
+            Gitarın <b>tamamını önden</b>, sade bir zeminin önünde çek; kafa da gövdenin altı da kadrajda olsun. Turuncu alan gitarı kaplamalı.
           </p>
-          <FileButton label={front ? 'Başka fotoğraf seç' : 'Ön fotoğraf seç'} onFile={pickFront} />
+          <div className="gs-row">
+            <FileButton label={front ? 'Başka fotoğraf seç' : 'Ön fotoğraf seç'} onFile={pickFront} primary={!front} />
+            {front && (
+              <>
+                <SegmentedControl
+                  size="sm"
+                  aria-label="Tıklama modu"
+                  value={clickKind}
+                  onChange={setClickKind}
+                  options={[{ value: 'fg', label: 'Gitar' }, { value: 'bg', label: 'Arka plan' }]}
+                />
+                <Button size="sm" variant="ghost" icon={<Undo2 size={14} />} disabled={!clicks.length} onClick={() => setClicks((c) => c.slice(0, -1))}>Son tıklamayı geri al</Button>
+              </>
+            )}
+          </div>
           {front && (
             <>
-              <label style={S.row}>
-                Eşik
-                <input type="range" min={5} max={250} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
-                <span style={S.muted}>{threshold}{small ? ` (otomatik ${Math.round(small.otsu)})` : ''}</span>
-              </label>
-              <PhotoCanvas source={front.canvas} overlay={frontOverlay} handles={frontHandles} onPick={pickFrontPoint} />
+              <p className="gs-hint">
+                {clickKind === 'fg' ? 'Eksik kalan gitar parçasına tıkla (örneğin gövdeye ya da sapa).' : 'Gitar dışında turuncu kalan yere tıkla.'}
+                {seg && <> · Seçili alan: <span className="num">%{fmt(share * 100, 0)}</span></>}
+              </p>
+              {seg && (
+                <Slider
+                  label="Eşik"
+                  min={modelMode ? 120 : 5}
+                  max={modelMode ? 360 : 250}
+                  value={threshold ?? Math.round(seg.threshold)}
+                  onChange={(v) => setThreshold(v)}
+                  format={(v) => `${v}${threshold == null ? ' (otomatik)' : ''}`}
+                />
+              )}
+              <PhotoCanvas source={front.canvas} overlay={frontOverlay} handles={frontHandles} onPick={onFrontPick} onDrag={onFrontDrag} maxHeight={520} />
             </>
           )}
         </section>
       )}
 
-      {step === 1 && front && (
-        <section style={S.section}>
-          <p style={S.muted}>
-            {holeClicks
-              ? holeClicks.length === 0 ? 'Ses deliğinin merkezine tıkla.' : 'Ses deliğinin kenarına tıkla.'
-              : marks.length < 5
-                ? <>Sırayla işaretle: <b>{LANDMARKS[marks.length].label}</b> ({marks.length + 1}/5). Noktaları sürükleyerek düzeltebilirsin.</>
-                : 'Noktalar tamam. Boyu seç ve ölç.'}
-          </p>
-          <div style={S.row}>
-            <label>Perde no <input type="number" min={1} max={20} value={fretN} onChange={(e) => setFretN(Number(e.target.value) || 12)} style={S.num} /></label>
-            {GUITAR_SIZE_PRESETS.map((p) => (
-              <button key={p.label} type="button" style={{ ...S.btn, ...(size.kind === 'total' && size.cm === p.cm ? S.btnOn : {}) }} onClick={() => setSize({ kind: 'total', cm: p.cm })}>
-                {p.label}
-              </button>
-            ))}
-            <label>Toplam <input type="number" step={0.1} value={size.kind === 'total' ? size.cm : ''} placeholder="cm" onChange={(e) => setSize({ kind: 'total', cm: Number(e.target.value) })} style={S.num} /> cm</label>
-            <label>ya da tel boyu <input type="number" step={0.1} value={size.kind === 'scale' ? size.cm : ''} placeholder="64.8" onChange={(e) => setSize({ kind: 'scale', cm: Number(e.target.value) })} style={S.num} /> cm</label>
-            <label><input type="checkbox" checked={lefty} onChange={(e) => setLefty(e.target.checked)} /> Solak gitar</label>
+      {step === 'marks' && front && (
+        <section className="gs-section">
+          <div className="gs-instruction" aria-live="polite">
+            {markIdx < 5 ? (
+              <>
+                <span className="gs-instruction-n num">{markIdx + 1}/5</span>
+                <div>
+                  <b>{LANDMARKS[markIdx].label}</b>
+                  <p>{LANDMARKS[markIdx].help}</p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <b>Noktalar tamam.</b>
+                <p>Yanlış olanı sürükleyerek düzeltebilirsin.</p>
+              </div>
+            )}
           </div>
-          <div style={S.row}>
-            <button type="button" style={S.btn} onClick={() => setMarks(marks.slice(0, -1))} disabled={!marks.length}>Son noktayı geri al</button>
-            <button type="button" style={S.btnPrimary} onClick={measure} disabled={marks.length < 5}>Ölç</button>
-            {body && <button type="button" style={S.btn} onClick={() => setHoleClicks([])}>Ses deliğini elle işaretle</button>}
+          <div className="gs-row">
+            <Button size="sm" variant="ghost" icon={<Undo2 size={14} />} disabled={!marks.length} onClick={() => setMarks((m) => m.slice(0, -1))}>Son noktayı geri al</Button>
+            {markIdx === 2 && <Button size="sm" onClick={() => setMarks((m) => [...m, null])}>Perde noktasını atla</Button>}
+            <Button size="sm" variant="ghost" icon={<Wand2 size={14} />} onClick={() => { const g = guessMarks(); if (g) setMarks(g); else setError('Şekilden tahmin edilemedi; noktaları elle işaretle.'); }}>Otomatik yerleştir</Button>
+            {marks[2] && (
+              <label className="gs-inline">
+                Perde no
+                <NumberInput value={fretN} onChange={(v) => setFretN(Math.max(1, Math.min(20, Math.round(v) || 12)))} step={1} min={1} max={20} width={64} />
+              </label>
+            )}
           </div>
-          {solution && body && (
-            <p style={S.muted}>
-              Toplam {solution.totalLengthCm.toFixed(1)} cm · tel boyu {solution.scaleLengthCm.toFixed(1)} cm · gövde {body.lengthCm.toFixed(1)} cm · üst/bel/alt{' '}
-              {body.bouts.upperCm.toFixed(1)}/{body.bouts.waistCm.toFixed(1)}/{body.bouts.lowerCm.toFixed(1)} cm
-              {hole && ` · ses deliği Ø ${(hole.radiusCm * 2).toFixed(1)} cm${'confident' in hole && !hole.confident ? ' (emin değilim, elle işaretle)' : ''}`}
-            </p>
-          )}
-          {solution?.warnings.map((w) => <p key={w} style={S.warn}>{w}</p>)}
-          <PhotoCanvas
-            source={front.canvas}
-            overlay={frontOverlay}
-            handles={frontHandles}
-            onPick={pickFrontPoint}
-            onDrag={holeClicks ? undefined : (i, p) => setMarks((m) => m.map((q, j) => (j === i ? p : q)))}
-          />
+          <PhotoCanvas source={front.canvas} overlay={frontOverlay} handles={frontHandles} onPick={onFrontPick} onDrag={onFrontDrag} maxHeight={560} />
         </section>
       )}
 
-      {step === 2 && (
-        <section style={S.section}>
-          <p style={S.muted}>
-            Sapı üstten, iyi ışıkta ve olabildiğince düz çek (ön fotoğraf da kullanılabilir ama yakın çekim daha net olur). Dört köşeyi işaretle, sonra
-            perdeleri bul. Kırmızı çizgiler tahmin; uçlarını sürükleyerek düzelt.
-          </p>
-          <div style={S.row}>
-            <FileButton label={neck ? 'Başka fotoğraf seç' : 'Sap fotoğrafı seç'} onFile={pickNeck} />
-            <label>Son işaretlenen perde <input type="number" min={3} max={24} value={lastFret} onChange={(e) => setLastFret(Number(e.target.value) || 12)} style={S.num} /></label>
-            <button type="button" style={S.btn} onClick={() => { setFbClicks([]); setFrets(null); setFbPreview(null); }}>Sıfırla</button>
-            <button type="button" style={S.btnPrimary} onClick={detect} disabled={fbClicks.length < 4}>Perdeleri bul</button>
+      {step === 'size' && front && (
+        <section className="gs-section">
+          {mode === 'quick' && (
+            <p className="gs-lead">Noktalar gitarın şeklinden tahmin edildi. Yanlış görünen varsa sürükle; ölçüler hemen güncellenir.</p>
+          )}
+          <SegmentedControl
+            size="sm"
+            aria-label="Hangi ölçüyü biliyorsun?"
+            value={sizeKind}
+            onChange={(k) => {
+              setSizeKind(k);
+              setSizeCm(k === 'total' ? 104.1 : 64.8);
+            }}
+            options={[{ value: 'total', label: 'Toplam boy' }, { value: 'scale', label: 'Tel boyu' }]}
+          />
+          {sizeKind === 'total' ? (
+            <Field label="Toplam boy" hint="Kafanın ucundan gövdenin altına. Emin değilsen 41″ çoğu akustik gitara uyar." error={sizeError}>
+              {(id) => (
+                <div className="gs-row">
+                  <SizePresets totalCm={sizeCm} onTotal={setSizeCm} />
+                  <NumberInput id={id} value={Number.isFinite(sizeCm) ? sizeCm : ''} onChange={setSizeCm} unit="cm" />
+                </div>
+              )}
+            </Field>
+          ) : (
+            <Field label="Tel boyu (scale)" hint="Eşik (nut) ile köprü eşiği arasındaki mesafe; çoğu akustikte 64–65,5 cm." error={sizeError}>
+              {(id) => <NumberInput id={id} value={Number.isFinite(sizeCm) ? sizeCm : ''} onChange={setSizeCm} unit="cm" />}
+            </Field>
+          )}
+          <Toggle checked={lefty} onChange={setLefty} label="Solak gitar" description="Kalın E teli fotoğrafta sağda." />
+          {solution && body && (
+            <dl className="gs-stats">
+              <div><dt>Toplam</dt><dd className="num">{fmt(solution.totalLengthCm)} cm</dd></div>
+              <div><dt>Tel boyu</dt><dd className="num">{fmt(solution.scaleLengthCm)} cm</dd></div>
+              <div><dt>Gövde</dt><dd className="num">{fmt(body.lengthCm)} cm</dd></div>
+              <div><dt>Üst / bel / alt</dt><dd className="num">{fmt(body.bouts.upperCm, 0)} / {fmt(body.bouts.waistCm, 0)} / {fmt(body.bouts.lowerCm, 0)} cm</dd></div>
+              {shownHole && <div><dt>Ses deliği</dt><dd className="num">Ø {fmt(shownHole.radiusCm * 2)} cm</dd></div>}
+            </dl>
+          )}
+          {solution?.warnings.map((w) => <p key={w} className="gs-warn">{w}</p>)}
+          {hole && 'confident' in hole && !hole.confident && !manualHole && <p className="gs-warn">Ses deliğinden emin değilim; gerekirse elle işaretle.</p>}
+          <div className="gs-row">
+            {body && (
+              <Button size="sm" variant="ghost" onClick={() => setHoleClicks(holeClicks ? null : [])}>
+                {holeClicks ? (holeClicks.length ? 'Şimdi ses deliğinin kenarına tıkla' : 'Ses deliğinin merkezine tıkla') : 'Ses deliğini elle işaretle'}
+              </Button>
+            )}
+            {manualHole && <Button size="sm" variant="ghost" onClick={() => setManualHole(null)}>Otomatik ses deliği</Button>}
           </div>
-          {!frets && fbClicks.length < 4 && <p style={S.muted}>Adım {fbClicks.length + 1}/4: <b>{FB_POINTS[fbClicks.length]}</b></p>}
+          <PhotoCanvas source={front.canvas} overlay={frontOverlay} handles={frontHandles} onPick={onFrontPick} onDrag={onFrontDrag} maxHeight={520} />
+        </section>
+      )}
+
+      {step === 'fretboard' && (
+        <section className="gs-section">
+          <p className="gs-lead">
+            Klavyeyi yakından, üstten ve iyi ışıkta çek (yoksa ön fotoğraf kullanılır). Dört köşeyi işaretle, sonra perdeleri bul. Kırmızı çizgiler
+            tahmindir; uçlarını sürükleyerek düzelt. Atlarsan düz renkli bir klavye kullanılır.
+          </p>
+          <div className="gs-row">
+            <FileButton label={neck ? 'Başka fotoğraf seç' : 'Klavye fotoğrafı seç'} onFile={pickNeck} />
+            <label className="gs-inline">
+              İşaretlenen son perde
+              <NumberInput value={lastFret} onChange={(v) => setLastFret(Math.round(v) || 12)} step={1} min={3} max={24} width={64} />
+            </label>
+            <Button size="sm" variant="ghost" icon={<Undo2 size={14} />} disabled={!fbClicks.length || !!frets} onClick={() => setFbClicks((c) => c.slice(0, -1))}>Geri al</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setFbClicks([]); setFrets(null); setFbPreview(null); }}>Sıfırla</Button>
+            <Button size="sm" variant="primary" onClick={detect} disabled={fbClicks.length < 4}>Perdeleri bul</Button>
+          </div>
+          {!frets && fbClicks.length < 4 && (
+            <div className="gs-instruction"><span className="gs-instruction-n num">{fbClicks.length + 1}/4</span><div><b>{FB_POINTS[fbClicks.length]}</b></div></div>
+          )}
           {neckPhoto && (
             <PhotoCanvas
               source={neckPhoto.canvas}
-              overlay={fbOverlay}
-              handles={fbHandles}
+              overlay={(g, k) => {
+                if (!frets) return;
+                g.lineWidth = 2 / k;
+                for (const l of frets) {
+                  g.strokeStyle = l.confidence > 0.3 ? 'rgba(106,168,255,0.9)' : 'rgba(242,102,107,0.95)';
+                  g.beginPath();
+                  g.moveTo(l.low[0], l.low[1]);
+                  g.lineTo(l.high[0], l.high[1]);
+                  g.stroke();
+                }
+              }}
+              handles={frets ? frets.flatMap((l) => [{ p: l.low, label: String(l.n), color: l.confidence > 0.3 ? BLUE : '#f2666b' }, { p: l.high, color: l.confidence > 0.3 ? BLUE : '#f2666b' }]) : fbClicks.map((p, i) => ({ p, label: String(i + 1), color: ACCENT }))}
               onPick={(p) => !frets && fbClicks.length < 4 && setFbClicks([...fbClicks, p])}
               onDrag={(i, p) => {
                 if (frets) setFrets(frets.map((l, j) => (j === i >> 1 ? { ...l, confidence: 1, ...(i % 2 ? { high: p } : { low: p }) } : l)));
                 else setFbClicks(fbClicks.map((q, j) => (j === i ? p : q)));
               }}
+              maxHeight={480}
             />
           )}
-          {fbPreview && <PhotoCanvas source={fbPreview} maxHeight={120} cursor="default" />}
-          <div style={S.row}>
-            <label>Nut genişliği <input type="number" step={0.05} value={nutWidth} onChange={(e) => setNutWidth(Number(e.target.value))} style={S.num} /> cm</label>
-            <label>Son perdede genişlik <input type="number" step={0.05} value={endWidth} onChange={(e) => setEndWidth(Number(e.target.value))} style={S.num} /> cm</label>
-            <label>Perde sayısı <input type="number" min={12} max={24} value={fretCount} onChange={(e) => setFretCount(Number(e.target.value) || 20)} style={S.num} /></label>
+          {fbPreview && <PhotoCanvas source={fbPreview} maxHeight={90} cursor="default" />}
+          <div className="gs-row">
+            <label className="gs-inline">Eşikte genişlik <NumberInput value={nutWidth} onChange={setNutWidth} step={0.05} unit="cm" /></label>
+            <label className="gs-inline">Son perdede <NumberInput value={endWidth} onChange={setEndWidth} step={0.05} unit="cm" /></label>
+            <label className="gs-inline">Perde sayısı <NumberInput value={fretCount} onChange={(v) => setFretCount(Math.max(12, Math.min(24, Math.round(v) || 20)))} step={1} width={64} /></label>
           </div>
         </section>
       )}
 
-      {step === 3 && (
-        <section style={S.section}>
-          <p style={S.muted}>
-            Headstock kenarlarını nut’tan uca doğru birkaç noktayla işaretle, sonra burguların (tuner) millerine tıkla. Bu adımı atlarsan tipik bir
-            headstock kullanılır.
+      {step === 'headstock' && (
+        <section className="gs-section">
+          <p className="gs-lead">
+            Kafanın ön yüzünü yakından çek (ya da mevcut fotoğrafı kullan). Her kenarı <b>eşikten başlayarak</b> uca doğru birkaç noktayla, sonra burgu
+            millerini işaretle. Atlarsan tipik bir 3+3 kafa kullanılır.
           </p>
-          <div style={S.row}>
-            <label>
-              Fotoğraf{' '}
-              <select value={headSrc} onChange={(e) => setHeadSrc(e.target.value as 'neck' | 'front')} style={S.num}>
-                <option value="neck">Sap fotoğrafı</option>
-                <option value="front">Ön fotoğraf</option>
-              </select>
-            </label>
-            {(['low', 'high', 'tunersLow', 'tunersHigh'] as HeadMode[]).map((m) => (
-              <button key={m} type="button" style={{ ...S.btn, ...(headMode === m ? S.btnOn : {}) }} onClick={() => setHeadMode(m)}>
-                {{ low: 'Kalın E kenarı', high: 'İnce e kenarı', tunersLow: 'Kalın taraf burgular', tunersHigh: 'İnce taraf burgular' }[m]} ({headPts[m].length})
-              </button>
-            ))}
-            <button type="button" style={S.btn} onClick={() => setHeadPts((o) => ({ ...o, [headMode]: o[headMode].slice(0, -1) }))}>Geri al</button>
-            <button type="button" style={S.btnPrimary} onClick={buildHead} disabled={headPts.low.length < 2 || headPts.high.length < 2}>Düzleştir</button>
-          </div>
-          {headPhoto && (
-            <PhotoCanvas
-              source={headPhoto.canvas}
-              overlay={headSrc === 'neck' ? fbOverlay : frontOverlay}
-              onPick={addHeadPt}
+          <div className="gs-row">
+            <FileButton label={headPhotoFile ? 'Başka fotoğraf seç' : 'Kafa fotoğrafı seç'} onFile={pickHead} />
+            <SegmentedControl
+              size="sm"
+              aria-label="Ne işaretliyorsun?"
+              value={headMode}
+              onChange={setHeadMode}
+              options={(Object.keys(HEAD_LABEL) as HeadMode[]).map((m) => ({ value: m, label: `${HEAD_LABEL[m]} (${headPts[m].length})` }))}
             />
-          )}
+            <Button size="sm" variant="ghost" icon={<Undo2 size={14} />} disabled={!headPts[headMode].length} onClick={() => setHeadPts((o) => ({ ...o, [headMode]: o[headMode].slice(0, -1) }))}>Geri al</Button>
+            <Button size="sm" variant="primary" onClick={buildHead} disabled={headPts.low.length < 2 || headPts.high.length < 2}>Düzleştir</Button>
+          </div>
+          {headPhoto && <PhotoCanvas source={headPhoto.canvas} overlay={(g, k) => drawHeadPts(g, k, headPts)} onPick={(p) => setHeadPts((o) => ({ ...o, [headMode]: [...o[headMode], p] }))} maxHeight={480} />}
           {head && headPreview && (
-            <div style={S.row}>
-              <PhotoCanvas source={headPreview} maxHeight={240} cursor="default" />
-              <p style={S.muted}>Uzunluk {head.lengthCm.toFixed(1)} cm · burgular {head.tunersLowE.length}+{head.tunersHighE.length}</p>
+            <div className="gs-row">
+              <PhotoCanvas source={headPreview} maxHeight={200} cursor="default" />
+              <p className="gs-hint">Uzunluk <span className="num">{fmt(head.lengthCm)}</span> cm · burgular {head.tunersLowE.length}+{head.tunersHighE.length}</p>
             </div>
           )}
         </section>
       )}
 
-      {step === 4 && front && (
-        <section style={S.section}>
-          <p style={S.muted}>Renkleri fotoğraftan almak için bir alan seçip fotoğrafa tıkla ya da elle değiştir.</p>
-          <div style={S.row}>
-            {(['top', 'neck', 'fretboard', 'headstock', 'binding'] as ColorKey[]).map((k) => (
-              <label key={k} style={S.row}>
-                {{ top: 'Kapak', neck: 'Sap', fretboard: 'Klavye', headstock: 'Headstock', binding: 'Biye' }[k]}
-                <input type="color" value={(finish[k] as string | null) ?? '#ffffff'} onChange={(e) => setFinish({ ...finish, [k]: e.target.value })} />
-                <button type="button" style={{ ...S.btn, ...(colorPick === k ? S.btnOn : {}) }} onClick={() => setColorPick(colorPick === k ? null : k)}>Fotoğraftan</button>
-              </label>
-            ))}
-          </div>
-          <div style={S.row}>
-            <label>Yanlar/arka <input type="color" value={finish.sides} onChange={(e) => setFinish({ ...finish, sides: e.target.value, back: e.target.value })} /></label>
-            <label>
-              Donanım{' '}
-              <select value={finish.hardware} onChange={(e) => setFinish({ ...finish, hardware: e.target.value as GuitarFinish['hardware'] })} style={S.num}>
-                <option value="chrome">Krom</option>
-                <option value="gold">Altın</option>
-                <option value="black">Siyah</option>
-              </select>
-            </label>
-            <label style={S.row}>
-              Parlaklık
-              <input type="range" min={0} max={1} step={0.05} value={finish.gloss} onChange={(e) => setFinish({ ...finish, gloss: Number(e.target.value) })} />
-              <span style={S.muted}>{finish.gloss < 0.3 ? 'mat' : finish.gloss < 0.7 ? 'saten' : 'parlak'}</span>
-            </label>
-          </div>
-          <PhotoCanvas source={front.canvas} onPick={(p) => pickColor(front.rgba, p)} cursor={colorPick ? 'copy' : 'default'} maxHeight={480} />
+      {step === 'colors' && front && (
+        <section className="gs-section">
+          <p className="gs-lead">Kapak rengi fotoğraftan alındı. Bir rengi değiştirmek için kutusuna tıkla ya da “Fotoğraftan” deyip fotoğrafa tıkla.</p>
+          <FinishEditor
+            finish={finish}
+            onChange={(f) => {
+              if (f.top !== finish.top) setTopFromPhoto(false);
+              setFinish(f);
+            }}
+            keys={['top', 'sides', 'neck', 'fretboard', 'headstock', 'binding', 'pickguard']}
+            pickFromPhoto={setPicking}
+            picking={picking}
+          />
+          <PhotoCanvas source={front.canvas} onPick={onFrontPick} cursor={picking ? 'copy' : 'default'} maxHeight={360} />
         </section>
       )}
 
-      {step === 5 && (
-        <section style={S.section}>
-          <label style={S.row}>Ad <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} style={{ ...S.num, width: 240 }} /></label>
-          <label style={S.row}><input type="checkbox" checked={makeActive} onChange={(e) => setMakeActive(e.target.checked)} /> Kaydettikten sonra bu gitarı kullan</label>
-          <ul style={S.muted}>
-            <li>Ölçüler: {solution ? `${solution.totalLengthCm.toFixed(1)} cm, tel boyu ${solution.scaleLengthCm.toFixed(1)} cm` : 'eksik'}</li>
-            <li>Gövde konturu ve dokusu: {body ? 'hazır' : 'eksik'}</li>
-            <li>Fretboard dokusu: {frets ? `nut → ${lastFret}. perde` : 'yok (düz renk kullanılır)'}</li>
-            <li>Headstock: {head ? 'fotoğraftan' : 'tipik şekil'}</li>
+      {step === 'preview' && (
+        <section className="gs-section">
+          <div className="gs-preview">
+            {previewProfile ? (
+              <StageGuitar profile={previewProfile} className="gs-preview-canvas" notes={[]} beatId={0} beatProgress={0} view="player" cameraMode="overview" />
+            ) : (
+              <div className="gs-preview-empty">{problem('size') ?? 'Önizleme hazırlanıyor…'}</div>
+            )}
+          </div>
+          <Field label="Ad" error={name.trim() ? null : 'Gitarına bir ad ver.'}>
+            {(id) => <input id={id} className="gs-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />}
+          </Field>
+          <ul className="gs-summary">
+            <li>Ölçüler: {solution ? `${fmt(solution.totalLengthCm)} cm, tel boyu ${fmt(solution.scaleLengthCm)} cm` : 'eksik'}</li>
+            <li>Gövde konturu ve kapak fotoğrafı: {body ? 'hazır' : 'eksik'}</li>
+            <li>Klavye: {frets ? `fotoğraftan (eşik → ${lastFret}. perde)` : 'düz renk'}</li>
+            <li>Kafa: {head ? 'fotoğraftan' : 'tipik 3+3 şekil'}</li>
           </ul>
-          <button type="button" style={S.btnPrimary} onClick={save} disabled={!body || !!busy}>Kaydet</button>
+          <MakeActiveToggle checked={makeActive} onChange={setMakeActive} />
         </section>
       )}
 
-      {busy && <p style={S.muted} aria-live="polite">{busy}</p>}
-      {error && <p style={S.error} role="alert">{error}</p>}
+      {busy && <p className="gs-hint" aria-live="polite">{busy}</p>}
+      {error && <p className="gs-error" role="alert">{error}</p>}
 
-      <div style={{ ...S.row, justifyContent: 'space-between' }}>
-        <div style={S.row}>
-          {onCancel && <button type="button" style={S.btn} onClick={onCancel}>Vazgeç</button>}
-          {step > 0 && <button type="button" style={S.btn} onClick={() => setStep(step - 1)}>Geri</button>}
+      <div className="gs-footer">
+        <div className="gs-row">
+          {onCancel && <Button variant="ghost" onClick={onCancel}>Vazgeç</Button>}
+          {stepIdx > 0 && <Button onClick={() => goTo(stepIdx - 1)}>Geri</Button>}
         </div>
-        {step < STEPS.length - 1 && (
-          <button type="button" style={S.btnPrimary} disabled={!canNext || !!busy} onClick={() => setStep(step + 1)}>
-            {step === 2 && !frets ? 'Atla' : step === 3 && !head ? 'Atla' : 'İleri'}
-          </button>
+        {step === 'preview' ? (
+          <Button variant="primary" onClick={save} disabled={!draft || !!busy || !name.trim()}>Gitarı kaydet</Button>
+        ) : (
+          <Button variant={nextLabel === 'Atla' ? 'secondary' : 'primary'} disabled={!!busy} onClick={next}>{nextLabel}</Button>
         )}
       </div>
     </div>
@@ -557,7 +767,7 @@ export function GuitarSetupWizard({ onSaved, onCancel, api = guitarsApi }: Guita
 }
 
 function drawHeadPts(g: CanvasRenderingContext2D, k: number, pts: Record<HeadMode, Pt[]>) {
-  const colors: Record<HeadMode, string> = { low: '#4c8dff', high: '#30a46c', tunersLow: '#f5a524', tunersHigh: '#f5a524' };
+  const colors: Record<HeadMode, string> = { low: BLUE, high: '#4cc38a', tunersLow: ACCENT, tunersHigh: ACCENT };
   for (const m of Object.keys(pts) as HeadMode[]) {
     g.strokeStyle = g.fillStyle = colors[m];
     g.lineWidth = 2 / k;
@@ -574,11 +784,13 @@ function drawHeadPts(g: CanvasRenderingContext2D, k: number, pts: Record<HeadMod
   }
 }
 
-function FileButton({ label, onFile }: { label: string; onFile: (f: File) => void }) {
+function FileButton({ label, onFile, primary }: { label: string; onFile: (f: File) => void; primary?: boolean }) {
+  const ref = useRef<HTMLInputElement>(null);
   return (
-    <label style={S.btn}>
-      {label}
+    <>
+      <Button size="sm" variant={primary ? 'primary' : 'secondary'} icon={<ImagePlus size={14} />} onClick={() => ref.current?.click()}>{label}</Button>
       <input
+        ref={ref}
         type="file"
         accept="image/*"
         hidden
@@ -588,24 +800,6 @@ function FileButton({ label, onFile }: { label: string; onFile: (f: File) => voi
           if (f) onFile(f);
         }}
       />
-    </label>
+    </>
   );
 }
-
-const border = '1px solid var(--gs-border, var(--border, #555))';
-const S: Record<string, React.CSSProperties> = {
-  root: { display: 'grid', gap: 16, color: 'var(--gs-fg, var(--fg, inherit))' },
-  steps: { display: 'flex', flexWrap: 'wrap', gap: 8, listStyle: 'none', margin: 0, padding: 0 },
-  stepItem: { opacity: 0.6 },
-  stepActive: { opacity: 1, fontWeight: 600 },
-  section: { display: 'grid', gap: 12 },
-  row: { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  muted: { margin: 0, fontSize: 13, color: 'var(--gs-muted, var(--muted, #8a8f98))' },
-  warn: { margin: 0, fontSize: 13, color: 'var(--gs-warn, #f5a524)' },
-  error: { margin: 0, color: 'var(--gs-error, var(--danger, #e5484d))' },
-  btn: { cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--gs-radius, 6px)', border, background: 'transparent', color: 'inherit', font: 'inherit' },
-  btnOn: { background: 'var(--gs-accent-weak, rgba(76,141,255,0.2))' },
-  btnPrimary: { cursor: 'pointer', padding: '6px 14px', borderRadius: 'var(--gs-radius, 6px)', border: '1px solid transparent', background: 'var(--gs-accent, var(--accent, #4c8dff))', color: 'var(--gs-on-accent, #fff)', font: 'inherit' },
-  linkBtn: { background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0 },
-  num: { width: 72, background: 'transparent', color: 'inherit', border, borderRadius: 4, padding: '2px 4px', font: 'inherit' },
-};

@@ -119,6 +119,43 @@ describe('guitars api', () => {
     expect(fs.existsSync(path.join(dir, 'guitars', g.id))).toBe(false);
   });
 
+  it('duplicates a guitar with its texture files', async () => {
+    const { body: g } = await request(app).post('/api/guitars').send(sampleProfile()).expect(201);
+    await request(app).put(`/api/guitars/${g.id}/textures/bodyTop`).set('Content-Type', 'image/png').send(PNG).expect(200);
+    await request(app).put(`/api/guitars/${g.id}/textures/fretboard?toFret=12`).set('Content-Type', 'image/jpeg').send(PNG).expect(200);
+
+    const { body: copy } = await request(app).post(`/api/guitars/${g.id}/duplicate`).send({}).expect(201);
+    expect(copy.id).not.toBe(g.id);
+    expect(copy.name).toBe('Test dreadnought (kopya)');
+    expect(copy.body.outline).toEqual(g.body.outline);
+    expect(copy.textures.bodyTop).toMatch(new RegExp(`^/api/guitars/${copy.id}/textures/bodyTop\\?v=`));
+    expect(copy.textures.fretboard).toMatchObject({ toFret: 12 });
+    expect(copy.textures.fretboard.url).toContain(`/api/guitars/${copy.id}/`);
+    const file = await request(app).get(`/api/guitars/${copy.id}/textures/bodyTop`).buffer(true).expect(200);
+    expect(Buffer.from(file.body).equals(PNG)).toBe(true);
+
+    // The copy is independent: deleting the original keeps the copy's files.
+    await request(app).delete(`/api/guitars/${g.id}`).expect(204);
+    await request(app).get(`/api/guitars/${copy.id}/textures/bodyTop`).expect(200);
+
+    const named = await request(app).post(`/api/guitars/${copy.id}/duplicate`).send({ name: '  Sahne gitarı ' }).expect(201);
+    expect(named.body.name).toBe('Sahne gitarı');
+    await request(app).post('/api/guitars/nope/duplicate').expect(404);
+    await request(app).post('/api/guitars/veston/duplicate').expect(400);
+    expect((await request(app).get('/api/guitars')).body).toHaveLength(3);
+  });
+
+  it('renames without touching measurements and keeps static template textures on create', async () => {
+    const tpl = sampleProfile({
+      textures: { fretboard: { url: '/guitar/fretboard.jpg', toFret: 20 }, headstock: '/guitar/headstock-face.jpg', bodyTop: '/api/guitars/x/textures/bodyTop', rosette: '/guitar/../secret' },
+    });
+    const { body: g } = await request(app).post('/api/guitars').send(tpl).expect(201);
+    expect(g.textures).toEqual({ fretboard: { url: '/guitar/fretboard.jpg', toFret: 20 }, headstock: '/guitar/headstock-face.jpg' });
+    const { body: r } = await request(app).put(`/api/guitars/${g.id}`).send({ name: 'Yeni ad' }).expect(200);
+    expect(r).toMatchObject({ name: 'Yeni ad', totalLengthCm: 104.1, textures: g.textures, createdAt: g.createdAt });
+    await request(app).put(`/api/guitars/${g.id}`).send({ name: '' }).expect(400);
+  });
+
   it('rejects bad texture uploads', async () => {
     const { body: g } = await request(app).post('/api/guitars').send(sampleProfile()).expect(201);
     await request(app).put(`/api/guitars/${g.id}/textures/evil`).set('Content-Type', 'image/png').send(PNG).expect(400);
