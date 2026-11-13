@@ -34,10 +34,12 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 22. **Türkçe şarkı ve alıştırma paketi** — telifsiz türküler ve seviyeli etütlerden hazır kütüphane — boş kütüphane sorununu çözer; yerel farkımız — M
 23. **Eşlik (backing track) ve davul** — akor ilerleyişinden basit davul + bas üretir — gam ve doğaçlama çalışmasını müziğe çevirir — M
 24. **Kayıt ve karşılaştırma** — çalışı kaydeder, orijinalle üst üste dinletir — kendi sesini duymak en hızlı düzeltici — M
-25. **Sağ el gösterimi** — penayla vuruş yönü ve parmak stili (p-i-m-a) işaretleri — klasik/parmak stili için eksik yarı — M
+25. ~~**Sağ el gösterimi** — penayla vuruş yönü ve parmak stili (p-i-m-a) işaretleri — klasik/parmak stili için eksik yarı — M~~ (iptal)
 26. **Rozetler ve hedefler** — ilk şarkı, 7 gün seri, %100 tempo gibi rozetler; haftalık hedef — hafif motivasyon, ilerleme verisinin üstüne ucuz — S
 27. **Hesap ve bulut eşitleme** — gitarlar, tab'lar ve ilerleme cihazlar arasında — mobil + masaüstü birlikte kullanım için ön koşul — L
-28. **MIDI / ses arayüzü girişi** — elektro gitar için doğrudan giriş, daha isabetli nota tanıma — mikrofonun zorlandığı gürültülü ortamlar — M
+28. ~~**MIDI / ses arayüzü girişi** — elektro gitar için doğrudan giriş, daha isabetli nota tanıma — mikrofonun zorlandığı gürültülü ortamlar — M~~ (iptal)
+29. **Tab içe aktarma: yazı ve görsel** — ASCII tab yapıştırma → alphaTex; tab ekran görüntüsü/fotoğrafı → tarayıcıda OCR → aynı ayrıştırıcı, kaydetmeden önce düzeltme ekranı — M
+30. **Video bağlantısı** — YouTube videosu tabın yanında, tek seferlik başlangıç hizalaması, hız ve döngü senkron — sesten otomatik tab çıkarma yok — M
 
 ## Önerilen sıra
 - İlk dalga (hızlı kazanım): 3, 5, 7, 13 — hepsi S, mevcut mikrofon ve döngü altyapısını kullanır.
@@ -50,3 +52,5 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 - Öncelikli: sıradaki notalar daha belirgin görünsün (yalnızca bir sonraki değil, 2–3 nota ileriye doğru sönükleşen işaretler), nota baloncuklarının görünümü ve okunabilirliği düzeltilsin.
 - Türkçe şarkı paketi yalnızca anonim türkülerin melodileri ya da özgün parçalarla yapılır; şarkı sözü eklenmez.
 - Sıra: gitar ekleme → 3D/şablonlar + baloncuk düzeltmeleri → çalışma ekranı (sıradaki nota şeridi vb.) → P1 → P2 → P3. Aynı anda tek ajan (Opus, medium).
+
+- 13 Kasım (ek): Sağ el gösterimi (25) ve MIDI girişi (28) iptal. Tab yazı/görsel içe aktarma (29) ve video bağlantısı (30) eklendi; videodan otomatik tab çıkarma yapılmayacak. P3 hızlı ve sade tutulacak.
