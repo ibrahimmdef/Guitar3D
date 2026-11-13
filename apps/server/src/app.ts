@@ -8,6 +8,7 @@ import { Store } from './store.js';
 import { guitarsRouter } from './guitars.js';
 import { sessionsRouter } from './sessions.js';
 import { teacherRouter } from './teacher.js';
+import { backupRouter } from './backup.js';
 import { extractTabInfo } from './tabInfo.js';
 
 /** Upload extension → stored format. Text formats (.atex/.tex) hold alphaTex. */
@@ -25,6 +26,7 @@ const fold = (s: string) => s.toLocaleLowerCase('tr').normalize('NFD').replace(/
 
 export function createApp(store: Store) {
   const app = express();
+  app.use('/api', backupRouter(store));
   app.use(express.json({ limit: '5mb' }));
 
   const upload = multer({
