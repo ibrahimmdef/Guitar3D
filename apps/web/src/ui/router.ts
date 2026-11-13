@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
+import { parseShareQuery, type ShareParams } from './share';
 
 /**
  * Tiny hash router:
  *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
  *   #/chords · #/scales · #/tuner · #/routines · #/progress
+ *   #/share?tab=…|lesson=…&g=&loop=&speed=&v= (read-only shared view, see share.ts)
  *   #/rhythm · #/fretboard-game · #/chord-trainer · #/ear · #/course · #/editor · #/backing
  * `#/play/demo` is kept as an alias of the warm-up lesson.
  */
 export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
 
 export type Route =
-  | { name: 'player'; source: PlaySource }
+  | { name: 'player'; source: PlaySource; share?: ShareParams }
   | { name: SimpleRouteName };
 
 /** Routes without parameters (the left navigation). */
@@ -25,7 +27,12 @@ const SIMPLE: SimpleRouteName[] = [
 export const DEMO_LESSON_ID = 'warmup';
 
 export function parseRoute(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const [path, query = ''] = hash.replace(/^#\/?/, '').split('?');
+  if (path === 'share') {
+    const share = parseShareQuery(query);
+    return share ? { name: 'player', source: share.source, share } : { name: 'library' };
+  }
+  const parts = path.split('/').filter(Boolean);
   const id = parts[1] ? safeDecode(parts[1]) : '';
   switch (parts[0]) {
     case 'play':
