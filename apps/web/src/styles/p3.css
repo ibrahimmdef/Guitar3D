@@ -58,3 +58,11 @@
     grid-template-columns: 1fr;
   }
 }
+.ti-image {
+  display: grid;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.ti-image label.btn {
+  cursor: pointer;
+}

@@ -128,3 +128,55 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
     </Dialog>
   );
 }
+
+/** Image → OCR → the same editable text dialog. */
+export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'title' | 'description'>) {
+  const [text, setText] = useState('');
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (file: File) => {
+    setError(null);
+    setProgress(0);
+    try {
+      const { ocrImage } = await import('../../tabs/ocr');
+      const out = await ocrImage(file, setProgress);
+      setText(out || ' ');
+      if (!out.trim()) setError('Görselde metin bulunamadı.');
+    } catch (e) {
+      setError(`Metin okunamadı: ${(e as Error).message}`);
+    } finally {
+      setProgress(null);
+    }
+  };
+  const header = (
+    <div className="ti-image">
+      <div className="ti-row">
+        <label className="btn btn-secondary btn-md">
+          <span className="btn-label">{progress != null ? `Okunuyor… %${Math.round(progress * 100)}` : 'Görsel seç'}</span>
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            disabled={progress != null}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void run(f);
+            }}
+          />
+        </label>
+        <span className="subtle small">En iyi sonuç: düz yazı (ASCII) tabların net ekran görüntüsü. Nota yazılı ya da el yazısı tablar okunmaz.</span>
+      </div>
+      {error && <p className="ti-err" role="alert">{error}</p>}
+    </div>
+  );
+  return (
+    <TextImportDialog
+      {...p}
+      initialText={text}
+      header={header}
+      title="Görselden tab"
+      description="Tab ekran görüntüsü ya da fotoğrafı seç. Metin tarayıcında okunur; hataları kaydetmeden önce düzelt."
+    />
+  );
+}
