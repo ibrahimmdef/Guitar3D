@@ -1,0 +1,518 @@
+/* ---------- Gitarım screen (gg-) ---------- */
+.gg-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+.gg-hero-stage {
+  position: relative;
+  height: 260px;
+  border-radius: var(--r-md);
+  background: var(--stage);
+  overflow: hidden;
+}
+.gg-hero-canvas {
+  position: absolute;
+  inset: 0;
+}
+.gg-hero-loading {
+  position: absolute;
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+}
+.gg-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.gg-eyebrow {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.gg-hero-name {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+.gg-h {
+  margin-top: var(--sp-6);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+.gg-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--sp-3);
+}
+.gg-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  height: 100%;
+  padding: var(--sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  text-align: left;
+}
+.gg-card.is-active {
+  border-color: var(--accent-line);
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--surface-1);
+}
+.gg-add {
+  border: 1.5px dashed var(--border-strong);
+  background: transparent;
+  color: inherit;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.gg-add:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-1);
+}
+.gg-thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  color: var(--text-2);
+  overflow: hidden;
+}
+.gg-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gg-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.gg-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-weight: var(--fw-semibold);
+  overflow-wrap: anywhere;
+}
+.gg-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: -6px;
+}
+.gg-active {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.gg-paths {
+  display: grid;
+  gap: var(--sp-3);
+}
+.gg-path {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.gg-path:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+}
+.gg-path:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.gg-path-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.gg-path-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.gg-path-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-weight: var(--fw-semibold);
+}
+.gg-path-time {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+}
+
+/* ---------- Add-guitar flows (gs-) ---------- */
+.gs-root,
+.gs-wizard {
+  display: grid;
+  gap: var(--sp-5);
+}
+.gs-form,
+.gs-section {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.gs-h {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+.gs-lead {
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+}
+.gs-hint {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.gs-warn {
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
+.gs-error,
+.gs-field-error {
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+.gs-error {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--danger-soft);
+}
+.gs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.gs-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.gs-field {
+  display: grid;
+  gap: var(--sp-2);
+}
+.gs-label {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.gs-input {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.gs-input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.gs-field.has-error .gs-input {
+  border-color: var(--danger);
+}
+.gs-input-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.gs-input-wrap .gs-input {
+  padding-right: 34px;
+}
+.gs-unit {
+  position: absolute;
+  right: var(--sp-2);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+}
+.gs-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
+.gs-link:hover {
+  text-decoration: underline;
+}
+.gs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+.gs-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  padding: 4px var(--sp-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-weight: var(--fw-medium);
+  line-height: 1.25;
+}
+.gs-chip:hover {
+  background: var(--surface-hover);
+}
+.gs-chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.gs-chip-sub {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+}
+.gs-preview {
+  position: relative;
+  height: 300px;
+  border-radius: var(--r-md);
+  background: var(--stage);
+  overflow: hidden;
+}
+.gs-preview-canvas {
+  position: absolute;
+  inset: 0;
+}
+.gs-preview-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--sp-4);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+.gs-finish {
+  display: grid;
+  gap: var(--sp-4);
+}
+.gs-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-2);
+}
+.gs-swatch {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: var(--sp-2);
+  align-items: center;
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+}
+.gs-swatch.is-picking {
+  border-color: var(--accent);
+}
+.gs-swatch-color {
+  position: relative;
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.gs-swatch-color input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.gs-swatch-none {
+  color: var(--text-3);
+}
+.gs-swatch-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.gs-swatch-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+.gs-swatch-actions .gs-link {
+  font-size: var(--fs-xs);
+}
+.gs-footer {
+  position: sticky;
+  bottom: calc(-1 * var(--sp-5));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.gs-root .gs-footer {
+  justify-content: flex-end;
+}
+
+/* progress */
+.gs-progress {
+  display: grid;
+  gap: var(--sp-2);
+}
+.gs-progress-label {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.gs-progress-label b {
+  color: var(--text);
+}
+.gs-optional {
+  margin-left: var(--sp-2);
+  padding: 1px 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gs-progress-bar {
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.gs-progress-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur) var(--ease);
+}
+.gs-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gs-step {
+  padding: 2px var(--sp-2);
+  border: 0;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gs-step.is-done {
+  color: var(--text-2);
+}
+.gs-step.is-current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+.gs-step:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.gs-instruction {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.gs-instruction p {
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.gs-instruction-n {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+.gs-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+}
+.gs-stats dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.gs-stats dd {
+  margin: 0;
+  font-weight: var(--fw-medium);
+}
+.gs-summary {
+  margin: 0;
+  padding-left: var(--sp-5);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+@media (max-width: 720px) {
+  .gg-hero {
+    grid-template-columns: 1fr;
+  }
+  .gg-hero-stage {
+    height: 220px;
+  }
+  .gs-preview {
+    height: 240px;
+  }
+}
