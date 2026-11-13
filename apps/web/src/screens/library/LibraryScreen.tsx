@@ -55,9 +55,11 @@ export function LibraryScreen() {
     });
   }, [tabs, q, sort, recent]);
   const visibleLessons = useMemo(() => (lessons ?? []).filter((l) => !q || norm(`${l.title} ${l.description ?? ''}`).includes(q)), [lessons, q]);
+  const regularLessons = visibleLessons.filter((l) => !l.group);
+  const turkuler = visibleLessons.filter((l) => l.group === 'turkuler');
 
   const firstRun = tabs !== null && tabs.length === 0;
-  const firstLesson = lessons?.find((l) => l.level === 'beginner') ?? lessons?.[0];
+  const firstLesson = lessons?.find((l) => l.level === 'beginner' && !l.group) ?? lessons?.[0];
 
   const remove = async (t: TabMeta) => {
     setConfirm(null);
@@ -188,32 +190,27 @@ export function LibraryScreen() {
         </div>
         {lessons === null ? (
           <div className="lib-loading" role="status"><Spinner label="Dersler yükleniyor" /> Dersler yükleniyor…</div>
-        ) : visibleLessons.length === 0 ? (
+        ) : regularLessons.length === 0 ? (
           <p className="subtle small">{q ? `“${query}” ile eşleşen ders yok.` : 'Şu an ders yok.'}</p>
         ) : (
-          groupByLevel(visibleLessons).map((g) => (
+          groupByLevel(regularLessons).map((g) => (
             <div key={g.level} className="lesson-group">
               <h3 className="eyebrow">{LEVEL_LABEL[g.level]}</h3>
-              <ul className="lib-grid" aria-label={`${LEVEL_LABEL[g.level]} dersleri`}>
-                {g.items.map((l) => {
-                  const played = relativeTime(recent[`lesson:${l.id}`]);
-                  return (
-                    <li key={l.id}>
-                      <button type="button" className="tab-card lesson-card" onClick={() => navigate(playLesson(l.id))}>
-                        <span className="tab-card-title">{l.title}</span>
-                        <span className="tab-card-sub">{l.tempo ? `${l.tempo} BPM` : LEVEL_LABEL[l.level]}</span>
-                        {l.description && <span className="tab-card-desc">{l.description}</span>}
-                        <span className="tab-card-meta">{played ? `Son çalma ${played}` : 'Yeni'}</span>
-                        <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <LessonGrid label={`${LEVEL_LABEL[g.level]} dersleri`} items={g.items} recent={recent} />
             </div>
           ))
         )}
       </section>
+
+      {turkuler.length > 0 && (
+        <section className="lib-sec" aria-labelledby="sec-turkuler">
+          <div className="sec-head">
+            <h2 id="sec-turkuler">Türküler</h2>
+          </div>
+          <p className="subtle small">Türkü havasında, Hicaz, Kürdi ve Nihavend renklerinde, halay, horon ve aksak ritimlerde özgün etütler. Kolaydan zora.</p>
+          <LessonGrid label="Türküler" items={turkuler} recent={recent} showLevel />
+        </section>
+      )}
 
       {firstRun && !error && (
         <section className="lib-sec" aria-labelledby="sec-import">
@@ -254,5 +251,26 @@ function WelcomeStep({ icon, title, text, action }: { icon: ReactNode; title: st
       </div>
       {action && <div className="welcome-action">{action}</div>}
     </li>
+  );
+}
+
+function LessonGrid({ label, items, recent, showLevel }: { label: string; items: LessonMeta[]; recent: Record<string, string>; showLevel?: boolean }) {
+  return (
+    <ul className="lib-grid" aria-label={label}>
+      {items.map((l) => {
+        const played = relativeTime(recent[`lesson:${l.id}`]);
+        return (
+          <li key={l.id}>
+            <button type="button" className="tab-card lesson-card" onClick={() => navigate(playLesson(l.id))}>
+              <span className="tab-card-title">{l.title}</span>
+              <span className="tab-card-sub">{[showLevel ? LEVEL_LABEL[l.level] : '', l.tempo ? `${l.tempo} BPM` : showLevel ? '' : LEVEL_LABEL[l.level]].filter(Boolean).join(' · ')}</span>
+              {l.description && <span className="tab-card-desc">{l.description}</span>}
+              <span className="tab-card-meta">{played ? `Son çalma ${played}` : 'Yeni'}</span>
+              <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
