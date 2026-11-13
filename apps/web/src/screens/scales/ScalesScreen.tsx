@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { AudioLines, Play, Square } from 'lucide-react';
+import { AudioLines, Maximize2, Play, Square } from 'lucide-react';
 import { noteName, SHARP_NAMES, SOLFEGE } from '../../music/notes';
-import { ascendDescend, degreeLabel, firstOctave, getScale, neckNotes, scaleMarkers, scalePcs, scalePositions, SCALES, type ScaleId } from '../../music/scales';
+import { degreeLabel, firstOctave, getScale, neckNotes, scaleExercise, scaleMarkers, scalePcs, scalePositions, SCALE_PATTERNS, SCALES, type ScaleId, type ScalePattern } from '../../music/scales';
 import { sequenceTex } from '../../music/tex';
 import { getTuning } from '../../music/tunings';
 import { useTexPlayer } from '../../player/useTexPlayer';
@@ -9,7 +9,9 @@ import { ChipGroup } from '../../ui/ChipGroup';
 import { Button } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
 import { setHandoff } from '../../ui/handoff';
-import { navigate } from '../../ui/router';
+import { navigate, playLesson } from '../../ui/router';
+import { PREVIEW_LESSON_ID, setPreviewLesson } from '../library/lessons';
+import { withTitle } from '../../tabs/textImport';
 import { useBacking } from '../../audio/backing';
 import { presetChords } from '../../music/backing';
 import { BACKING_HANDOFF } from '../backing/BackingScreen';
@@ -27,6 +29,7 @@ export function ScalesScreen() {
   const [scaleId, setScaleId] = useState<ScaleId>('minor-pent');
   const [position, setPosition] = useState('all');
   const [tempo, setTempo] = useState(100);
+  const [pattern, setPattern] = useState<ScalePattern>('updown');
   const player = useTexPlayer();
   const minorScale = getScale(scaleId).intervals.includes(3);
   const backingChords = useMemo(() => presetChords(minorScale ? 'minor-rock' : 'pop', root), [minorScale, root]);
@@ -47,8 +50,16 @@ export function ScalesScreen() {
       player.stop();
       return;
     }
-    const run = ascendDescend(pos ? pos.notes : firstOctave(notes));
-    player.play(sequenceTex(run, { tempo, tuning, program: settings.program }));
+    player.play(sequenceTex(exercise(), { tempo, tuning, program: settings.program }));
+  };
+  const exercise = () => scaleExercise(pos ? pos.notes : firstOctave(notes), pattern);
+  const openInPlayer = () => {
+    player.stop();
+    backing.stop();
+    const title = `${noteName(root)} ${scale.label.toLocaleLowerCase('tr')} · ${pos ? `${pos.index + 1}. kutu` : 'bir oktav'} · ${SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLocaleLowerCase('tr')}`;
+    const tex = sequenceTex(exercise(), { tempo, tuning, program: settings.program });
+    setPreviewLesson(withTitle(tex, title), title);
+    navigate(playLesson(PREVIEW_LESSON_ID));
   };
 
   const posLabel = pos ? `${pos.index + 1}. pozisyon, ${pos.minFret === 0 ? 'açık' : `${pos.minFret}.`}–${pos.maxFret}. perde` : `Tüm sap, 0–${MAX_FRET}. perde`;
@@ -78,7 +89,11 @@ export function ScalesScreen() {
               </span>
             ))}
           </div>
-          <p className="subtle small">Çal: {pos ? 'bu pozisyonu' : 'kökten bir oktav'} çıkıcı ve inici, {tempo} BPM.</p>
+          <p className="subtle small">Çal: {pos ? 'bu kutu' : 'kökten bir oktav'}, {SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLocaleLowerCase('tr')}, {tempo} BPM.</p>
+          <div className="learn-row">
+            <Button variant="secondary" icon={<Maximize2 size={15} />} onClick={openInPlayer}>Tabda çal</Button>
+            <span className="subtle small">Büyük ekranda tab, hız, döngü ve metronomla çalış.</span>
+          </div>
           <div className="learn-row">
             <Button size="sm" icon={backing.playing ? <Square size={14} fill="currentColor" /> : <AudioLines size={14} />} pressed={backing.playing} onClick={backing.toggle}>
               {backing.playing ? 'Eşliği durdur' : 'Eşlikle doğaçla'}
@@ -92,6 +107,12 @@ export function ScalesScreen() {
               Tempo
               <select className="select" value={tempo} onChange={(e) => setTempo(Number(e.target.value))}>
                 {[60, 80, 100, 120, 140].map((t) => <option key={t} value={t}>{t} BPM</option>)}
+              </select>
+            </label>
+            <label className="field">
+              Kalıp
+              <select className="select" value={pattern} onChange={(e) => setPattern(e.target.value as ScalePattern)}>
+                {SCALE_PATTERNS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </label>
             <TuningSelect value={tuning.id} onChange={(id) => set({ tuningId: id })} />
