@@ -6,9 +6,10 @@ the frets by up to ~80 px. Instead every fret wire was measured by hand in the
 photo and the fretboard is warped piecewise between consecutive frets, so the
 photographed fret wires land exactly on the 12-TET positions used by the 3D neck.
 The final fretboard texture is *clean*: only the pearl tree-of-life inlay is lifted
-from the photo (bright, low-saturation, wide shapes; strings and fret wires are thin
-lines and are removed by a morphological opening followed by a short constrained
-reconstruction) and composited onto a procedural dark rosewood. No strings, string
+from the photo (strings and fret wires are first painted out by interpolating across
+them, then bright low-saturation pixels form a smoothed, anti-aliased mask) and
+composited onto a procedural dark rosewood; the mask is also written separately for
+the mother-of-pearl sheen. No strings, string
 shadows, fret wires or wallpaper remain; the 3D model draws frets, binding and strings.
 
 Run: python3 scripts/build-veston-textures.py   (needs Pillow)
@@ -164,59 +165,69 @@ STRING_ROWS = [(36, 25), (80, 70), (121, 115), (163, 160), (204, 201), (242, 243
 STRING_U = (128, 1920)
 
 
-def inlay_mask(rect, edge=12, band=6, fret_px=16):
-    """Pearl inlay of the rectified fretboard photo -> (alpha mask, pearl colour image).
+def inpaint_strings_and_frets(rect, band=14, fret_band=16):
+    """Removes the photographed strings and fret wires by interpolating across them.
 
-    1. candidate pixels: bright and low-saturation (pearl), away from the binding.
-    2. strings: a band of +-band px around every photographed string is cleared; per
-       column the band is re-filled only where pearl continues on both sides of it
-       (the string crossed an inlay), its colour interpolated from above and below.
-    3. fret wires run across the board: per row, short runs (< fret_px) centred near
-       a fret column are dropped (the 3D frets sit there anyway).
-    4. specks are removed by a small opening; the edge is softened.
+    Strings run along u: every column is re-filled across a +-band px strip around each string
+    from the pixels just above and below it. Fret wires run across the board: every row is
+    re-filled across each fret column from the pixels left and right of it. Pearl crossed by a
+    string or a fret therefore stays pearl and wood stays wood, so the inlay keeps its true shape.
     """
     w, h = rect.size
-    hsv = rect.convert("HSV").load()
-    px = rect.load()
-    colour = rect.copy()
-    cp = colour.load()
-    m = [[False] * h for _ in range(w)]  # m[x][y]
+    sy = h / 256.0
+    sx = w / 2048.0
+    out = rect.copy()
+    px = out.load()
+
+    def fill(get, put, a, b):
+        top, bot = get(a - 2), get(b + 2)
+        for i in range(a, b + 1):
+            k = (i - a + 2) / (b - a + 4)
+            put(i, tuple(int(top[q] + (bot[q] - top[q]) * k) for q in range(3)))
+
     for x in range(w):
-        col = m[x]
+        t = (x / sx - STRING_U[0]) / (STRING_U[1] - STRING_U[0])
+        for r0, r1 in STRING_ROWS:
+            c = (r0 + (r1 - r0) * t) * sy
+            a, b = max(2, int(c - band)), min(h - 3, int(c + band))
+            fill(lambda y: px[x, y], lambda y, v: px.__setitem__((x, y), v), a, b)
+    grey = rect.convert("L").load()
+    for f in fret_columns(w)[1:]:
+        # the wire is the brightest column near its nominal position (median over the board height
+        # so pearl crossing it does not pull the estimate)
+        best, best_x = -1, int(f)
+        for x in range(max(0, int(f - 48)), min(w, int(f + 48))):
+            col = sorted(grey[x, y] for y in range(16, h - 16, 4))
+            m = col[len(col) // 2]
+            if m > best:
+                best, best_x = m, x
+        a, b = max(2, best_x - fret_band), min(w - 3, best_x + fret_band)
+        for y in range(h):
+            fill(lambda x: px[x, y], lambda x, v: px.__setitem__((x, y), v), a, b)
+    return out
+
+
+def inlay_mask(clean, edge=24):
+    """Pearl inlay of the string-free rectified board -> anti-aliased alpha mask.
+
+    Pearl is bright and unsaturated. The score is continuous, smoothed, then thresholded with a
+    soft ramp so the shapes get clean curved edges; an opening drops specks and dust.
+    """
+    w, h = clean.size
+    hsv = clean.convert("HSV").load()
+    score = Image.new("L", (w, h))
+    sp = score.load()
+    for x in range(w):
         for y in range(edge, h - edge):
             _, s_, v = hsv[x, y]
-            col[y] = v > 125 and s_ < 70
-        t = (x - STRING_U[0]) / (STRING_U[1] - STRING_U[0])
-        for r0, r1 in STRING_ROWS:
-            c = r0 + (r1 - r0) * t
-            a, b = max(0, int(c - band)), min(h - 1, int(c + band) + 1)
-            ya = next((y for y in range(a - 1, max(a - 7, -1), -1) if col[y]), None)
-            yb = next((y for y in range(b + 1, min(b + 7, h)) if col[y]), None)
-            for y in range(a, b + 1):
-                col[y] = False
-            if ya is not None and yb is not None:
-                # the string crossed the pearl: bridge the gap, colour from both sides
-                top, bot = px[x, max(ya - 1, 0)], px[x, min(yb + 1, h - 1)]
-                for y in range(ya + 1, yb):
-                    k = (y - ya) / (yb - ya)
-                    col[y] = True
-                    cp[x, y] = tuple(int(top[q] + (bot[q] - top[q]) * k) for q in range(3))
-    frets = fret_columns(w)
-    for y in range(h):
-        row = [m[x][y] for x in range(w)]
-        for a, b in _runs(row):
-            c = (a + b) / 2
-            if b - a < fret_px and min(abs(c - f) for f in frets) < 12:
-                for x in range(a, b):
-                    m[x][y] = False
-    mask = Image.new("L", (w, h))
-    mp = mask.load()
-    for x in range(w):
-        for y in range(h):
-            if m[x][y]:
-                mp[x, y] = 255
-    mask = mask.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5))
-    return mask.filter(ImageFilter.GaussianBlur(0.8)), colour
+            a = min(1.0, max(0.0, (v - 100) / 45.0)) * min(1.0, max(0.0, (100 - s_) / 45.0))
+            sp[x, y] = int(a * 255)
+    score = score.filter(ImageFilter.GaussianBlur(3.0))
+    ramp = lambda lo, hi: (lambda v: 0 if v <= lo else 255 if v >= hi else int((v - lo) * 255 / (hi - lo)))
+    mask = score.point(ramp(96, 150))
+    mask = mask.filter(ImageFilter.MinFilter(9)).filter(ImageFilter.MaxFilter(9))
+    mask = mask.filter(ImageFilter.GaussianBlur(2.0)).point(ramp(100, 156))
+    return mask.filter(ImageFilter.GaussianBlur(0.9))
 
 
 def rosewood(w, h, seed=7):
@@ -241,15 +252,17 @@ def rosewood(w, h, seed=7):
     return out
 
 
-def build_clean_fretboard(img):
-    rect = build_fretboard(img)
-    alpha, pearl = inlay_mask(rect)
-    pearl = pearl.filter(ImageFilter.MedianFilter(3))
-    pearl = Image.blend(pearl, Image.new("RGB", rect.size, (226, 228, 222)), 0.2)
+def build_clean_fretboard(img, out_w=4096, out_h=512):
+    rect = build_fretboard(img, out_w, out_h)
+    clean = inpaint_strings_and_frets(rect)
+    alpha = inlay_mask(clean)
+    # pearl: the photo's own shimmer, de-noised and lifted towards white
+    pearl = clean.filter(ImageFilter.MedianFilter(5)).filter(ImageFilter.GaussianBlur(0.8))
+    pearl = Image.blend(pearl, Image.new("RGB", rect.size, (230, 232, 228)), 0.3)
     wood = rosewood(*rect.size)
     # thin dark cut line around the inlay
-    rim = alpha.filter(ImageFilter.MaxFilter(3))
-    wood = Image.composite(Image.new("RGB", rect.size, (20, 16, 15)), wood, rim.point(lambda v: v // 2))
+    rim = alpha.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(1.0))
+    wood = Image.composite(Image.new("RGB", rect.size, (18, 14, 13)), wood, rim.point(lambda v: v * 3 // 5))
     return Image.composite(pearl, wood, alpha), alpha
 
 
@@ -257,7 +270,9 @@ def main():
     img = Image.open(SRC).convert("RGB")
     OUT.mkdir(parents=True, exist_ok=True)
     clean, alpha = build_clean_fretboard(img)
-    clean.save(OUT / "fretboard.jpg", quality=86, optimize=True, progressive=True)
+    clean.save(OUT / "fretboard.jpg", quality=85, optimize=True, progressive=True)
+    # inlay mask (drives the mother-of-pearl sheen in the 3D material), half resolution
+    alpha.resize((alpha.width // 2, alpha.height // 2), Image.LANCZOS).save(OUT / "fretboard-inlay.png", optimize=True)
     head, meta = build_headstock(img)
     head.save(OUT / "headstock.jpg", quality=90)
     meta["photoFret"] = PHOTO_FRET
