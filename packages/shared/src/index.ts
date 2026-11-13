@@ -43,4 +43,27 @@ export interface FretNote {
   technique?: 'hammer' | 'pull' | 'slide' | 'bend' | 'harmonic';
 }
 
+/** What a practice session was spent on. */
+export type SessionKind = 'tab' | 'lesson' | 'routine' | 'chords' | 'scales';
+
+/** One practice session (`GET/POST /api/sessions`). */
+export interface PracticeSession {
+  id: string;
+  kind: SessionKind;
+  /** Tab id, lesson id or routine id. */
+  refId?: string;
+  title: string;
+  /** ISO times. */
+  startedAt: string;
+  endedAt: string;
+  /** Active practice time in seconds (playing / listening / routine timer). */
+  seconds: number;
+  /** Best playback speed that was played cleanly (1 = 100 %). */
+  bestCleanSpeed?: number;
+  /** Best listen-mode pass accuracy, 0..100. */
+  accuracy?: number;
+}
+
+export type NewPracticeSession = Omit<PracticeSession, 'id'>;
+
 export * from './guitar';

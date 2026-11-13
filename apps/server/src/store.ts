@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, GuitarProfile, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AppSettings, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -8,7 +8,11 @@ interface DbShape {
   progress: Record<string, TabProgress>;
   guitars: Record<string, GuitarProfile>;
   settings: AppSettings;
+  sessions: PracticeSession[];
 }
+
+/** Oldest sessions are dropped beyond this many. */
+export const MAX_SESSIONS = 20000;
 
 export class Store {
   readonly tabsDir: string;
@@ -29,6 +33,7 @@ export class Store {
       progress: loaded.progress ?? {},
       guitars: loaded.guitars ?? {},
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...loaded.settings },
+      sessions: loaded.sessions ?? [],
     };
   }
 
@@ -82,6 +87,19 @@ export class Store {
     this.db.progress[p.tabId] = p;
     this.save();
     return p;
+  }
+
+  // ---- practice sessions ------------------------------------------------------------------
+
+  listSessions() {
+    return [...this.db.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }
+
+  addSession(s: PracticeSession) {
+    this.db.sessions.push(s);
+    if (this.db.sessions.length > MAX_SESSIONS) this.db.sessions.splice(0, this.db.sessions.length - MAX_SESSIONS);
+    this.save();
+    return s;
   }
 
   // ---- guitars ----------------------------------------------------------------------------

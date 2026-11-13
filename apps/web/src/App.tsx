@@ -1,6 +1,12 @@
 import { AppShell } from './screens/AppShell';
+import { ChordsScreen } from './screens/chords/ChordsScreen';
 import { GuitarScreen } from './screens/guitar/GuitarScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
+import { ScalesScreen } from './screens/scales/ScalesScreen';
+import { TunerScreen } from './screens/tuner/TunerScreen';
+import { ProgressScreen } from './screens/progress/ProgressScreen';
+import { RoutineBar } from './screens/routines/RoutineBar';
+import { RoutinesScreen } from './screens/routines/RoutinesScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
 import { ToastProvider, TooltipProvider } from './ui/kit';
@@ -22,8 +28,14 @@ export function App() {
             {route.name === 'library' && <LibraryScreen />}
             {route.name === 'guitar' && <GuitarScreen />}
             {route.name === 'settings' && <SettingsScreen />}
+            {route.name === 'chords' && <ChordsScreen />}
+            {route.name === 'scales' && <ScalesScreen />}
+            {route.name === 'tuner' && <TunerScreen />}
+            {route.name === 'routines' && <RoutinesScreen />}
+            {route.name === 'progress' && <ProgressScreen />}
           </AppShell>
         )}
+        <RoutineBar route={route} />
       </ToastProvider>
     </TooltipProvider>
   );

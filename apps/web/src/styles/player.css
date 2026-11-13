@@ -1009,3 +1009,192 @@
     animation: none;
   }
 }
+
+/* ---------- Capo / tuning control ---------- */
+.stage-capo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.stage-capo:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.stage-capo.is-on {
+  color: var(--accent);
+}
+.stage-capo:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.stage-capo-tuning {
+  color: #a3a6ad;
+}
+.capo-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 280px;
+}
+
+/* ---------- Automatic tempo ladder ---------- */
+.ladder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.ladder-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ladder-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.ladder-status-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.ladder-now {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+}
+.ladder-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.ladder-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease);
+}
+
+/* ---------- Listen-mode feedback sheet ---------- */
+.fb-open {
+  align-self: flex-start;
+  margin-bottom: var(--sp-3);
+}
+.fb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.fb-stats {
+  grid-template-columns: 1fr 1fr;
+}
+.fb-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: var(--fs-md);
+}
+.fb-kinds li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.fb-kinds b {
+  font-weight: var(--fw-semibold);
+}
+.fb-kinds small {
+  color: var(--text-3);
+}
+.fb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+}
+.fb-dot.is-clean,
+.fb-bar-track .is-clean {
+  background: var(--fill);
+}
+.fb-dot.is-missed,
+.fb-bar-track .is-missed {
+  background: var(--danger);
+}
+.fb-dot.is-early,
+.fb-bar-track .is-early {
+  background: var(--accent);
+}
+.fb-dot.is-late,
+.fb-bar-track .is-late {
+  background: #8fa3c7;
+}
+.fb-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.fb-bar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 32px 1fr 44px;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.fb-bar:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.fb-bar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.fb-bar.is-worst .fb-bar-no,
+.fb-bar.is-worst .fb-bar-acc {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+.fb-bar-track {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fb-bar-track > span {
+  flex-basis: 0;
+  min-width: 4px;
+}
+.fb-bar-acc {
+  text-align: right;
+}

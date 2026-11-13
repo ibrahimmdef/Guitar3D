@@ -10,6 +10,10 @@ describe('router', () => {
     expect(parseRoute('#/nope')).toEqual({ name: 'library' });
     expect(parseRoute('#/guitar')).toEqual({ name: 'guitar' });
     expect(parseRoute('#/settings')).toEqual({ name: 'settings' });
+    for (const name of ['chords', 'scales', 'tuner', 'routines', 'progress'] as const) {
+      expect(parseRoute(`#/${name}`)).toEqual({ name });
+      expect(routeHref({ name })).toBe(`#/${name}`);
+    }
   });
 
   it('parses tabs and lessons, keeping #/play/demo as the warm-up lesson', () => {
