@@ -1,16 +1,36 @@
 import type { ReactNode } from 'react';
-import { Activity, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, Settings } from 'lucide-react';
-import { routeHref, type Route } from '../ui/router';
+import { Activity, Drum, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, Settings } from 'lucide-react';
+import { routeHref, type Route, type SimpleRouteName } from '../ui/router';
 
-const NAV: { route: Route; label: string; icon: ReactNode }[] = [
-  { route: { name: 'library' }, label: 'Kütüphane', icon: <Library size={18} /> },
-  { route: { name: 'chords' }, label: 'Akorlar', icon: <Grid3x3 size={18} /> },
-  { route: { name: 'scales' }, label: 'Gamlar', icon: <Music2 size={18} /> },
-  { route: { name: 'tuner' }, label: 'Akort', icon: <Gauge size={18} /> },
-  { route: { name: 'routines' }, label: 'Rutinler', icon: <ListChecks size={18} /> },
-  { route: { name: 'progress' }, label: 'İlerleme', icon: <Activity size={18} /> },
-  { route: { name: 'guitar' }, label: 'Gitarım', icon: <Guitar size={18} /> },
-  { route: { name: 'settings' }, label: 'Ayarlar', icon: <Settings size={18} /> },
+export interface NavEntry { route: SimpleRouteName; label: string; icon: ReactNode }
+export interface NavGroup { label: string; items: NavEntry[] }
+
+/** Left navigation, grouped. On phones the first PRIMARY entries form the bottom bar. */
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Çal',
+    items: [
+      { route: 'library', label: 'Kütüphane', icon: <Library size={18} /> },
+      { route: 'rhythm', label: 'Ritim', icon: <Drum size={18} /> },
+      { route: 'routines', label: 'Rutinler', icon: <ListChecks size={18} /> },
+      { route: 'progress', label: 'İlerleme', icon: <Activity size={18} /> },
+    ],
+  },
+  {
+    label: 'Öğren',
+    items: [
+      { route: 'chords', label: 'Akorlar', icon: <Grid3x3 size={18} /> },
+      { route: 'scales', label: 'Gamlar', icon: <Music2 size={18} /> },
+    ],
+  },
+  {
+    label: 'Araçlar',
+    items: [
+      { route: 'tuner', label: 'Akort', icon: <Gauge size={18} /> },
+      { route: 'guitar', label: 'Gitarım', icon: <Guitar size={18} /> },
+      { route: 'settings', label: 'Ayarlar', icon: <Settings size={18} /> },
+    ],
+  },
 ];
 
 /** Shell for the non-player screens: sidebar on wide screens, bottom tab bar on phones. */
@@ -27,19 +47,24 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
           </span>
           <span className="brand-name">Guitar3D</span>
         </a>
-        <ul className="nav-list">
-          {NAV.map((n) => {
-            const active = n.route.name === route.name;
-            return (
-              <li key={n.route.name}>
-                <a className={`nav-item${active ? ' active' : ''}`} href={routeHref(n.route)} aria-current={active ? 'page' : undefined}>
-                  <span aria-hidden className="nav-ic">{n.icon}</span>
-                  <span>{n.label}</span>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
+        {NAV_GROUPS.map((g) => (
+          <div className="nav-group" key={g.label}>
+            <h2 className="nav-group-label">{g.label}</h2>
+            <ul className="nav-list">
+              {g.items.map((n) => {
+                const active = n.route === route.name;
+                return (
+                  <li key={n.route}>
+                    <a className={`nav-item${active ? ' active' : ''}`} href={routeHref({ name: n.route })} aria-current={active ? 'page' : undefined}>
+                      <span aria-hidden className="nav-ic">{n.icon}</span>
+                      <span>{n.label}</span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
       <main className="shell-main">{children}</main>
     </div>
