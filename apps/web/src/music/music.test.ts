@@ -209,6 +209,10 @@ describe('tuner math', () => {
     const dropD = readTuner(73.42, getTuning('drop-d'))!;
     expect(dropD).toMatchObject({ string: 6, targetName: 'D2', direction: 'ok' });
     expect(readTuner(0)).toBeNull();
+    // Pinned to string 5 while playing near E2: far too low for A2.
+    expect(readTuner(82.4, STANDARD, 0, 440, 5)).toMatchObject({ string: 5, targetName: 'A2', direction: 'up' });
+    // Capo 2 moves the targets up.
+    expect(readTuner(92.5, STANDARD, 2)).toMatchObject({ string: 6, targetName: 'F#2', direction: 'ok' });
   });
   it('median and needle', () => {
     expect(median([1, 100, 3])).toBe(3);

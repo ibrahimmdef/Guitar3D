@@ -324,3 +324,140 @@
     flex: 1 0 64px;
   }
 }
+
+/* ---------- Tuner ---------- */
+.tuner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  min-height: 320px;
+  padding: var(--sp-6);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+.tuner-gauge {
+  width: min(360px, 100%);
+  height: auto;
+}
+.tg-arc {
+  fill: none;
+  stroke: var(--surface-3);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.tg-zone {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 10;
+  opacity: 0.5;
+}
+.tg-tick {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+}
+.tg-needle {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.tg-needle-g {
+  transition: transform 120ms var(--ease);
+}
+.tg-hub {
+  fill: var(--accent);
+}
+.tuner.is-ok .tg-needle,
+.tuner.is-ok .tg-hub {
+  stroke: var(--success);
+  fill: var(--success);
+}
+.tuner.is-ok .tg-zone {
+  opacity: 1;
+}
+.tuner.is-idle .tg-needle-g {
+  opacity: 0.3;
+}
+.tuner-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.tuner-name {
+  font-size: 56px;
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.tuner.is-ok .tuner-name {
+  color: var(--success);
+}
+.tuner-sub {
+  min-height: 1.5em;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+}
+.tuner-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: var(--fw-medium);
+}
+.tuner.is-ok .tuner-dir {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.tuner-strings {
+  list-style: none;
+  margin: var(--sp-2) 0 var(--sp-2);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.tuner-string {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--sp-2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.tuner-string:hover {
+  background: var(--surface-3);
+}
+.tuner-string.is-active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.tuner-string.is-pinned {
+  border-color: var(--accent);
+}
+.tuner-string:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.ts-num {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.ts-name {
+  font-weight: var(--fw-semibold);
+}
+.ts-state {
+  display: inline-flex;
+  color: var(--text-3);
+}
