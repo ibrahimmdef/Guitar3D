@@ -12,16 +12,16 @@ Method
 2. Guitar axis: straight line through the nut centre and the saddle centre.
 3. Perspective: the photo is taken from above the neck, so the body is further
    from the camera than the headstock. Along the axis the plane projects with a
-   1-D homography a(u) = A u / (C u + 1), u = distance from the nut in units of the
-   scale length. A and C are fitted to the 20 fret wires (12-TET positions). The
-   saddle predicted at u = 1 is compared with the photographed saddle: this is
-   the scale-length check (nut->12th fret must be half of nut->saddle).
+   1-D homography a(u) = a0 + A u / (C u + 1), u = distance from the nut in units of
+   the scale length. a0, A and C are fitted to the 20 fret wires (12-TET positions),
+   so the 12th fret is at half the scale by construction.
 4. Across the axis the magnification is D / (C u + 1); D comes from the rosette,
    which is a circle: its vertical radius (through the homography) must equal its
    horizontal radius.
 5. The top plate outline follows the cream binding: near the shoulders the camera
    also sees the side band above the binding, which is cut away.
-6. Everything is scaled so tip of headstock -> end of body = 106.7 cm (42").
+6. Everything is scaled so tip of headstock -> end of body = 106.7 cm (42"), with the
+   headstock length taken from the neck close-up (headstock.json).
 
 Run: python3 scripts/measure-veston.py [--debug out.png]   (needs Pillow only)
 """
@@ -94,27 +94,39 @@ class Frame:
         return lerp(NUT[0], SADDLE[0], t)
 
     def fit_homography(self):
-        """a(u) = A u / (C u + 1) through the 12th fret and the saddle (nut fixed at a = 0).
+        """a(u) = a0 + A u / (C u + 1), least squares over the 20 fret wires.
 
-        A least-squares fit to all 20 frets extrapolates badly to the saddle (the frets only
-        cover u <= 0.69), so the two well-separated anchors are used and the other frets are
-        reported as residuals.
+        a0 absorbs the error of the hand-picked nut edge (a few px). Earlier versions pinned
+        the curve to the 12th fret and the photographed saddle; that left systematic fret
+        residuals of up to 4.7 px and, together with a foreshortened headstock, produced an
+        implausible 68.5 cm scale. The saddle is now only reported: it lies beyond the frets
+        (u = 1 vs u <= 0.69), ~0.6 cm above their plane, and is not used as an anchor.
         """
-        a12 = self.along(self.axis_x(FRET_Y[11]), FRET_Y[11])
-        a_s, u_s = self.saddle_a, 1 + SADDLE_COMPENSATION
-        # A = 2 a12 (0.5 C + 1) = a_s (u_s C + 1) / u_s
-        self.C = (2 * a12 - a_s / u_s) / (a_s - a12)
-        self.A = 2 * a12 * (0.5 * self.C + 1)
-        self.fret_residuals = []
-        for n, y in enumerate(FRET_Y, start=1):
-            u = 1 - 2 ** (-n / 12)
-            self.fret_residuals.append(round(self.along(self.axis_x(y), y) - self.a_of_u(u), 1))
+        pts = [(1 - 2 ** (-n / 12), self.along(self.axis_x(y), y)) for n, y in enumerate(FRET_Y, start=1)]
+
+        def lsq(a0):
+            # (a - a0) = A u - C (a - a0) u
+            q = [(u, a - a0) for u, a in pts]
+            s11 = sum(u * u for u, _ in q)
+            s12 = sum(-u * a * u for u, a in q)
+            s22 = sum((a * u) ** 2 for u, a in q)
+            b1 = sum(u * a for u, a in q)
+            b2 = sum(-a * u * a for u, a in q)
+            det = s11 * s22 - s12 * s12
+            A, C = (b1 * s22 - b2 * s12) / det, (s11 * b2 - s12 * b1) / det
+            err = sum((a - A * u / (C * u + 1)) ** 2 for u, a in q)
+            return err, A, C
+
+        best = min(((*lsq(k / 4), k / 4) for k in range(-40, 41)), key=lambda t: t[0])
+        err, self.A, self.C, self.a0 = best
+        self.fret_rms = math.sqrt(err / len(pts))
+        self.fret_residuals = [round(a - self.a_of_u(u), 1) for u, a in pts]
 
     def a_of_u(self, u):
-        return self.A * u / (self.C * u + 1)
+        return self.a0 + self.A * u / (self.C * u + 1)
 
     def u_of_a(self, a):
-        return a / (self.A - self.C * a)
+        return (a - self.a0) / (self.A - self.C * (a - self.a0))
 
     def fit_rosette(self, img):
         """Outer edge of the rosette on rays from its centre (rays crossing strings skipped);
@@ -268,12 +280,8 @@ def main():
     img = Image.open(SRC).convert("RGB")
     fr = Frame(img)
 
-    # scale-length check
-    saddle_pred = fr.a_of_u(1.0)
-    a12 = fr.a_of_u(0.5)
-    print(f"homography A={fr.A:.1f} C={fr.C:.4f}; fret residuals px: {fr.fret_residuals}")
-    print(f"saddle along axis: photo {fr.saddle_a:.1f} px, predicted from frets {saddle_pred:.1f} px")
-    print(f"nut->12th in photo {a12:.1f} px vs 12th->saddle {fr.saddle_a - a12:.1f} px (perspective)")
+    print(f"homography a0={fr.a0:.2f} px A={fr.A:.1f} C={fr.C:.4f}; fret rms {fr.fret_rms:.2f} px, "
+          f"residuals px: {fr.fret_residuals}")
 
     sil = silhouette(img)
     plate = plate_mask(img, sil, fr)
@@ -281,16 +289,29 @@ def main():
     left = [fr.to_units(l, y) for y, l, r in rows]
     right = [fr.to_units(r, y) for y, l, r in rows]
 
+    head = json.loads((OUT / "headstock.json").read_text())
     u_tip = fr.u_of_a(fr.along(fr.axis_x(HEADSTOCK_TIP_Y), HEADSTOCK_TIP_Y))
     u_bottom = max(p[0] for p in left + right)
-    # The headstock is tilted back, the photo shows its projection: length * cos(angle)
-    # relative to the fretboard plane, which the plane homography maps correctly.
-    L = TOTAL_LENGTH_CM / (u_bottom - u_tip)
+    # Scale length. total = headstock * cos(angle) + (nut -> end of body), the second term being
+    # u_bottom scale lengths. The headstock length comes from the neck close-up (headstock.json,
+    # tied to the 4.3 cm nut): in this photo the headstock leans back out of the fretboard plane and
+    # is seen from below, so the plane homography shortens it by far more than cos(angle).
+    head_len = head["length"]
+    head_proj = head_len * math.cos(math.radians(HEADSTOCK_ANGLE_DEG))
+    L = (TOTAL_LENGTH_CM - head_proj) / u_bottom
+    L_old = TOTAL_LENGTH_CM / (u_bottom - u_tip)
     sil_bottom = max(fr.to_units(x, y)[0] for x, y in [(fr.axis_x(y), y) for y in range(1500, 1700)
                                                         if sil.getpixel((int(fr.axis_x(y)), y))])
-    print(f"scale length from 42\" total: {L:.2f} cm; headstock (projected) {-u_tip * L:.2f} cm")
-    print(f"saddle check: photographed saddle at {fr.u_of_a(fr.saddle_a) * L:.2f} cm from the nut "
-          f"(compensation makes it a few mm longer than the scale)")
+    u_saddle = fr.u_of_a(fr.saddle_a)
+    print(f"scale length from 42\" total: {L:.2f} cm (headstock {head_len:.2f} cm from the close-up, "
+          f"{head_proj:.2f} cm projected; the tip seen in this photo would give {-u_tip * L:.2f} cm "
+          f"and a {L_old:.2f} cm scale)")
+    print(f"checks: 12th fret {L / 2:.2f} cm, 14th fret {L * (1 - 2 ** (-14 / 12)):.2f} cm, body starts at "
+          f"{min(p[0] for p in left + right) * L:.2f} cm, body ends at {u_bottom * L:.2f} cm, "
+          f"total {head_proj + u_bottom * L:.2f} cm")
+    print(f"photographed saddle extrapolates to {u_saddle * L:.2f} cm from the nut "
+          f"({(u_saddle - 1) * L:+.2f} cm vs the scale: compensation ~0.25 cm, parallax of the raised "
+          f"saddle ~0.3 cm, the rest is extrapolation error beyond the last fret)")
 
     # guitar frame: x = -u*L (body towards negative x), y = v*L
     outline = [(-u * L, v * L) for u, v in left] + [(-u * L, v * L) for u, v in reversed(right)]
@@ -331,7 +352,10 @@ def main():
     b_right = fr.to_units(bx1, (by0 + by1) / 2)
     b_top = fr.to_units(fr.axis_x(by0), by0)
     b_bot = fr.to_units(fr.axis_x(by1), by1)
-    bridge = {"x": round(-(b_top[0] + b_bot[0]) / 2 * L, 2),
+    # the bridge is placed around the modelled saddle (x = -L), keeping the photographed offset
+    # between the saddle and the middle of the bridge
+    bridge_offset = ((b_top[0] + b_bot[0]) / 2 - u_saddle) * L
+    bridge = {"x": round(-L * (1 + SADDLE_COMPENSATION) - bridge_offset, 2),
               "widthCm": round(abs(b_left[1] - b_right[1]) * L, 2),
               "lengthCm": round((b_bot[0] - b_top[0]) * L, 2)}
 
@@ -352,10 +376,7 @@ def main():
     nut_w = abs(fb_nut[0][1] - fb_nut[1][1]) * L
     w14 = abs(fb_14[0][1] - fb_14[1][1]) * L
 
-    head = json.loads((OUT / "headstock.json").read_text())
-    # the profile from the neck close-up, rescaled to the projected tip measured here
-    head_len = -u_tip * L / math.cos(math.radians(HEADSTOCK_ANGLE_DEG))
-    k = head_len / head["length"]
+    k = 1.0  # headstock.json is already in centimetres
 
     report = {
         "scaleLengthCm": round(L, 2),
@@ -412,7 +433,8 @@ def main():
             "rosette": "/guitar/rosette.png",
         },
         "source": "Measured from assets/photos/front-full.jpg by scripts/measure-veston.py "
-                  "(perspective-corrected with the fret positions, scaled to 42\" = 106.7 cm).",
+                  "(perspective fitted to the 20 fret wires, headstock from the neck close-up, "
+                  "scaled to 42\" = 106.7 cm).",
     }
     (OUT / "veston.profile.json").write_text(json.dumps(profile, indent=1))
     build_rosette(img, fr)
