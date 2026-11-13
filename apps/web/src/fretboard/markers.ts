@@ -126,20 +126,34 @@ export function moveArrows(current: FretNote[], upcoming: FretNote[][], maxRank 
   return out;
 }
 
-/** Point on a quadratic Bézier from `a` to `b` bulging by `bulge` (perpendicular in xy, plus a lift in z). */
-export function arcPoint(a: [number, number, number], b: [number, number, number], t: number, bulge: number): [number, number, number] {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy) || 1;
-  const c: [number, number, number] = [(a[0] + b[0]) / 2 + (-dy / len) * bulge, (a[1] + b[1]) / 2 + (dx / len) * bulge, (a[2] + b[2]) / 2 + Math.abs(bulge) * 0.8];
-  const u = 1 - t;
-  return [0, 1, 2].map((k) => u * u * a[k] + 2 * u * t * c[k] + t * t * b[k]) as [number, number, number];
+type V3 = [number, number, number];
+
+/** Height (cm) of the hop between two notes: higher for longer jumps, never flat. */
+export function hopHeight(a: V3, b: V3) {
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return Math.min(2.6, 0.9 + d * 0.15);
 }
 
-/** Opacity of an arrow by rank, rising a little as the current beat nears its end. */
+/** Point of a hop from `a` to `b`: straight across, lifted along `up` by a parabola peaking at t = 0.5. */
+export function hopPoint(a: V3, b: V3, t: number, up: V3, height: number): V3 {
+  const h = 4 * t * (1 - t) * height;
+  return [a[0] + (b[0] - a[0]) * t + up[0] * h, a[1] + (b[1] - a[1]) * t + up[1] * h, a[2] + (b[2] - a[2]) * t + up[2] * h];
+}
+
+/**
+ * Where the hopping bubble is during a beat: it waits on the current note for the first part of the
+ * beat, then jumps and lands on the next note exactly when that note is due (progress 1).
+ */
+export function hopT(progress: number, start = 0.42) {
+  const k = Math.min(1, Math.max(0, (progress - start) / (1 - start)));
+  // a jump decelerates going up and speeds up coming down: ease-in-out in time
+  return k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);
+}
+
+/** Opacity of a hop path by rank, rising a little as the current beat nears its end. */
 export function arrowOpacity(rank: number, progress: number) {
   const p = Math.min(1, Math.max(0, progress || 0));
-  return rank === 0 ? 0.6 + 0.35 * p : rank === 1 ? 0.32 + 0.15 * p : 0.18;
+  return rank === 0 ? 0.7 + 0.3 * p : rank === 1 ? 0.22 + 0.1 * p : 0.12;
 }
 
 /** Label of a marker: the finger (T = thumb) when the tab gives one, else the fret. */
