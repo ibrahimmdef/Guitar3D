@@ -22,6 +22,14 @@ export interface Settings {
   stageZoom: number;
   /** Player layout: guitar neck large, or tab strip large. */
   focus: 'neck' | 'tab';
+  /** The user's guitar tuning (music/tunings.ts id): tuner target, scale and note names. */
+  tuningId: string;
+  /** Tempo ladder: start %, target %, clean passes per step. */
+  ladderStart: number;
+  ladderTarget: number;
+  ladderPasses: number;
+  /** Listen-mode accuracy (%) that counts as a clean pass. */
+  ladderCleanAccuracy: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +46,11 @@ export const DEFAULT_SETTINGS: Settings = {
   showFretNumbers: true,
   stageZoom: 1,
   focus: 'neck',
+  tuningId: 'standard',
+  ladderStart: 0.6,
+  ladderTarget: 1,
+  ladderPasses: 3,
+  ladderCleanAccuracy: 90,
 };
 
 const KEY = 'guitar3d.settings.v1';

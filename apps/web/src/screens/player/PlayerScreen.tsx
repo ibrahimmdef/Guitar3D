@@ -5,14 +5,19 @@ import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
+import { getTuning, withCapo } from '../../music/tunings';
+import { useSessionRecorder } from '../../player/useSessionRecorder';
+import { useRun } from '../routines/routineStore';
+import { useTabSetup } from '../../player/tabSetup';
+import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
-import { Coach, type Ladder } from '../../ui/Coach';
+import { Coach } from '../../ui/Coach';
+import { LadderPanel } from '../../ui/LadderPanel';
 import { ErrorBoundary } from '../../ui/ErrorBoundary';
 import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
-import { ladderAfter } from '../../ui/practiceFlow';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
 import { markPlayed, useSettings } from '../../ui/settings';
 import { useHotkeys, zoomDelta } from '../../ui/shortcuts';
@@ -20,6 +25,8 @@ import { ShortcutList } from '../../ui/ShortcutList';
 import { fetchTabFile, listTabs } from '../data';
 import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
+import { CapoControl } from './CapoControl';
+import { FeedbackSheet } from './FeedbackSheet';
 import { CueStrip } from './CueStrip';
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
@@ -49,9 +56,17 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const [muted, setMuted] = useState(false);
   const [loop, setLoop] = useState<[number, number] | null>(null);
   const [abPending, setAbPending] = useState<number | null>(null);
-  const [ladder, setLadder] = useState<Ladder>({ speed: 1, clean: 0, target: 1 });
+  const [ladder, setLadder] = useState<LadderState>(() => startLadder({ start: 1, target: 1, passes: 3 }));
+  const [autoLadder, setAutoLadder] = useState(false);
+  const ladderRef = useRef(ladder);
+  ladderRef.current = ladder;
+  const applyPassRef = useRef<(r: 'clean' | 'miss') => void>(() => {});
   const [listening, setListening] = useState(false);
+  const [lastPass, setLastPass] = useState<PassSummary | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [countValue, setCountValue] = useState<number | null>(null);
+
+  const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
 
   const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus } = settings;
   const fs = useFullscreen(useCallback(() => root.current, []));
@@ -97,7 +112,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     if (!report) return;
     setLoop(null);
     setAbPending(null);
-    setLadder({ speed: report.suggestedStartSpeed, clean: 0, target: 1 });
+    setLadder(startLadder({ start: report.suggestedStartSpeed, target: settings.ladderTarget, passes: settings.ladderPasses }));
+    setAutoLadder(false);
     setSpeed(settings.defaultSpeed);
     // Only on a new score; settings changes should not reset the session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,6 +138,37 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   useEffect(() => {
     if (state.ready && state.track) setProgram(program);
   }, [program, state.ready, state.track, setProgram]);
+  /* ---------- Capo and tuning ---------- */
+  // What the file says, captured before we change the staves.
+  const origin = useMemo(() => {
+    const st = state.track?.staves[0];
+    return st ? { capo: st.capo ?? 0, tuning: [...st.stringTuning.tunings] } : null;
+  }, [state.track]);
+  const capo = setup.capo ?? origin?.capo ?? 0;
+  const tuningOverride = setup.tuningId && origin && getTuning(setup.tuningId).midi.length === origin.tuning.length ? setup.tuningId : '';
+  useEffect(() => {
+    const a = api.current;
+    const t = state.track;
+    if (!a || !t || !origin) return;
+    const tuning = tuningOverride ? getTuning(tuningOverride).midi : origin.tuning;
+    let changed = false;
+    for (const st of t.staves) {
+      if (st.capo !== capo) {
+        st.capo = capo;
+        changed = true;
+      }
+      const cur = st.stringTuning.tunings;
+      if (cur.length === tuning.length && tuning.some((m, i) => m !== cur[i])) {
+        st.stringTuning.tunings = [...tuning];
+        changed = true;
+      }
+    }
+    // Regenerating the MIDI applies the new pitches (and stops playback).
+    if (changed) a.loadMidiForScore();
+  }, [capo, tuningOverride, origin, api, state.track]);
+  const stageNotes = useMemo(() => withCapo(state.notes, capo), [state.notes, capo]);
+  const stageUpcoming = useMemo(() => (capo ? state.upcoming.map((b) => withCapo(b, capo)) : state.upcoming), [state.upcoming, capo]);
+
   useEffect(() => {
     setTabScale(focus === 'tab' ? 1.6 : 0.95);
   }, [focus, setTabScale, state.score]);
@@ -180,15 +227,29 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     if (countValue != null && state.tick > countStart.current + 30) setCountValue(null);
   }, [state.tick, countValue]);
 
+  const autoRef = useRef(autoLadder);
+  autoRef.current = autoLadder;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  /* ---------- Session recording ---------- */
+  const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
+  // A running routine records its own time, so the player does not count it twice.
+  const routineRunning = !!useRun();
+  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle, disabled: routineRunning });
+
   /* ---------- Listen and wait ---------- */
   const onPass = useCallback((p: PassSummary) => {
     if (p.hits === 0) return;
-    toast({
-      tone: p.accuracy >= 90 ? 'success' : 'info',
-      title: `Tur bitti: %${p.accuracy} ilk denemede`,
-      description: `${p.hits} notanın ${p.firstTry} tanesi ilk seferde doğruydu.`,
-    });
-  }, [toast]);
+    recorder.noteAccuracy(p.accuracy);
+    setLastPass(p);
+    if (autoRef.current) {
+      // The ladder drives the loop; the summary stays one click away in the practice drawer.
+      applyPassRef.current(passResult(p.accuracy, settingsRef.current.ladderCleanAccuracy));
+      return;
+    }
+    setFeedbackOpen(true);
+  }, [recorder]);
   const pause = useCallback(() => api.current?.pause(), [api]);
   const listen = useListenMode({ enabled: listening, beat: state.beat, track: state.track, loop, seekBeat, pause, onPass });
   useEffect(() => {
@@ -247,24 +308,37 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     }).catch(() => {});
   }, [tabId, loop]);
 
-  const onClean = useCallback(() => {
-    const { leveledUp, ...next } = ladderAfter(ladder, 'clean');
+  /** One pass through the loop, judged clean or missed (buttons or listen-mode accuracy). */
+  const applyPass = useCallback((result: 'clean' | 'miss') => {
+    const cur = ladderRef.current;
+    const { state: next, event } = ladderStep(cur, result);
     setLadder(next);
-    if (next.clean !== 0) return;
-    setSpeed(next.speed);
-    saveProgress(ladder.speed);
-    toast({
-      tone: 'success',
-      title: leveledUp ? `Üç temiz tur! Hız %${Math.round(next.speed * 100)} oldu.` : 'Hedef hıza ulaştın.',
-      description: leveledUp ? 'Aynı bölümü yeni hızda dene.' : 'Bu bölüm tamam. Haritadan sıradaki zor ölçüyü seç.',
-    });
-  }, [ladder, saveProgress, toast]);
+    if (result === 'clean') recorder.noteClean(cur.speed);
+    if (event === 'up' || event === 'down') setSpeed(next.speed);
+    const pct = `%${Math.round(next.speed * 100)}`;
+    if (event === 'up') {
+      saveProgress(cur.speed);
+      toast({ tone: 'success', title: `${cur.passes} temiz tur! Hız ${pct} oldu.`, description: 'Aynı bölümü yeni hızda dene.' });
+    } else if (event === 'target') {
+      saveProgress(cur.speed);
+      toast({ tone: 'success', title: 'Hedef hıza ulaştın.', description: 'Bu bölüm tamam. Haritadan sıradaki zor ölçüyü seç.' });
+    } else if (event === 'down' && autoRef.current) {
+      toast({ tone: 'info', title: `Hız ${pct} oldu`, description: 'Bir tur takıldı; biraz yavaşlayıp tekrar dene.' });
+    }
+  }, [recorder, saveProgress, toast]);
+  applyPassRef.current = applyPass;
+  const onClean = useCallback(() => applyPass('clean'), [applyPass]);
+  const onStuck = useCallback(() => applyPass('miss'), [applyPass]);
 
-  const onStuck = useCallback(() => {
-    const { leveledUp: _l, ...next } = ladderAfter(ladder, 'stuck');
-    setSpeed(next.speed);
-    setLadder(next);
-  }, [ladder]);
+  const restartLadder = useCallback((cfg: { start: number; target: number; passes: number }) => {
+    const l = startLadder(cfg);
+    setLadder(l);
+    setSpeed(l.speed);
+  }, []);
+  const toggleAutoLadder = useCallback((on: boolean) => {
+    setAutoLadder(on);
+    if (on) restartLadder({ start: settings.ladderStart, target: settings.ladderTarget, passes: settings.ladderPasses });
+  }, [restartLadder, settings.ladderStart, settings.ladderTarget, settings.ladderPasses]);
 
   const pickBar = useCallback((bar: number) => {
     setAbPending(null);
@@ -389,10 +463,10 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           >
             <StageGuitar
               className="stage-canvas"
-              notes={state.notes}
+              notes={stageNotes}
               beatId={state.beatId}
               beatProgress={state.beatProgress}
-              upcoming={state.upcoming}
+              upcoming={stageUpcoming}
               zoom={stageZoom}
               showFretNumbers={showFretNumbers}
               view={view}
@@ -411,6 +485,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
                 </span>
               )}
               {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
+              {capo > 0 && <span className="hud-chip hud-capo num">Kapo {capo}. perde</span>}
+              {tuningOverride && tuningOverride !== 'standard' && <span className="hud-chip">{getTuning(tuningOverride).label}</span>}
               {!state.playing && state.timeMs > 500 && <span className="hud-chip">Duraklatıldı</span>}
             </div>
           )}
@@ -425,6 +501,15 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
               fullscreen={fs.on}
               fullscreenSupported={fs.supported}
               onFullscreen={fs.toggle}
+              extra={origin ? (
+                <CapoControl
+                  capo={capo}
+                  onCapo={(c) => setSetup({ capo: c })}
+                  tuningId={tuningOverride}
+                  onTuning={(id) => setSetup({ tuningId: id })}
+                  tabTuning={origin.tuning}
+                />
+              ) : null}
             />
           )}
 
@@ -455,6 +540,21 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         </main>
 
         <Drawer open={showPractice} onClose={togglePractice} title="Çalış" shortcut="P" className="practice-drawer">
+          {lastPass && (
+            <Button size="sm" variant="ghost" className="fb-open" onClick={() => setFeedbackOpen(true)}>
+              Son tur özeti · %{lastPass.accuracy}
+            </Button>
+          )}
+          {report && (
+            <LadderPanel
+              auto={autoLadder}
+              onAuto={toggleAutoLadder}
+              onRestart={restartLadder}
+              ladder={ladder}
+              listening={listening}
+              hasLoop={!!loop}
+            />
+          )}
           <Coach
             report={report}
             currentBar={state.currentBar}
@@ -522,6 +622,20 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         onListen={setListening}
         practiceOpen={showPractice}
         onPractice={togglePractice}
+      />
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        pass={lastPass}
+        onRetry={() => setFeedbackOpen(false)}
+        onLoop={(r) => {
+          setFeedbackOpen(false);
+          setAbPending(null);
+          setLoop(r);
+          setSpeed(ladderRef.current.speed);
+          seekBar(r[0]);
+        }}
       />
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Klavye kısayolları" description="Her şeyi klavyeden de yapabilirsin.">

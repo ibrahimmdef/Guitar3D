@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react';
-import { Guitar, Library, Settings } from 'lucide-react';
+import { Activity, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, Settings } from 'lucide-react';
 import { routeHref, type Route } from '../ui/router';
 
 const NAV: { route: Route; label: string; icon: ReactNode }[] = [
   { route: { name: 'library' }, label: 'Kütüphane', icon: <Library size={18} /> },
+  { route: { name: 'chords' }, label: 'Akorlar', icon: <Grid3x3 size={18} /> },
+  { route: { name: 'scales' }, label: 'Gamlar', icon: <Music2 size={18} /> },
+  { route: { name: 'tuner' }, label: 'Akort', icon: <Gauge size={18} /> },
+  { route: { name: 'routines' }, label: 'Rutinler', icon: <ListChecks size={18} /> },
+  { route: { name: 'progress' }, label: 'İlerleme', icon: <Activity size={18} /> },
   { route: { name: 'guitar' }, label: 'Gitarım', icon: <Guitar size={18} /> },
   { route: { name: 'settings' }, label: 'Ayarlar', icon: <Settings size={18} /> },
 ];

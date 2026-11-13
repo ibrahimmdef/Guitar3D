@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import type { TabFormat, TabMeta, TabProgress } from '@guitar3d/shared';
 import { Store } from './store.js';
 import { guitarsRouter } from './guitars.js';
+import { sessionsRouter } from './sessions.js';
 import { extractTabInfo } from './tabInfo.js';
 
 /** Upload extension → stored format. Text formats (.atex/.tex) hold alphaTex. */
@@ -159,6 +160,7 @@ export function createApp(store: Store) {
   });
 
   app.use('/api', guitarsRouter(store));
+  app.use('/api', sessionsRouter(store));
 
   return app;
 }

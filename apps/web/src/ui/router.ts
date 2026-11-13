@@ -3,15 +3,18 @@ import { useEffect, useState } from 'react';
 /**
  * Tiny hash router:
  *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
+ *   #/chords · #/scales · #/tuner · #/routines · #/progress
  * `#/play/demo` is kept as an alias of the warm-up lesson.
  */
 export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
 
 export type Route =
-  | { name: 'library' }
   | { name: 'player'; source: PlaySource }
-  | { name: 'guitar' }
-  | { name: 'settings' };
+  | { name: SimpleRouteName };
+
+/** Routes without parameters (the left navigation). */
+export type SimpleRouteName = 'library' | 'guitar' | 'settings' | 'chords' | 'scales' | 'tuner' | 'routines' | 'progress';
+const SIMPLE: SimpleRouteName[] = ['library', 'guitar', 'settings', 'chords', 'scales', 'tuner', 'routines', 'progress'];
 
 export const DEMO_LESSON_ID = 'warmup';
 
@@ -23,12 +26,8 @@ export function parseRoute(hash: string): Route {
       return !id || id === 'demo' ? { name: 'player', source: { kind: 'lesson', id: DEMO_LESSON_ID } } : { name: 'player', source: { kind: 'tab', id } };
     case 'lesson':
       return { name: 'player', source: { kind: 'lesson', id: id || DEMO_LESSON_ID } };
-    case 'guitar':
-      return { name: 'guitar' };
-    case 'settings':
-      return { name: 'settings' };
     default:
-      return { name: 'library' };
+      return { name: SIMPLE.includes(parts[0] as SimpleRouteName) ? (parts[0] as SimpleRouteName) : 'library' };
   }
 }
 
@@ -44,12 +43,8 @@ export function routeHref(r: Route): string {
   switch (r.name) {
     case 'player':
       return `#/${r.source.kind === 'lesson' ? 'lesson' : 'play'}/${encodeURIComponent(r.source.id)}`;
-    case 'guitar':
-      return '#/guitar';
-    case 'settings':
-      return '#/settings';
     default:
-      return '#/library';
+      return `#/${r.name}`;
   }
 }
 

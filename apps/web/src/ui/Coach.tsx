@@ -10,6 +10,8 @@ export interface Ladder {
   speed: number;
   clean: number;
   target: number;
+  /** Clean passes needed per step (default 3). */
+  passes?: number;
 }
 
 interface Props {
@@ -81,15 +83,15 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
             <>
               <h3 id="flow-title" className="flow-title-row">
                 <span><Repeat size={15} aria-hidden /> Tur bitince işaretle</span>
-                <span className="ladder-dots" role="img" aria-label={`${ladder.clean} / 3 temiz tur`}>
-                  {[0, 1, 2].map((i) => <span key={i} className={i < ladder.clean ? 'on' : ''} />)}
+                <span className="ladder-dots" role="img" aria-label={`${ladder.clean} / ${ladder.passes ?? 3} temiz tur`}>
+                  {Array.from({ length: ladder.passes ?? 3 }, (_, i) => i).map((i) => <span key={i} className={i < ladder.clean ? 'on' : ''} />)}
                 </span>
               </h3>
               <div className="ladder-actions">
                 <Button variant="secondary" icon={<RotateCcw size={15} />} onClick={onStuck}>Takıldım</Button>
                 <Button variant="primary" icon={<Check size={15} />} onClick={onClean}>Temiz çaldım</Button>
               </div>
-              <p className="subtle small">Üst üste 3 temiz turda hız %5 artar · şu an %{Math.round(ladder.speed * 100)}, hedef %{Math.round(ladder.target * 100)}</p>
+              <p className="subtle small">Üst üste {ladder.passes ?? 3} temiz turda hız %5 artar · şu an %{Math.round(ladder.speed * 100)}, hedef %{Math.round(ladder.target * 100)}</p>
             </>
           )}
         </div>
