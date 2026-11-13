@@ -147,3 +147,30 @@ export function firstOctave(notes: NeckNote[]): NeckNote[] {
   if (!first) return sorted;
   return sorted.filter((n, i) => n.midi >= first.midi && n.midi <= first.midi + 12 && (i === 0 || n.midi !== sorted[i - 1].midi));
 }
+
+export type ScalePattern = 'updown' | 'thirds' | 'threes' | 'fours';
+
+export const SCALE_PATTERNS: { id: ScalePattern; label: string }[] = [
+  { id: 'updown', label: 'Çıkıcı ve inici' },
+  { id: 'thirds', label: 'Üçlü aralıklar' },
+  { id: 'threes', label: '3\'lü gruplar' },
+  { id: 'fours', label: '4\'lü gruplar' },
+];
+
+/** Practice sequence over the given notes: plain up/down, diatonic thirds, or groups of 3/4, up then down. */
+export function scaleExercise(notes: NeckNote[], pattern: ScalePattern): NeckNote[] {
+  const up = [...notes].sort((a, b) => a.midi - b.midi || b.string - a.string).filter((n, i, a) => i === 0 || n.midi !== a[i - 1].midi);
+  if (pattern === 'updown' || up.length < 4) return ascendDescend(notes);
+  const down = [...up].reverse();
+  const walk = (seq: NeckNote[]) => {
+    const out: NeckNote[] = [];
+    if (pattern === 'thirds') {
+      for (let i = 0; i + 2 < seq.length; i++) out.push(seq[i], seq[i + 2]);
+    } else {
+      const size = pattern === 'threes' ? 3 : 4;
+      for (let i = 0; i + size <= seq.length; i++) out.push(...seq.slice(i, i + size));
+    }
+    return out;
+  };
+  return [...walk(up), ...walk(down), up[0]];
+}
