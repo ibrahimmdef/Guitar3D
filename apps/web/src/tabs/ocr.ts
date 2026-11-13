@@ -9,7 +9,7 @@
  *
  * tesseract.js is loaded on first use; its worker, core and English model come from its CDN.
  */
-import { analyzeTabImage, binarize, fixZeros, layoutToAscii, type Bitmap, type TabToken } from './tabImage';
+import { analyzeTabImage, binarize, fixPullOff, fixZeros, layoutToAscii, zeroLike, type Bitmap, type TabToken } from './tabImage';
 
 /** Characters that may appear in an ASCII tab. */
 const WHITELIST = '0123456789-|hpbrsx/\\~()<>EADGBe:=*. ';
@@ -142,28 +142,52 @@ export async function ocrImage(image: Blob, onProgress?: (p: number) => void): P
       await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, tessedit_char_whitelist: GLYPHS });
       const { data } = await worker.recognize(sheet.canvas, {}, { blocks: true, text: true });
       const texts = tokens.map(() => '');
+      const conf = tokens.map(() => 100);
       // Assign every recognised character by its own box: a "word" can span several cells.
       const symbols = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words.flatMap((w) => w.symbols))));
       for (const sy of symbols) {
         const mx = (sy.bbox.x0 + sy.bbox.x1) / 2;
         const my = (sy.bbox.y0 + sy.bbox.y1) / 2;
         const i = sheet.cells.findIndex((c) => mx >= c.x0 && mx < c.x1 && my >= c.y0 && my < c.y1);
-        if (i >= 0) texts[i] += sy.text;
+        if (i >= 0) {
+          texts[i] += sy.text;
+          conf[i] = Math.min(conf[i], sy.confidence);
+        }
       }
       // Re-read on its own every cell the sparse pass missed or read with the wrong length
       // (stray characters, merged neighbours); a lone glyph that stays unreadable gets its centre
       // cleared once, which turns a dotted / slashed zero into a plain 0.
       const digits = (t: string) => t.replace(/[^0-9]/g, '').length;
-      const suspect = texts.map((t, i) => (!t || digits(t) > tokens[i].pieces ? i : -1)).filter((i) => i >= 0).slice(0, 60);
+      // …and every cell read with low confidence: alone it usually reads clearly, junk stays unsure.
+      const suspect = texts.map((t, i) => (!t || digits(t) > tokens[i].pieces || conf[i] < 50 ? i : -1)).filter((i) => i >= 0).slice(0, 250);
       for (const i of suspect) {
         const t = tokens[i];
         await worker.setParameters({ tessedit_pageseg_mode: t.pieces > 1 ? PSM.SINGLE_WORD : PSM.SINGLE_CHAR });
-        let out = (await worker.recognize(tokenCanvas(clean, t, sheet.scale, false))).data.text.trim();
-        if ((!out || digits(out) > t.pieces) && t.pieces === 1) out = (await worker.recognize(tokenCanvas(clean, t, sheet.scale, true))).data.text.trim();
-        texts[i] = out;
+        let r = (await worker.recognize(tokenCanvas(clean, t, sheet.scale, false))).data;
+        if ((!r.text.trim() || digits(r.text) > t.pieces) && t.pieces === 1) r = (await worker.recognize(tokenCanvas(clean, t, sheet.scale, true))).data;
+        // keep the sparse reading when the single read is not better
+        const tooLong = digits(texts[i]) > t.pieces;
+        if (r.text.trim() && (r.confidence >= conf[i] || !texts[i] || (tooLong && digits(r.text) <= t.pieces))) {
+          texts[i] = r.text.trim();
+          conf[i] = r.confidence;
+        } else if (!r.text.trim() && !texts[i]) conf[i] = 0;
       }
-      // OCR often misreads dotted / slashed zeros; check them by shape.
-      texts.forEach((t, i) => (texts[i] = fixZeros(clean, tokens[i], t)));
+      // OCR often misreads dotted / slashed zeros; check them by shape. Then drop what is not a fret
+      // number: very unsure readings (clef letters, rests, flags) and tokens without a digit ("b", "h").
+      texts.forEach((t, i) => {
+        const fixed = fixPullOff(clean, tokens[i], fixZeros(clean, tokens[i], t));
+        if (!/[0-9x]/.test(fixed)) {
+          texts[i] = '';
+          return;
+        }
+        // Real fret numbers read with confidence ≥ ~55 (zeros, often touched by ties, from ~30); flags and
+        // clef letters read as other digits stay well below.
+        const zeros = /^0+$/.test(fixed);
+        // digit-letter-digit (5h7, 7p5, 7/9) almost never comes out of junk, but reads with low confidence
+        const technique = /^\d+[hpbr/\\~]\d+$/.test(fixed);
+        const sure = zeros ? conf[i] >= 30 || zeroLike(clean, tokens[i]) : technique ? conf[i] >= 15 : conf[i] >= 50;
+        texts[i] = sure ? fixed : '';
+      });
       const text = layoutToAscii(systems, texts);
       if (text.trim()) return { text, mode: 'layout', systems: systems.length };
     }

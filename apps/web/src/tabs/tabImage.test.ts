@@ -136,3 +136,16 @@ describe('zero check by shape', () => {
     expect(fixZeros(bm, box(100, 111), '6')).toBe('6');
   });
 });
+
+describe('pull-off letter', () => {
+  it('turns a low middle glyph between digits into p', async () => {
+    const { fixPullOff } = await import('./tabImage');
+    const { bm, rect } = sheet(80, 40);
+    rect(5, 5, 14, 24); // digit
+    rect(20, 12, 28, 30); // p: starts low, descends
+    rect(34, 5, 43, 24); // digit
+    expect(fixPullOff(bm, { x0: 5, x1: 43, y0: 5, y1: 30 }, '795')).toBe('7p5');
+    rect(20, 5, 28, 24); // same height as the digits → keep
+    expect(fixPullOff(bm, { x0: 5, x1: 43, y0: 5, y1: 30 }, '7h5')).toBe('7h5');
+  });
+});

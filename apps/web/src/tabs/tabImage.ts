@@ -297,15 +297,20 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
     const box: Box = { x0: 0, x1: w - 1, y0: Math.max(0, Math.floor(sys.rows[0] - s * 0.9)), y1: Math.min(h - 1, Math.ceil(sys.rows[5] + s * 0.9)) };
     // Vertical strokes taller than a line gap (bar lines, a playback cursor, stems) are no digit:
     // erase them so they cannot glue a chord column together; full-height ones are bar candidates.
+    // Erased pixels are remembered: a stem often continues a digit's side, and the digit is put
+    // back together below.
+    const bandH = s * 0.47;
     const vr2 = verticalRuns(bm);
     const yTop = Math.round(sys.rows[0]);
     const yBot = Math.round(sys.rows[5]);
     const cover = new Uint16Array(w);
+    const erasedV = new Uint8Array(w * h);
     for (let y = box.y0; y <= box.y1; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
-        if (bm.data[i] && vr2[i] > s * 1.3) {
+        if (bm.data[i] && vr2[i] > s * 1.02) {
           bm.data[i] = 0;
+          erasedV[i] = 1;
           if (y >= yTop && y <= yBot) cover[x]++;
         }
       }
@@ -323,7 +328,8 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
     }
     // 1. erase string lines: thin pixels in a band around each row that belong to long horizontal runs.
     const band = Math.max(2, Math.ceil(thin / 2) + 1);
-    const longRun = Math.max(6, Math.round(s * 0.75));
+    // Even short pieces of string line (between two close digits, "1-0") must go, or they glue digits together.
+    const longRun = Math.max(4, Math.round(s * 0.22));
     for (const ry of sys.rows) {
       for (let y = Math.max(0, Math.round(ry) - band); y <= Math.min(h - 1, Math.round(ry) + band); y++) {
         let x = 0;
@@ -340,12 +346,41 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
       }
     }
 
+    // Fret numbers sit on the strings: keep only a band around each string line, which cuts ties and
+    // slurs off the digits and drops triplet marks, stems and text above / below the staff.
+    const inBand = (y: number) => sys.rows.some((r) => Math.abs(y - r) <= bandH);
+    for (let y = box.y0; y <= box.y1; y++) if (!inBand(y)) bm.data.fill(0, y * w, y * w + w);
+
     // 2. glyphs around the system.
     const raw = components(bm, box).filter((c) => c.area >= 4);
     // Dotted zeros (DejaVu, Consolas…): a small mark inside another glyph's hole is dropped, or OCR reads 0 as 6/8.
     const inner = raw.filter((c) => raw.some((d) => d !== c && d.x0 < c.x0 && d.x1 > c.x1 && d.y0 < c.y0 && d.y1 > c.y1 && c.area < d.area * 0.35));
     for (const c of inner) for (let y = c.y0; y <= c.y1; y++) bm.data.fill(0, y * w + c.x0, y * w + c.x1 + 1);
-    const comps = mergeStacked(raw.filter((c) => !inner.includes(c)), Math.max(2, Math.min(thin + 2, Math.round(s * 0.15))), s * 0.95);
+    let comps = mergeStacked(raw.filter((c) => !inner.includes(c)), Math.max(2, Math.min(thin + 2, Math.round(s * 0.15))), s * 0.95);
+    // A digit split by an erased stem (its side was part of the stroke): re-join the halves and put
+    // the stroke back inside the digit.
+    const strokeBetween = (a: Comp, b: Comp) => {
+      for (let x = a.x1 + 1; x < b.x0; x++) {
+        for (let y = Math.max(a.y0, b.y0); y <= Math.min(a.y1, b.y1); y++) if (erasedV[y * w + x]) return true;
+      }
+      return false;
+    };
+    comps.sort((p, q) => p.x0 - q.x0);
+    for (let i = 0; i < comps.length; i++) {
+      for (let j = i + 1; j < comps.length; j++) {
+        const a = comps[i];
+        const b = comps[j];
+        if (b.x0 - a.x1 > Math.max(4, s * 0.15)) break;
+        const vOverlap = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+        if (vOverlap < Math.min(a.y1 - a.y0, b.y1 - b.y0) * 0.6 || !strokeBetween(a, b)) continue;
+        const m: Comp = { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1), area: a.area + b.area };
+        if (m.y1 - m.y0 + 1 > s * 0.95) continue;
+        for (let y = m.y0; y <= m.y1; y++) for (let x = m.x0; x <= m.x1; x++) if (erasedV[y * w + x]) bm.data[y * w + x] = 1;
+        comps[i] = m;
+        comps.splice(j, 1);
+        j = i;
+      }
+    }
     const nearestRow = (cy: number) => {
       let best = 0;
       for (let r = 1; r < 6; r++) if (Math.abs(sys.rows[r] - cy) < Math.abs(sys.rows[best] - cy)) best = r;
@@ -366,33 +401,49 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
         continue;
       }
       if (ch < s * 0.3 || ch > s * 1.15) continue; // dashes, specks, big clef / time signature glyphs
+      if (cw > ch * 1.5 && cw > s * 0.6) continue; // leftovers of beams / ties: wider than any digit
       const row = nearestRow(cy);
-      if (Math.abs(sys.rows[row] - cy) > s * 0.32) continue; // stems, beams, text between strings
+      // Fret numbers are centred on their string; clef letters, time signatures, rests, flags and
+      // text sit between strings.
+      if (Math.abs(sys.rows[row] - cy) > s * 0.2) continue;
       if (cw <= Math.max(3, s * 0.16) && ch >= s * 0.5) pipes.push({ cx, row, c });
       else glyphs.push({ ...c, row });
     }
     // `|` characters stacked over ≥ 4 strings form an ASCII bar line; lone ones are glyphs (a "1").
     pipes.sort((a, b) => a.cx - b.cx);
     const used = new Set<number>();
+    const pipeBars: number[] = [];
     for (let i = 0; i < pipes.length; i++) {
       if (used.has(i)) continue;
       const group = [i];
       for (let j = i + 1; j < pipes.length && pipes[j].cx - pipes[i].cx <= s * 0.3; j++) group.push(j);
       const rowsHit = new Set(group.map((k) => pipes[k].row));
-      if (rowsHit.size >= 4) {
-        bars.push(median(group.map((k) => pipes[k].cx)));
+      const bx = median(group.map((k) => pipes[k].cx));
+      if (rowsHit.size >= 4 && !glyphs.some((g) => g.x0 - s * 0.08 <= bx && g.x1 + s * 0.08 >= bx)) {
+        bars.push(bx);
+        // A drawn bar line cut by the string bands also looks like stacked "|": only ASCII ones count here.
+        if (!vLines.some((v) => Math.abs(v - bx) < s * 0.5)) pipeBars.push(bx);
         group.forEach((k) => used.add(k));
       }
     }
     // A real bar line never touches a fret number; a cursor drawn through one does (and was cut out of it).
-    const nearGlyph = (cx: number) => [...glyphs, ...pipes.map((p) => p.c)].some((g) => g.x0 - s * 0.25 <= cx && g.x1 + s * 0.25 >= cx);
-    for (const cx of vLines) if (!nearGlyph(cx)) bars.push(cx);
+    const nearGlyph = (cx: number) => [...glyphs, ...pipes.map((p) => p.c)].some((g) => g.x0 - s * 0.08 <= cx && g.x1 + s * 0.08 >= cx);
+    // A note stem drawn through the whole staff continues below it; a bar line stops at the last string.
+    const tailBelow = (cx: number) => {
+      const x = Math.round(cx);
+      let n = 0;
+      const y0 = Math.round(sys.rows[5] + s * 0.3);
+      const y1 = Math.min(h - 1, Math.round(sys.rows[5] + s * 0.8));
+      for (let y = y0; y <= y1; y++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && x + dx < w && lm.data[y * w + x + dx]) { n++; break; }
+      return n > (y1 - y0 + 1) * 0.7;
+    };
+    for (const cx of vLines) if (!nearGlyph(cx) && !tailBelow(cx)) bars.push(cx);
     // Faint drawn bar lines (only in the low-contrast map): columns covering the whole system.
     if (src.lines) {
       const covered = (x: number) => {
         let n = 0;
         for (let y = yTop; y <= yBot; y++) n += src.lines![y * w + x];
-        return n >= (yBot - yTop + 1) * 0.92;
+        return n >= (yBot - yTop + 1) * 0.85;
       };
       for (let x = 0; x < w; ) {
         if (!covered(x)) {
@@ -403,22 +454,39 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
         while (e < w && covered(e)) e++;
         const cx = (x + e - 1) / 2;
         const throughGlyph = nearGlyph(cx);
-        if (e - x <= Math.max(3, s * 0.2) && !throughGlyph && !bars.some((b) => Math.abs(b - cx) < s * 0.5)) bars.push(cx);
+        if (e - x <= Math.max(3, s * 0.2) && !throughGlyph && !tailBelow(cx) && !bars.some((b) => Math.abs(b - cx) < s * 0.5)) bars.push(cx);
         x = e;
       }
     }
     bars.sort((a, b) => a - b);
     // Lone `|` next to a bar line is that bar drawn a character off on one string, not a "1".
-    pipes.forEach((p, i) => !used.has(i) && !bars.some((b) => Math.abs(b - p.cx) <= s * 0.8) && glyphs.push({ ...p.c, row: p.row }));
+    // A lone thin stroke cut by the band edges is a piece of a stem, not a "1".
+    const cutByBand = (p: { row: number; c: Comp }) => p.c.y0 <= sys.rows[p.row] - bandH + 1 || p.c.y1 >= sys.rows[p.row] + bandH - 1;
+    pipes.forEach((p, i) => !used.has(i) && !bars.some((b) => Math.abs(b - p.cx) <= s * 0.8) && !cutByBand(p) && glyphs.push({ ...p.c, row: p.row }));
     const dedupBars = bars.filter((b, i) => i === 0 || b - bars[i - 1] > s * 0.5);
 
-    // Fret numbers share one size; much taller glyphs are time signatures, clefs or titles.
-    const typicalH = median(glyphs.map((g) => g.y1 - g.y0 + 1));
-    for (let i = glyphs.length - 1; i >= 0; i--) if (glyphs[i].y1 - glyphs[i].y0 + 1 > typicalH * 1.5) glyphs.splice(i, 1);
+    // Fret numbers share one size: much taller glyphs are time signatures, clefs or titles, much
+    // smaller ones are crumbs of stems, beams or ties. (The size is taken from digit-sized glyphs only.)
+    const typicalH = median(glyphs.map((g) => g.y1 - g.y0 + 1).filter((hh) => hh >= s * 0.45)) || median(glyphs.map((g) => g.y1 - g.y0 + 1));
+    for (let i = glyphs.length - 1; i >= 0; i--) {
+      const gh = glyphs[i].y1 - glyphs[i].y0 + 1;
+      if (gh > typicalH * 1.5 || gh < typicalH * 0.6) glyphs.splice(i, 1);
+    }
 
     // 3. string labels (e B G D A E) sit just left of the first bar line.
     const firstBar = dedupBars[0];
-    const kept = firstBar == null ? glyphs : glyphs.filter((g) => !(g.x1 < firstBar && firstBar - g.x1 <= s * 1.6));
+    let kept = firstBar == null ? glyphs : glyphs.filter((g) => !(g.x1 < firstBar && firstBar - g.x1 <= s * 1.6));
+    // Drawn tab (not ASCII): a system opening with a bar line at the left end of the strings is
+    // followed by the "TAB" clef, never by a note; drop what is in the clef's place.
+    if (firstBar != null && !pipeBars.some((b) => Math.abs(b - firstBar) < s * 0.5)) {
+      // The strings do not continue left of a system's opening bar line.
+      let ink = 0;
+      let n = 0;
+      for (let x = Math.max(0, Math.round(firstBar - s * 1.5)); x <= Math.round(firstBar - s * 0.3); x++, n++) {
+        if (sys.rows.some((r) => lm.data[Math.round(r) * w + x] || lm.data[Math.min(h - 1, Math.round(r) + 1) * w + x])) ink++;
+      }
+      if (n > 0 && ink < n * 0.3) kept = kept.filter((g) => g.x0 > firstBar + s * 1.5);
+    }
 
     // 4. merge neighbours on the same string into tokens.
     const tokens: TabToken[] = [];
@@ -605,5 +673,19 @@ export function fixZeros(bm: Bitmap, token: Box, text: string): string {
   if (!glyphs.length) return text;
   if (!chars.length) return glyphs.length === 1 && zeroLike(bm, glyphs[0]) ? '0' : text;
   if (chars.length !== glyphs.length) return chars.join('');
-  return chars.map((c, i) => (/[0-9]/.test(c) && c !== '0' && zeroLike(bm, glyphs[i]) ? '0' : c)).join('');
+  // Only the digits OCR confuses with a dotted / slashed zero are replaced.
+  return chars.map((c, i) => (/[689]/.test(c) && zeroLike(bm, glyphs[i]) ? '0' : c)).join('');
+}
+
+/**
+ * "7p5" read as "795": between two digits a glyph that starts clearly lower than the digits (an
+ * x-height letter with a descender) is a pull-off 'p', whatever OCR made of it.
+ */
+export function fixPullOff(bm: Bitmap, token: Box, text: string): string {
+  const glyphs = splitGlyphs(bm, token);
+  const chars = [...text];
+  if (glyphs.length !== 3 || chars.length !== 3 || !/\d/.test(chars[0]) || !/\d/.test(chars[2]) || chars[1] === 'p') return text;
+  const top = Math.min(glyphs[0].y0, glyphs[2].y0);
+  const hgt = Math.max(glyphs[0].y1, glyphs[2].y1) - top + 1;
+  return glyphs[1].y0 > top + hgt * 0.25 ? `${chars[0]}p${chars[2]}` : text;
 }
