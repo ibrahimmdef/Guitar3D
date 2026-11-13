@@ -70,9 +70,10 @@ const FALLBACK: (LessonMeta & { tex: string })[] = [
 ];
 
 const LEVEL_ALIASES: Record<string, LessonLevel> = {
-  beginner: 'beginner', basic: 'beginner', easy: 'beginner', 'başlangıç': 'beginner', baslangic: 'beginner', '1': 'beginner',
-  intermediate: 'intermediate', medium: 'intermediate', orta: 'intermediate', '2': 'intermediate',
-  advanced: 'advanced', hard: 'advanced', 'ileri': 'advanced', '3': 'advanced',
+  // Built-in lessons use a 1–5 scale: 1–2 beginner, 3 intermediate, 4–5 advanced.
+  beginner: 'beginner', basic: 'beginner', easy: 'beginner', 'başlangıç': 'beginner', baslangic: 'beginner', '1': 'beginner', '2': 'beginner',
+  intermediate: 'intermediate', medium: 'intermediate', orta: 'intermediate', '3': 'intermediate',
+  advanced: 'advanced', hard: 'advanced', 'ileri': 'advanced', '4': 'advanced', '5': 'advanced',
 };
 
 export function normalizeLevel(v: unknown): LessonLevel {
