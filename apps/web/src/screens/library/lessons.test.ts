@@ -5,7 +5,10 @@ describe('lessons', () => {
   it('normalises levels from several spellings', () => {
     expect(normalizeLevel('Başlangıç')).toBe('beginner');
     expect(normalizeLevel('medium')).toBe('intermediate');
-    expect(normalizeLevel(3)).toBe('advanced');
+    // Built-in lessons use 1–5: 1–2 beginner, 3 intermediate, 4–5 advanced.
+    expect(normalizeLevel(2)).toBe('beginner');
+    expect(normalizeLevel(3)).toBe('intermediate');
+    expect(normalizeLevel(5)).toBe('advanced');
     expect(normalizeLevel(undefined)).toBe('beginner');
   });
 
