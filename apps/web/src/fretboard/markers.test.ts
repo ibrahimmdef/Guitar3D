@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { FretNote, GuitarProfile } from '@guitar3d/shared';
 import {
-  currentNotes, ghostOpacity, markerDiameter, markerLabel, moveGuides, popScale, upcomingFade, upcomingMarkers,
+  currentNotes, ghostOpacity, markerDiameter, markerLabel, moveArrows, moveGuides, arcPoint, arrowOpacity, popScale, upcomingFade, upcomingMarkers,
 } from './markers';
 import { cameraFraming, clampZoom, followWindow } from './camera';
 import { fretX, guitarXRange } from './geometry';
@@ -104,5 +104,37 @@ describe('camera framing', () => {
     const halfW = f.distance * Math.tan((15 * Math.PI) / 180) * (16 / 9);
     expect(f.target[0] - halfW).toBeLessThan(fretX(profile.scaleLengthCm, profile.fretCount));
     expect(f.target[0] + halfW).toBeGreaterThan(0);
+  });
+});
+
+describe('moveArrows', () => {
+  const n = (string: number, fret: number, extra: Partial<FretNote> = {}): FretNote => ({ string, fret, state: 'now', ...extra });
+  it('connects single notes, on one string or across strings, and chains upcoming beats', () => {
+    const arrows = moveArrows([n(2, 3)], [[n(2, 7)], [n(3, 5)], [n(3, 9)]]);
+    expect(arrows).toEqual([
+      { from: { string: 2, fret: 3 }, to: { string: 2, fret: 7 }, rank: 0 },
+      { from: { string: 2, fret: 7 }, to: { string: 3, fret: 5 }, rank: 1 },
+    ]);
+  });
+  it('between chords only connects strings whose fret changes', () => {
+    const c = [n(1, 0), n(2, 1), n(3, 0)];
+    const g = [n(1, 3), n(2, 0), n(3, 0)];
+    expect(moveArrows(c, [g]).map((a) => a.from.string)).toEqual([1, 2]);
+  });
+  it('skips repeats, rests and muted notes', () => {
+    expect(moveArrows([n(1, 5)], [[n(1, 5)]])).toEqual([]);
+    expect(moveArrows([], [[n(1, 5)]])).toEqual([]);
+    expect(moveArrows([n(1, 5)], [[n(1, 7, { muted: true })]])).toEqual([]);
+  });
+  it('arc starts and ends on the notes and bulges in between', () => {
+    const a: [number, number, number] = [0, 0, 1];
+    const b: [number, number, number] = [-10, 0, 1];
+    expect(arcPoint(a, b, 0, 1)).toEqual(a);
+    expect(arcPoint(a, b, 1, 1)).toEqual(b);
+    expect(arcPoint(a, b, 0.5, 1)[2]).toBeGreaterThan(1);
+  });
+  it('nearest arrow is the most visible', () => {
+    expect(arrowOpacity(0, 0)).toBeGreaterThan(arrowOpacity(1, 0));
+    expect(arrowOpacity(0, 1)).toBeGreaterThan(arrowOpacity(0, 0));
   });
 });

@@ -13,7 +13,7 @@ import type { FretNote, GuitarProfile } from '@guitar3d/shared';
 import { FB_TOP, fretboardWidth, fretX, noteX, stringY, stringZ } from './geometry';
 import { ACCENT, labelTexture, NEXT_OUTLINE } from './materials';
 import {
-  currentNotes, ghostOpacity, GHOST_TIME, markerDiameter, markerLabel, moveGuides, noteKey, popRing, popScale,
+  currentNotes, ghostOpacity, GHOST_TIME, markerDiameter, markerLabel, moveArrows, arcPoint, arrowOpacity, noteKey, popRing, popScale,
   screenConstantSize, upcomingFade, upcomingMarkers, type UpcomingMarker,
 } from './markers';
 
@@ -279,6 +279,174 @@ function Ribbon({ pts, width, color, opacity, dash = 0 }: { pts: [number, number
   return <mesh geometry={geometry} material={mat} renderOrder={8} />;
 }
 
+/* ------------------------------------------------------------------ move arrows */
+
+type V3 = [number, number, number];
+
+/** Curved shaft plus a flat arrowhead, trimmed so both ends stay clear of the bubbles. */
+function arrowGeometry(a: V3, b: V3, bulge: number, width: number, clear: number) {
+  const chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const t0 = Math.min(0.4, clear / Math.max(chord, 1e-3));
+  const t1 = 1 - Math.min(0.4, clear / Math.max(chord, 1e-3));
+  const head = Math.min(1.0, chord * 0.3);
+  const headT = Math.max(t0 + 0.02, t1 - head / Math.max(chord, 1e-3));
+  const shaft: V3[] = [];
+  for (let i = 0; i <= 16; i++) shaft.push(arcPoint(a, b, t0 + ((headT - t0) * i) / 16, bulge));
+  const { geometry, length } = ribbonGeometry(shaft, width);
+  // Arrowhead: a triangle from the shaft end to the tip, along the curve's direction.
+  const base = shaft[shaft.length - 1];
+  const tip = arcPoint(a, b, t1, bulge);
+  const dx = tip[0] - base[0];
+  const dy = tip[1] - base[1];
+  const l = Math.hypot(dx, dy) || 1;
+  const hw = Math.max(width * 2.6, 0.48);
+  const nx = (-dy / l) * hw;
+  const ny = (dx / l) * hw;
+  const pos = Array.from(geometry.getAttribute('position').array as Float32Array);
+  const sAttr = Array.from(geometry.getAttribute('aS').array as Float32Array);
+  const idx = Array.from(geometry.getIndex()!.array as ArrayLike<number>);
+  const k = pos.length / 3;
+  pos.push(base[0] + nx, base[1] + ny, base[2], base[0] - nx, base[1] - ny, base[2], tip[0], tip[1], tip[2]);
+  sAttr.push(length, length, length + l);
+  idx.push(k, k + 1, k + 2);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aS', new THREE.Float32BufferAttribute(sAttr, 1));
+  g.setIndex(idx);
+  geometry.dispose();
+  return g;
+}
+
+const arrowFragment = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform float uLen;
+uniform float uHead;
+uniform float uTime;
+uniform float uFlow;
+varying float vS;
+void main() {
+  float a = uOpacity;
+  // fade in from the note it leaves, so the arrow reads as "from here → to there"
+  a *= 0.25 + 0.75 * smoothstep(0.0, max(0.6, uHead * 0.6), vS);
+  if (uFlow > 0.0 && vS < uHead) {
+    // dashes streaming towards the head
+    float f = fract((vS - uTime * 2.4) / 0.85);
+    a *= mix(0.45, 1.0, smoothstep(0.0, 0.12, f) * (1.0 - smoothstep(0.5, 0.62, f)));
+  }
+  if (a < 0.004) discard;
+  gl_FragColor = vec4(uColor, a);
+  #include <colorspace_fragment>
+}`;
+
+const arrowMat = (color: string, flow: boolean, head: number) => new THREE.ShaderMaterial({
+  vertexShader: lineVertex,
+  fragmentShader: arrowFragment,
+  uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 1 }, uLen: { value: 1 }, uHead: { value: head }, uTime: { value: 0 }, uFlow: { value: flow ? 1 : 0 } },
+  transparent: true,
+  depthWrite: false,
+  depthTest: false,
+  toneMapped: false,
+  side: THREE.DoubleSide,
+});
+
+const bulgeFor = (a: V3, b: V3) => Math.min(0.9, Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.14);
+/** World-space gap kept between an arrow end and the bubble centre. */
+const CLEAR = 0.95;
+
+/** Curved arrow from one note to the next; the nearest one streams towards its target. */
+function MoveArrow({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progress: number }) {
+  const sig = [...a, ...b].map((v) => v.toFixed(2)).join(',');
+  const width = rank === 0 ? 0.2 : 0.13;
+  const built = useMemo(() => {
+    const bulge = bulgeFor(a, b);
+    const main = arrowGeometry(a, b, bulge, width, CLEAR);
+    const shadow = arrowGeometry(a, b, bulge, width * 2.3, CLEAR - 0.06);
+    const head = (main.getAttribute('aS').array as Float32Array).at(-3) ?? 0;
+    return { main, shadow, head };
+  }, [sig, width]); // eslint-disable-line react-hooks/exhaustive-deps
+  const mat = useMemo(() => arrowMat(rank === 0 ? ACCENT : NEXT_OUTLINE, rank === 0, built.head), [rank, built.head]);
+  const shadowMat = useMemo(() => arrowMat('#050506', false, built.head), [built.head]);
+  const op = arrowOpacity(rank, progress);
+  mat.uniforms.uOpacity.value = op;
+  shadowMat.uniforms.uOpacity.value = op * 0.45;
+  useFrame(({ clock }) => {
+    mat.uniforms.uTime.value = clock.elapsedTime;
+  });
+  useEffect(() => () => {
+    built.main.dispose();
+    built.shadow.dispose();
+  }, [built]);
+  useEffect(() => () => mat.dispose(), [mat]);
+  useEffect(() => () => shadowMat.dispose(), [shadowMat]);
+  return (
+    <>
+      <mesh geometry={built.shadow} material={shadowMat} renderOrder={7 - rank} />
+      <mesh geometry={built.main} material={mat} renderOrder={8 - rank} />
+    </>
+  );
+}
+
+/** beatProgress arrives every ~50 ms; smooth it per frame and restart cleanly when a new beat begins. */
+function useSmoothProgress(progress: number) {
+  const shown = useRef(progress);
+  const target = useRef(progress);
+  target.current = progress;
+  useFrame((_, dt) => {
+    if (target.current < shown.current - 0.3) shown.current = target.current;
+    else shown.current += (target.current - shown.current) * Math.min(1, dt * 14);
+  });
+  return shown;
+}
+
+const ease = (x: number) => x * x * (3 - 2 * x);
+
+/**
+ * The hand's path: in the second half of the beat a ghost of the next bubble glides from the current
+ * note along the arrow and lands on the next note exactly when it is due, so the bubble never just jumps.
+ */
+function GlideMarker({ a, b, label, progress }: { a: V3; b: V3; label: string; progress: number }) {
+  const mat = useMarkerMaterial(KIND.ring, label, ACCENT);
+  const p = useSmoothProgress(progress);
+  const g = useRef<THREE.Group>(null);
+  const bulge = bulgeFor(a, b);
+  useFrame(({ camera, size }) => {
+    if (!g.current) return;
+    const k = Math.min(1, Math.max(0, (p.current - 0.4) / 0.6));
+    const t = ease(k);
+    const pos = arcPoint(a, b, t, bulge);
+    g.current.position.set(pos[0], pos[1], pos[2] + 0.05);
+    g.current.visible = k > 0;
+    mat.uniforms.uOpacity.value = Math.min(1, k * 3) * (0.55 + 0.35 * t);
+    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * (0.72 + 0.22 * t));
+  });
+  return (
+    <group ref={g} visible={false}>
+      <Billboard>
+        <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={11} />
+      </Billboard>
+    </group>
+  );
+}
+
+/** Small "+4" / "−3" chip on the arrow: how many frets the hand moves. */
+function FretJumpChip({ a, b, delta }: { a: V3; b: V3; delta: number }) {
+  const label = delta > 0 ? `+${delta}` : `−${-delta}`;
+  const mat = useMarkerMaterial(KIND.chip, label, ACCENT);
+  const g = useRef<THREE.Group>(null);
+  const pos = arcPoint(a, b, 0.5, bulgeFor(a, b));
+  useFrame(({ camera, size }) => {
+    if (g.current) g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * 0.62);
+  });
+  return (
+    <Billboard position={[pos[0], pos[1], pos[2] + 0.1]}>
+      <group ref={g}>
+        <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={10} />
+      </group>
+    </Billboard>
+  );
+}
+
 /* ------------------------------------------------------------------ all markers */
 
 export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: {
@@ -290,7 +458,15 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
 }) {
   const current = useMemo(() => currentNotes(notes), [notes]);
   const next = useMemo(() => upcomingMarkers(notes, upcoming), [notes, upcoming]);
-  const guides = useMemo(() => moveGuides(current, next), [current, next]);
+  const arrows = useMemo(() => {
+    const beats = upcoming && upcoming.length ? upcoming : [notes.filter((n) => n.state === 'next')];
+    return moveArrows(current, beats).map((m) => {
+      const a = markerPosition(profile, m.from.string, m.from.fret);
+      const b = markerPosition(profile, m.to.string, m.to.fret);
+      const z = Math.max(a[2], b[2]) - 0.25;
+      return { ...m, a: [a[0], a[1], z] as V3, b: [b[0], b[1], z] as V3, key: `${m.rank}:${m.from.string}.${m.from.fret}>${m.to.string}.${m.to.fret}` };
+    });
+  }, [current, upcoming, notes, profile]);
 
   // the previous beat's notes linger as fading ghosts
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
@@ -322,12 +498,13 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
     <>
       {ghosts.map((g) => <GhostMarker key={g.key} ghost={g} />)}
       {chord && <Ribbon pts={chord} width={0.1} color={ACCENT} opacity={0.32} />}
-      {guides.map((gd) => {
-        const a = markerPosition(profile, gd.string, gd.fromFret);
-        const b = markerPosition(profile, gd.string, gd.toFret);
-        const z = stringZ(profile, Math.min(a[0], b[0], 0)) + 0.08;
-        return <Ribbon key={`g${gd.string}-${gd.fromFret}-${gd.toFret}`} pts={[[a[0], a[1], z], [b[0], b[1], z]]} width={0.14} color={NEXT_OUTLINE} opacity={0.3 + 0.35 * p} dash={0.55} />;
-      })}
+      {arrows.map((ar) => <MoveArrow key={ar.key} a={ar.a} b={ar.b} rank={ar.rank} progress={p} />)}
+      {arrows.filter((ar) => ar.rank === 0 && ar.from.string === ar.to.string && Math.abs(ar.to.fret - ar.from.fret) >= 2).map((ar) => (
+        <FretJumpChip key={`j${ar.key}`} a={ar.a} b={ar.b} delta={ar.to.fret - ar.from.fret} />
+      ))}
+      {arrows.filter((ar) => ar.rank === 0).map((ar) => (
+        <GlideMarker key={`gl${beatId}-${ar.key}`} a={ar.a} b={ar.b} label={String(ar.to.fret)} progress={p} />
+      ))}
       {next.map((m) => <NextMarker key={`n${m.rank}-${m.key}`} profile={profile} m={m} progress={p} />)}
       {current.map((n) => <CurrentMarker key={`c${beatId}-${noteKey(n)}`} profile={profile} note={n} />)}
     </>

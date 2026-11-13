@@ -87,6 +87,61 @@ export function moveGuides(current: FretNote[], next: UpcomingMarker[]): MoveGui
   return out;
 }
 
+export interface MoveArrow {
+  from: { string: number; fret: number };
+  to: { string: number; fret: number };
+  /** 0 = now → next beat, 1 = next → the one after, … */
+  rank: number;
+}
+
+/**
+ * Arrows that show where the hand goes: from each beat to the following one, starting at the current
+ * beat. Single note → single note is always connected (3 → 7 on one string, or across strings);
+ * between chords only the strings whose fret changes are. Repeated positions, muted notes and rests
+ * get no arrow.
+ */
+export function moveArrows(current: FretNote[], upcoming: FretNote[][], maxRank = 2): MoveArrow[] {
+  const clean = (b: FretNote[]) => {
+    const seen = new Set<string>();
+    return b.filter((n) => valid(n) && !n.muted && !seen.has(noteKey(n)) && (seen.add(noteKey(n)), true));
+  };
+  const seq = [clean(current), ...upcoming.slice(0, maxRank).map(clean)];
+  const out: MoveArrow[] = [];
+  for (let i = 0; i + 1 < seq.length; i++) {
+    const a = seq[i];
+    const b = seq[i + 1];
+    if (!a.length || !b.length) continue;
+    const pairs: [FretNote, FretNote][] =
+      a.length === 1 && b.length === 1
+        ? [[a[0], b[0]]]
+        : a.flatMap((x) => {
+            const y = b.find((n) => n.string === x.string);
+            return y ? [[x, y] as [FretNote, FretNote]] : [];
+          });
+    for (const [x, y] of pairs) {
+      if (x.string === y.string && Math.max(0, x.fret) === Math.max(0, y.fret)) continue;
+      out.push({ from: { string: x.string, fret: Math.max(0, x.fret) }, to: { string: y.string, fret: Math.max(0, y.fret) }, rank: i });
+    }
+  }
+  return out;
+}
+
+/** Point on a quadratic Bézier from `a` to `b` bulging by `bulge` (perpendicular in xy, plus a lift in z). */
+export function arcPoint(a: [number, number, number], b: [number, number, number], t: number, bulge: number): [number, number, number] {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const c: [number, number, number] = [(a[0] + b[0]) / 2 + (-dy / len) * bulge, (a[1] + b[1]) / 2 + (dx / len) * bulge, (a[2] + b[2]) / 2 + Math.abs(bulge) * 0.8];
+  const u = 1 - t;
+  return [0, 1, 2].map((k) => u * u * a[k] + 2 * u * t * c[k] + t * t * b[k]) as [number, number, number];
+}
+
+/** Opacity of an arrow by rank, rising a little as the current beat nears its end. */
+export function arrowOpacity(rank: number, progress: number) {
+  const p = Math.min(1, Math.max(0, progress || 0));
+  return rank === 0 ? 0.6 + 0.35 * p : rank === 1 ? 0.32 + 0.15 * p : 0.18;
+}
+
 /** Label of a marker: the finger (T = thumb) when the tab gives one, else the fret. */
 export function markerLabel(n: FretNote) {
   if (n.finger !== undefined && n.finger !== null) return n.finger === 0 ? 'T' : String(n.finger);
