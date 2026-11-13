@@ -6,6 +6,7 @@ import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
 import { getTuning, withCapo } from '../../music/tunings';
+import { useSessionRecorder } from '../../player/useSessionRecorder';
 import { useTabSetup } from '../../player/tabSetup';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
@@ -216,15 +217,20 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     if (countValue != null && state.tick > countStart.current + 30) setCountValue(null);
   }, [state.tick, countValue]);
 
+  /* ---------- Session recording ---------- */
+  const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
+  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle });
+
   /* ---------- Listen and wait ---------- */
   const onPass = useCallback((p: PassSummary) => {
     if (p.hits === 0) return;
+    recorder.noteAccuracy(p.accuracy);
     toast({
       tone: p.accuracy >= 90 ? 'success' : 'info',
       title: `Tur bitti: %${p.accuracy} ilk denemede`,
       description: `${p.hits} notanın ${p.firstTry} tanesi ilk seferde doğruydu.`,
     });
-  }, [toast]);
+  }, [toast, recorder]);
   const pause = useCallback(() => api.current?.pause(), [api]);
   const listen = useListenMode({ enabled: listening, beat: state.beat, track: state.track, loop, seekBeat, pause, onPass });
   useEffect(() => {
@@ -289,12 +295,13 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     if (next.clean !== 0) return;
     setSpeed(next.speed);
     saveProgress(ladder.speed);
+    recorder.noteClean(ladder.speed);
     toast({
       tone: 'success',
       title: leveledUp ? `Üç temiz tur! Hız %${Math.round(next.speed * 100)} oldu.` : 'Hedef hıza ulaştın.',
       description: leveledUp ? 'Aynı bölümü yeni hızda dene.' : 'Bu bölüm tamam. Haritadan sıradaki zor ölçüyü seç.',
     });
-  }, [ladder, saveProgress, toast]);
+  }, [ladder, saveProgress, toast, recorder]);
 
   const onStuck = useCallback(() => {
     const { leveledUp: _l, ...next } = ladderAfter(ladder, 'stuck');

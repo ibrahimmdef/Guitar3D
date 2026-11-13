@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Gauge, Grid3x3, Guitar, Library, Music2, Settings } from 'lucide-react';
+import { Activity, Gauge, Grid3x3, Guitar, Library, Music2, Settings } from 'lucide-react';
 import { routeHref, type Route } from '../ui/router';
 
 const NAV: { route: Route; label: string; icon: ReactNode }[] = [
@@ -7,6 +7,7 @@ const NAV: { route: Route; label: string; icon: ReactNode }[] = [
   { route: { name: 'chords' }, label: 'Akorlar', icon: <Grid3x3 size={18} /> },
   { route: { name: 'scales' }, label: 'Gamlar', icon: <Music2 size={18} /> },
   { route: { name: 'tuner' }, label: 'Akort', icon: <Gauge size={18} /> },
+  { route: { name: 'progress' }, label: 'İlerleme', icon: <Activity size={18} /> },
   { route: { name: 'guitar' }, label: 'Gitarım', icon: <Guitar size={18} /> },
   { route: { name: 'settings' }, label: 'Ayarlar', icon: <Settings size={18} /> },
 ];
