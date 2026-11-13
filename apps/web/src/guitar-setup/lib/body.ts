@@ -77,8 +77,9 @@ export function measureBouts(outline: Point2[]) {
  * the smaller of the two sides. A photo taken slightly from the side shows the guitar's rim (and
  * shadows or clutter stick to one side only), which only ever adds to the silhouette.
  */
-export function symmetrizeOutline(outline: Point2[], points = outline.length): Point2[] {
+export function symmetrizeOutline(outline: Point2[], points = outline.length, neckWidthCm = 0): Point2[] {
   const b = outlineBounds(outline);
+  if (neckWidthCm > 0) b.maxX = trimNeckStub(outline, b, neckWidthCm);
   const cx = (b.minX + b.maxX) / 2, hw = (b.maxX - b.minX) / 2;
   const M = 200;
   const top: Pt[] = [];
@@ -91,6 +92,23 @@ export function symmetrizeOutline(outline: Point2[], points = outline.length): P
   // clockwise in the x-right / y-up frame: along +y from the tail to the neck, back along -y
   const loop: Pt[] = [...top, ...top.slice(1, -1).reverse().map(([x, y]) => [x, -y] as Pt)];
   return resampleClosed(loop, points) as Point2[];
+}
+
+/**
+ * The opening that separates the body keeps the neck heel and the corners where the neck meets the
+ * shoulders. Walking down from the top end, anything narrower than ~1.6 neck widths for more than
+ * 1 cm while widening slowly is such a stub: returns the x where the real shoulder line starts (or maxX when there is none).
+ */
+export function trimNeckStub(outline: Point2[], b: Bounds, neckWidthCm: number): number {
+  const limit = 1.6 * neckWidthCm;
+  for (let x = b.maxX - 0.05; x > b.minX + (b.maxX - b.minX) * 0.5; x -= 0.25) {
+    if (outlineWidthAt(outline, x) < limit) continue;
+    const run = b.maxX - x;
+    // a rounded body end widens fast; a neck stub keeps roughly the neck's width
+    const slope = (outlineWidthAt(outline, x + 0.25) - outlineWidthAt(outline, b.maxX - 0.3)) / Math.max(0.1, run - 0.55);
+    return run > 1 && slope < 2 ? x + 0.25 : b.maxX;
+  }
+  return b.maxX;
 }
 
 export interface ExtractBodyOptions {
@@ -124,7 +142,7 @@ export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number
   const contour = traceContour(body);
   let outline = smoothClosed(contour.map((p) => toGuitar(frame, p)), 2);
   outline = resampleClosed(outline, points);
-  if (opts.symmetric !== false) outline = symmetrizeOutline(outline as Point2[], points) as Pt[];
+  if (opts.symmetric !== false) outline = symmetrizeOutline(outline as Point2[], points, neckWidthCm) as Pt[];
   if (polygonArea(outline) > 0) outline.reverse(); // clockwise in the x-right / y-up guitar frame
   const out = outline.map(([x, y]) => [r2(x), r2(y)] as Point2);
   const bounds = outlineBounds(out);

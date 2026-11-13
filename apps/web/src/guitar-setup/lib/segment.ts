@@ -113,7 +113,10 @@ export function samplePatchPalette(img: RGBAImage, p: Pt, radiusFrac = 0.025, k 
 export function sampleForegroundPalette(img: RGBAImage, background: RGB[], k = 4): RGB[] {
   const { width: w, height: h } = img;
   const px = collect(img, w * 0.4, h * 0.3, w * 0.6, h * 0.7);
-  return kmeans(px, k, 0.06).filter((c) => background.every((b) => rgbDist(b, c) > 40 && !isShadeOf(c, b)));
+  // The dominant non-background cluster is the guitar; smaller ones must stand out more clearly, since
+  // shaded wallpaper/floor patterns next to the guitar also land in the centre crop.
+  const fg = kmeans(px, k, 0.06).filter((c) => background.every((b) => rgbDist(b, c) > 40 && !isShadeOf(c, b)));
+  return fg.filter((c, i) => i === 0 || background.every((b) => rgbDist(b, c) > 60));
 }
 
 /** Distance to the nearest palette colour (see colorDistance). */
