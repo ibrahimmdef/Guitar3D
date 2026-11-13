@@ -28,6 +28,7 @@ import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
 import { CapoControl } from './CapoControl';
 import { FeedbackSheet } from './FeedbackSheet';
 import { CueStrip } from './CueStrip';
+import { EasierPositionPanel, ghostNotes, useEasierPosition } from './EasierPosition';
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
@@ -166,8 +167,16 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     // Regenerating the MIDI applies the new pitches (and stops playback).
     if (changed) a.loadMidiForScore();
   }, [capo, tuningOverride, origin, api, state.track]);
-  const stageNotes = useMemo(() => withCapo(state.notes, capo), [state.notes, capo]);
-  const stageUpcoming = useMemo(() => (capo ? state.upcoming.map((b) => withCapo(b, capo)) : state.upcoming), [state.upcoming, capo]);
+  const [easierOn, setEasierOn] = useState(false);
+  const playTuning = useMemo(() => (origin ? (tuningOverride ? getTuning(tuningOverride).midi : origin.tuning) : null), [origin, tuningOverride]);
+  const easier = useEasierPosition(state.track, state.currentBar, playTuning, capo, easierOn);
+  const ghosts = useMemo(() => ghostNotes(easier, state.beat), [easier, state.beat]);
+  const stageNotes = useMemo(() => withCapo(ghosts.length ? [...state.notes, ...ghosts] : state.notes, capo), [state.notes, ghosts, capo]);
+  // ghost markers ride along with the nearest upcoming beat (the renderer draws 'next' notes from there)
+  const stageUpcoming = useMemo(() => {
+    const up = ghosts.length ? [[...ghosts, ...(state.upcoming[0] ?? [])], ...state.upcoming.slice(1)] : state.upcoming;
+    return capo ? up.map((b) => withCapo(b, capo)) : up;
+  }, [state.upcoming, ghosts, capo]);
 
   useEffect(() => {
     setTabScale(focus === 'tab' ? 1.6 : 0.95);
@@ -570,6 +579,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
             onSlowDown={() => setSpeed(ladder.speed)}
             onPlay={playLoop}
           />
+          {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
         </Drawer>
       </div>
 
