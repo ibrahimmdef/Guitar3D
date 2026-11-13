@@ -461,3 +461,104 @@
   display: inline-flex;
   color: var(--text-3);
 }
+
+/* ---------- Progress ---------- */
+.stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stat-accent .stat-label {
+  color: var(--accent);
+}
+.progress-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+.week-chart {
+  margin: 0;
+}
+.week-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.wc-base {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.wc-bar {
+  fill: var(--text-3);
+}
+.wc-bar.is-today {
+  fill: var(--accent);
+}
+.wc-value {
+  fill: var(--text);
+  font-size: 12px;
+  font-family: var(--font);
+  font-weight: 600;
+}
+.wc-label {
+  fill: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font);
+}
+.wc-label.is-today {
+  fill: var(--text);
+}
+.progress-table {
+  width: 100%;
+  margin-top: var(--sp-3);
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+.progress-table th,
+.progress-table td {
+  padding: var(--sp-3) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: var(--fw-regular);
+  vertical-align: middle;
+}
+.progress-table thead th {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.progress-table tbody th a {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+}
+.progress-table tbody th a:hover {
+  text-decoration: underline;
+}
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.meter-track {
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.meter-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--fill);
+}
+@media (max-width: 860px) {
+  .progress-table thead th:nth-child(5),
+  .progress-table td:nth-child(5),
+  .meter-track {
+    display: none;
+  }
+}
