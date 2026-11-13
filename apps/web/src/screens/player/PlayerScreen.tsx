@@ -10,7 +10,7 @@ import { useSessionRecorder } from '../../player/useSessionRecorder';
 import { useRun } from '../routines/routineStore';
 import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
-import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
+import { barRange, hasRepeats, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
@@ -45,7 +45,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const { api, state, loadBuffer, loadTex, seekTick, seekBar, seekBeat, setProgram, setTabScale } = useAlphaTab(host, scroller);
+  const { api, state, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
@@ -483,6 +483,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         onShowShortcuts={() => setShortcutsOpen(true)}
         onShare={copyShareLink}
         onBack={() => navigate({ name: 'library' })}
+        tracks={state.score ? playableTracks(state.score).map((t) => ({ index: t.index, name: t.name })) : undefined}
+        trackIndex={state.track?.index}
+        onTrack={selectTrack}
       />
 
       <CueStrip

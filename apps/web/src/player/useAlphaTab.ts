@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlphaTabApi, synth, type model } from '@coderline/alphatab';
+import { AlphaTabApi, importer, synth, type model } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
 
@@ -40,16 +40,27 @@ export interface PlayerState {
 const GLYPH = '#d9dbe0';
 const MUTED = '#6f747d';
 
-function pickGuitarTrack(score: model.Score) {
-  return (
-    score.tracks.find((t) => !t.isPercussion && t.staves[0]?.isStringed && t.staves[0].tuning.length === 6) ??
-    score.tracks.find((t) => !t.isPercussion) ??
-    score.tracks[0]
-  );
+/** Tracks a guitarist can play here: stringed, not drums. */
+export function playableTracks(score: model.Score): model.Track[] {
+  const stringed = score.tracks.filter((t) => !t.isPercussion && t.staves[0]?.isStringed && t.staves[0].tuning.length > 0);
+  return stringed.length ? stringed : score.tracks.filter((t) => !t.isPercussion);
+}
+
+/**
+ * The track to show first: a 6-string track that is called / sounds like a guitar (GM programs
+ * 24–31), else any 6-string track, else the first playable one. Piano, vocals and drums come last.
+ */
+export function pickGuitarTrack(score: model.Score): model.Track {
+  const tracks = playableTracks(score);
+  const six = tracks.filter((t) => t.staves[0]?.tuning.length === 6);
+  const guitarish = (t: model.Track) => /gu?itar|gitar|guit/i.test(t.name) || (t.playbackInfo.program >= 24 && t.playbackInfo.program <= 31);
+  return six.find(guitarish) ?? six[0] ?? tracks.find(guitarish) ?? tracks[0] ?? score.tracks[0];
 }
 
 export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroller: React.RefObject<HTMLDivElement | null>) {
   const apiRef = useRef<AlphaTabApi | null>(null);
+  /** Index of the track to render for the loaded score. */
+  const wantTrack = useRef(0);
   const [s, setS] = useState<PlayerState>({
     ready: false, loading: false, playing: false, score: null, track: null, notes: [], upcoming: [], beat: null, midiGen: 0, beatId: 0, currentBar: 0,
     timeMs: 0, endMs: 0, tick: 0, endTick: 0, beatProgress: 0, beatInBar: 0, beatsPerBar: 4, pulse: 0, error: null,
@@ -90,11 +101,12 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (import.meta.env.DEV) (window as unknown as { __alphaTab: AlphaTabApi }).__alphaTab = api;
 
     let stringCount = 6;
+    // The track is chosen before alphaTab renders (see `show` below): switching tracks while the
+    // first render is running crashes alphaTab's layout ("reading 'staves'") and leaves track 1 on screen.
     api.scoreLoaded.on((score) => {
-      const track = pickGuitarTrack(score);
+      const track = score.tracks[wantTrack.current] ?? api.tracks[0] ?? pickGuitarTrack(score);
       stringCount = track.staves[0]?.tuning.length || 6;
       patch({ score, track, loading: false, notes: [], upcoming: [], beat: null, currentBar: 0, error: null });
-      if (api.tracks.length !== 1 || api.tracks[0] !== track) api.renderTracks([track]);
     });
     api.playerReady.on(() => patch({ ready: true }));
     api.midiLoaded.on(() => setS((o) => ({ ...o, midiGen: o.midiGen + 1 })));
@@ -142,15 +154,44 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     };
   }, [host, scroller, patch]);
 
-  const loadBuffer = useCallback((buf: ArrayBuffer) => {
+  /** Parses the file here, picks the guitar track and hands alphaTab only that track. */
+  const show = useCallback((parse: (settings: AlphaTabApi['settings']) => model.Score, fallback: (a: AlphaTabApi) => void) => {
+    const a = apiRef.current;
+    if (!a) return;
     patch({ loading: true, error: null });
-    apiRef.current?.load(new Uint8Array(buf));
+    let score: model.Score;
+    try {
+      score = parse(a.settings);
+    } catch {
+      wantTrack.current = 0;
+      fallback(a); // alphaTab reports the error through its error event
+      return;
+    }
+    wantTrack.current = pickGuitarTrack(score).index;
+    a.renderScore(score, [wantTrack.current]);
   }, [patch]);
 
+  const loadBuffer = useCallback((buf: ArrayBuffer) => {
+    show((st) => importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(buf), st), (a) => a.load(new Uint8Array(buf)));
+  }, [show]);
+
   const loadTex = useCallback((tex: string) => {
-    patch({ loading: true, error: null });
-    apiRef.current?.tex(tex);
-  }, [patch]);
+    show((st) => {
+      const imp = new importer.AlphaTexImporter();
+      imp.initFromString(tex, st);
+      return imp.readScore();
+    }, (a) => a.tex(tex));
+  }, [show]);
+
+  /** Shows another track of the loaded score (multi-track files). */
+  const selectTrack = useCallback((index: number) => {
+    const a = apiRef.current;
+    const score = a?.score;
+    if (!a || !score || !score.tracks[index] || index === wantTrack.current) return;
+    a.stop();
+    wantTrack.current = index;
+    a.renderScore(score, [index]);
+  }, []);
 
   /** Interpolated beat progress for render loops (e.g. inside useFrame). */
   const getBeatProgress = useCallback(() => {
@@ -200,7 +241,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (a.score) a.render();
   }, []);
 
-  return { api: apiRef, state: s, loadBuffer, loadTex, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale };
+  return { api: apiRef, state: s, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale };
 }
 
 /** True when the score has repeats, so score ticks differ from playback ticks. */
