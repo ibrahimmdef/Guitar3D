@@ -67,3 +67,25 @@ export interface PracticeSession {
 export type NewPracticeSession = Omit<PracticeSession, 'id'>;
 
 export * from './guitar';
+
+/** Teacher mode: a text note on a bar of a tab (`tabKey` = tab id or `lesson:<id>`). */
+export interface BarNote {
+  id: string;
+  tabKey: string;
+  /** 0-based bar. */
+  bar: number;
+  text: string;
+  createdAt: string;
+}
+
+/** Teacher mode: practise `tabKey` up to `targetSpeed` by `due` (YYYY-MM-DD). */
+export interface Assignment {
+  id: string;
+  tabKey: string;
+  title: string;
+  /** 1 = 100 %. */
+  targetSpeed: number;
+  due: string;
+  note?: string;
+  createdAt: string;
+}

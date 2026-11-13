@@ -1,4 +1,4 @@
-import { ArrowLeft, Crosshair, Hand, Keyboard, Maximize2, Ruler } from 'lucide-react';
+import { ArrowLeft, Crosshair, Hand, Keyboard, Maximize2, Ruler, Share2 } from 'lucide-react';
 import type { CameraMode, GuitarView } from '@guitar3d/shared';
 import { IconButton, SegmentedControl, type SegmentOption } from '../../ui/kit';
 
@@ -23,6 +23,7 @@ interface Props {
   onCameraMode: (m: CameraMode) => void;
   onShowShortcuts: () => void;
   onBack: () => void;
+  onShare?: () => void;
 }
 
 export function PlayerTopBar(p: Props) {
@@ -40,6 +41,7 @@ export function PlayerTopBar(p: Props) {
         <SegmentedControl aria-label="Kamera" value={p.cameraMode} onChange={p.onCameraMode} options={CAMERA_MODES} />
       </div>
       <div className="pt-right">
+        {p.onShare && <IconButton label="Paylaşım bağlantısını kopyala" icon={<Share2 size={18} />} onClick={p.onShare} />}
         <IconButton label="Klavye kısayolları" shortcut="?" icon={<Keyboard size={18} />} onClick={p.onShowShortcuts} />
       </div>
     </header>
