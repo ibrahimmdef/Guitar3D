@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { CameraMode, FretNote, GuitarProfile, GuitarView } from '@guitar3d/shared';
 import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry } from './build';
 import {
-  bodyDepthAt, followTarget, guitarXRange, hitToFret, speakingFraction,
+  bodyDepthAt, capoLayout, followTarget, guitarXRange, hitToFret, speakingFraction,
 } from './geometry';
 import { ACCENT, createMaterials, decorateMaterials, fretboardWoodMap, rosetteTexture, woundTexture } from './materials';
 import { FretNumbers, NoteMarkers } from './NoteMarkers';
@@ -31,6 +31,8 @@ export interface Guitar3DProps {
   cameraMode: CameraMode;
   onCameraModeChange?: (m: CameraMode) => void;
   onFretClick?: (string: number, fret: number) => void;
+  /** Capo on this fret (0/undefined = none): drawn across the neck just behind the fret wire. */
+  capoFret?: number;
   /** Called once, after the guitar with all its textures has been drawn for the first time. */
   onReady?: () => void;
   className?: string;
@@ -137,8 +139,9 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
 }
 
 function Guitar({
-  profile, geo, notes, upcoming, showFretNumbers, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick,
+  profile, geo, notes, upcoming, showFretNumbers, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick, capoFret,
 }: {
+  capoFret: number;
   profile: GuitarProfile;
   geo: GuitarGeometry;
   notes: FretNote[];
@@ -226,7 +229,8 @@ function Guitar({
       )}
       <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
       <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
-      <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} plain={mats.plainString} woundMat={mats.woundString} />
+      {capoFret > 0 && <Capo profile={profile} fret={capoFret} />}
+      <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} capoFret={capoFret} plain={mats.plainString} woundMat={mats.woundString} />
       <NoteMarkers profile={profile} notes={notes} upcoming={upcoming} beatId={beatId} beatProgress={beatProgress} />
       {showFretNumbers && <FretNumbers profile={profile} />}
     </group>
@@ -265,8 +269,8 @@ function vibratingMaterial(base: THREE.MeshPhysicalMaterial, vib: Vib) {
   return m;
 }
 
-function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat }: {
-  geo: GuitarGeometry; profile: GuitarProfile; notes: FretNote[]; beatId: number;
+function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat, capoFret }: {
+  geo: GuitarGeometry; profile: GuitarProfile; notes: FretNote[]; beatId: number; capoFret: number;
   plain: THREE.MeshPhysicalMaterial; woundMat: THREE.MeshPhysicalMaterial;
 }) {
   const items = useMemo(() => geo.strings.map((s) => {
@@ -287,7 +291,7 @@ function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat }: {
       const it = items.find((i) => i.s.string === n.string);
       if (!it) continue;
       it.vib.amp.value = Math.min(0.06, 0.02 + it.s.radius * 0.5);
-      it.vib.node.value = speakingFraction(n.fret);
+      it.vib.node.value = speakingFraction(Math.max(n.fret, capoFret));
       it.vib.glow = 1;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,6 +310,30 @@ function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat }: {
     <>
       {items.map((i) => <mesh key={i.s.string} geometry={i.geometry} material={i.material} castShadow />)}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ capo */
+
+function Capo({ profile, fret }: { profile: GuitarProfile; fret: number }) {
+  const l = useMemo(() => capoLayout(profile, fret), [profile, fret]);
+  const mats = useMemo(() => ({
+    pad: new THREE.MeshStandardMaterial({ color: '#1b1b1d', roughness: 0.92 }),
+    bar: new THREE.MeshStandardMaterial({ color: '#9a9ca2', metalness: 0.9, roughness: 0.32 }),
+  }), []);
+  useEffect(() => () => {
+    mats.pad.dispose();
+    mats.bar.dispose();
+  }, [mats]);
+  return (
+    <group position={[l.x, 0, 0]}>
+      <mesh position={[0, 0, l.pad.z]} material={mats.pad} castShadow receiveShadow>
+        <boxGeometry args={[l.pad.len, l.width, l.pad.h]} />
+      </mesh>
+      <mesh position={[0, 0, l.bar.z]} material={mats.bar} castShadow>
+        <boxGeometry args={[l.bar.len, l.width + 0.3, l.bar.h]} />
+      </mesh>
+    </group>
   );
 }
 
@@ -437,7 +465,8 @@ function CameraRig({
 /* ------------------------------------------------------------------ public component */
 
 export function Guitar3D({
-  profile, notes, upcoming, beatId, beatProgress = 0, zoom = 1, showFretNumbers = true, view, cameraMode, onCameraModeChange, onFretClick, onReady, className }: Guitar3DProps) {
+  profile, notes, upcoming, beatId, beatProgress = 0, zoom = 1, showFretNumbers = true, view, cameraMode, onCameraModeChange, onFretClick, onReady, className, capoFret = 0 }: Guitar3DProps) {
+  const capo = Math.max(0, Math.min(profile.fretCount - 1, Math.round(capoFret) || 0));
   const readyCb = useRef(onReady);
   readyCb.current = onReady;
   const readySent = useRef(false);
@@ -494,6 +523,7 @@ export function Guitar3D({
                 beatProgress={beatProgress}
                 onFretboardClick={onFretboardClick}
                 onFretboardDoubleClick={onFretboardDoubleClick}
+                capoFret={capo}
               />
             </group>
           </group>

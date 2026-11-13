@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { GuitarProfile, Point2 } from '@guitar3d/shared';
 import {
-  bodyDepthAt, bodyWidthAt, ccw, fitDistance, followTarget, fretAtX, fretboardEndX, fretboardWidth, fretX, guitarXRange,
+  bodyDepthAt, bodyWidthAt, capoLayout, ccw, fitDistance, followTarget, fretAtX, fretboardEndX, fretboardWidth, fretX, guitarXRange,
   hitToFret, interpTable, modelledLength, noteX, offsetOutline, outlineXRange, outwardNormals, polygonArea, saddleX,
   scaleOutline, smoothstep, speakingFraction, stringY, stringZ, FB_TOP, SADDLE_TOP,
 } from './geometry';
@@ -147,5 +147,19 @@ describe('camera helpers', () => {
     expect(followTarget(L, [], null)).toBeNull();
     const b = followTarget(L, [12], a)!;
     expect(b).toBeCloseTo(noteX(L, 12));
+  });
+});
+
+describe('capo', () => {
+  it('sits just behind the fret wire, spans the neck and rests on the strings', () => {
+    const c = capoLayout(profile, 3);
+    expect(c.x).toBeGreaterThan(fretX(L, 3));
+    expect(c.x).toBeLessThan(fretX(L, 2));
+    expect(c.width).toBeGreaterThan(fretboardWidth(profile, c.x));
+    expect(c.bar.z).toBeGreaterThan(stringZ(profile, c.x));
+    expect(c.pad.z - c.pad.h / 2).toBeLessThan(stringZ(profile, c.x));
+  });
+  it('clamps the fret to the neck', () => {
+    expect(capoLayout(profile, 0).x).toBeCloseTo(capoLayout(profile, 1).x);
   });
 });

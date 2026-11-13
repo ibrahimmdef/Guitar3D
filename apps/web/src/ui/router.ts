@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
  * Tiny hash router:
  *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
  *   #/chords · #/scales · #/tuner · #/routines · #/progress
+ *   #/rhythm · #/fretboard-game · #/chord-trainer · #/ear · #/course · #/editor
  * `#/play/demo` is kept as an alias of the warm-up lesson.
  */
 export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
@@ -13,8 +14,13 @@ export type Route =
   | { name: SimpleRouteName };
 
 /** Routes without parameters (the left navigation). */
-export type SimpleRouteName = 'library' | 'guitar' | 'settings' | 'chords' | 'scales' | 'tuner' | 'routines' | 'progress';
-const SIMPLE: SimpleRouteName[] = ['library', 'guitar', 'settings', 'chords', 'scales', 'tuner', 'routines', 'progress'];
+export type SimpleRouteName =
+  | 'library' | 'guitar' | 'settings' | 'chords' | 'scales' | 'tuner' | 'routines' | 'progress'
+  | 'rhythm' | 'fretboard-game' | 'chord-trainer' | 'ear' | 'course' | 'editor';
+const SIMPLE: SimpleRouteName[] = [
+  'library', 'guitar', 'settings', 'chords', 'scales', 'tuner', 'routines', 'progress',
+  'rhythm', 'fretboard-game', 'chord-trainer', 'ear', 'course', 'editor',
+];
 
 export const DEMO_LESSON_ID = 'warmup';
 

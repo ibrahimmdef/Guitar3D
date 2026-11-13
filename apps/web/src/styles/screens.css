@@ -29,6 +29,23 @@
   display: inline-flex;
   color: var(--text);
 }
+.shell-nav {
+  overflow-y: auto;
+}
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.nav-group-label {
+  margin: 0;
+  padding: 0 var(--sp-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .nav-list {
   list-style: none;
   margin: 0;
@@ -549,46 +566,10 @@
 @media (max-width: 860px) {
   .shell {
     grid-template-columns: 1fr;
-    padding-bottom: 64px;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
   .shell-nav {
-    position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    z-index: 20;
-    flex-direction: row;
-    padding: 0 var(--sp-2);
-    background: var(--surface-1);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .brand {
     display: none;
-  }
-  .nav-list {
-    flex: 1;
-    flex-direction: row;
-    justify-content: space-around;
-    align-items: center;
-  }
-  .nav-list li {
-    flex: 1;
-  }
-  .nav-item {
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    height: 52px;
-    font-size: var(--fs-xs);
-  }
-  .nav-item.active {
-    background: transparent;
-    color: var(--text);
-  }
-  .nav-item:not(.active) {
-    color: var(--text-3);
   }
   .screen {
     padding: var(--sp-6) var(--sp-4) var(--sp-10);
