@@ -3,9 +3,9 @@ import type { GuitarProfile } from '@guitar3d/shared';
 
 export const DEFAULT_PROFILE_URL = '/guitar/veston.profile.json';
 
-/** Texture URLs of a profile (fretboard, headstock face, rosette). */
+/** Texture URLs of a profile (fretboard + inlay mask, headstock face, rosette, body top). */
 export function profileTextureUrls(p: GuitarProfile) {
-  return [p.textures.fretboard?.url, p.textures.headstock, p.textures.rosette].filter((u): u is string => !!u);
+  return [p.textures.fretboard?.url, p.textures.fretboard?.inlayMask, p.textures.headstock, p.textures.rosette, p.textures.bodyTop].filter((u): u is string => !!u);
 }
 
 /** Starts downloading/decoding the textures so the guitar can render in one go. */
