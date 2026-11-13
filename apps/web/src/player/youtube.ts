@@ -43,9 +43,29 @@ export const videoTimeFor = (link: VideoLink, songMs: number) => Math.max(0, lin
 /** Offset that makes the current video time line up with the current tab position. */
 export const alignOffset = (videoSec: number, songMs: number) => Math.round((videoSec - songMs / 1000) * 100) / 100;
 
-/** YouTube supports these rates; pick the nearest. */
-const RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-export const nearestRate = (r: number) => RATES.reduce((a, b) => (Math.abs(b - r) < Math.abs(a - r) ? b : a), 1);
+/**
+ * Video playback rate for a tab speed. The IFrame player accepts any rate in 0.25–2 (not only the
+ * 0.25 steps `getAvailablePlaybackRates` lists), so the video can match ladder speeds like 0.65 exactly.
+ */
+export const videoRate = (speed: number) => Math.round(Math.min(2, Math.max(0.25, speed)) * 100) / 100;
+
+/** YT.PlayerState values used by the sync. */
+export const YT_ENDED = 0;
+export const YT_BUFFERING = 3;
+
+/**
+ * Decides whether the video must be re-seeked to follow the tab.
+ *  - paused tab: follow tab moves (seek, bar step) but leave a user scrubbing the video alone;
+ *  - playing: a jump of the tab (loop back, seek) seeks at once; small drift is corrected at most
+ *    every 1.5 s and never while YouTube is buffering (seeking there restarts the buffering).
+ */
+export function needsSeek(o: { playing: boolean; prevSongMs: number; songMs: number; videoSec: number; targetSec: number; msSinceFix: number; ytState: number }): boolean {
+  const moved = o.songMs - o.prevSongMs;
+  if (!o.playing) return Math.abs(moved) > 1;
+  if (o.ytState === YT_BUFFERING) return false;
+  if (moved < -250 || moved > 1500) return Math.abs(o.videoSec - o.targetSec) > 0.15;
+  return o.msSinceFix >= 1500 && Math.abs(o.videoSec - o.targetSec) > 0.35;
+}
 
 /* ---------- IFrame API ---------- */
 export interface YTPlayer {
