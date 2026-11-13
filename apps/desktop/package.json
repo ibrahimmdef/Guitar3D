@@ -80,7 +80,8 @@
       "language": "1055",
       "uninstallDisplayName": "Guitar3D",
       "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "include": "build/installer.nsh"
     },
     "electronVersion": "45.3.2"
   },
