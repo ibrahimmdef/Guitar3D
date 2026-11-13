@@ -26,12 +26,23 @@ function melody(score: model.Score, bars: number): string[] {
 function quarters(b: model.Beat): number {
   let q = 4 / b.duration;
   if (b.dots === 1) q *= 1.5;
+  if (b.hasTuplet) q *= b.tupletDenominator / b.tupletNumerator;
   return q;
 }
 
 const all = listBuiltinLessons();
 const lessons = all.filter((l) => !l.group);
 const turkuler = all.filter((l) => l.group === 'turkuler');
+const eserler = all.filter((l) => l.group === 'eserler');
+
+/** Highest pitch of every sounding beat (rests skipped) in bars [from, to): the melody of a piece with bass notes. */
+function top(score: model.Score, from: number, to: number): string[] {
+  return beatsOf(score)
+    .slice(from, to)
+    .flat()
+    .filter((b) => b.notes.length > 0)
+    .map((b) => pitchName(Math.max(...b.notes.map((n) => n.realValue))));
+}
 
 describe('built-in lesson list', () => {
   it('has 10 lessons with complete Turkish metadata, ordered easy to medium', () => {
@@ -64,6 +75,24 @@ describe('built-in lesson list', () => {
     for (const l of turkuler) expect(loadBuiltinLesson(l.id)).not.toMatch(/\\lyrics/);
   });
 
+  it('has the Eserler pack: 30 public-domain pieces, 10 per level 3/4/5, no lyrics', () => {
+    expect(eserler).toHaveLength(30);
+    for (const level of [3, 4, 5]) expect(eserler.filter((l) => l.level === level), `level ${level}`).toHaveLength(10);
+    const levels = eserler.map((l) => l.level);
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+    expect(new Set(all.map((l) => l.id)).size).toBe(all.length);
+    for (const l of eserler) {
+      expect(l.source).toBe('public-domain');
+      expect(l.id).toMatch(/^eser-[a-z0-9-]+$/);
+      expect(l.tempo).toBeGreaterThanOrEqual(50);
+      expect(l.tempo).toBeLessThanOrEqual(160);
+      expect(l.goal.length).toBeGreaterThan(10);
+      expect(l.description.length).toBeGreaterThan(10);
+      expect(l.tip.length).toBeGreaterThan(10);
+      expect(loadBuiltinLesson(l.id)).not.toMatch(/\\lyrics/);
+    }
+  });
+
   it('throws for an unknown lesson id', () => {
     expect(() => loadBuiltinLesson('nope')).toThrow(/bulunamadı/);
   });
@@ -91,12 +120,13 @@ describe.each(all)('lesson $id', (lesson) => {
     });
   });
 
-  it('stays within frets 0–12 on strings 1–6', () => {
+  const maxFret = lesson.group === 'eserler' ? 17 : 12;
+  it(`stays within frets 0–${maxFret} on strings 1–6`, () => {
     const notes = bars.flat().flatMap((b) => b.notes);
     expect(notes.length).toBeGreaterThan(0);
     for (const n of notes) {
       expect(n.fret).toBeGreaterThanOrEqual(0);
-      expect(n.fret).toBeLessThanOrEqual(12);
+      expect(n.fret).toBeLessThanOrEqual(maxFret);
       expect(n.string).toBeGreaterThanOrEqual(1);
       expect(n.string).toBeLessThanOrEqual(6);
     }
@@ -172,5 +202,145 @@ describe('lesson content', () => {
     expect(melody(score, 2)).toEqual(['A3', 'C4', 'E4', 'C4', 'D4', 'E4', 'F4', 'E4']);
     expect(Math.max(...beatsOf(score).flat().flatMap((b) => b.notes.map((n) => n.fret)))).toBe(5);
     expect(melody(score, 8).at(-1)).toBe('A3');
+  });
+});
+
+describe('Eserler melodies', () => {
+  const t = (id: string, from: number, to: number) => top(load(id), from, to);
+
+  it('Amazing Grace: D G B G B A G E D', () => {
+    expect(t('eser-amazing-grace', 0, 5)).toEqual(['D3', 'G3', 'B3', 'G3', 'B3', 'A3', 'G3', 'E3', 'D3', 'D3']);
+  });
+
+  it('Sakura: A A B, A A B, A B C B, A B A F', () => {
+    expect(t('eser-sakura', 0, 4)).toEqual(['A3', 'A3', 'B3', 'A3', 'A3', 'B3', 'A3', 'B3', 'C4', 'B3', 'A3', 'B3', 'A3', 'F3']);
+  });
+
+  it('Scarborough Fair: D D A A E F E D', () => {
+    expect(t('eser-scarborough-fair', 0, 4)).toEqual(['D3', 'D3', 'A3', 'A3', 'E3', 'F3', 'E3', 'D3']);
+  });
+
+  it('Greensleeves: A C D E F E D B G A B C A', () => {
+    expect(t('eser-greensleeves', 0, 6)).toEqual(['A3', 'C4', 'D4', 'E4', 'F4', 'E4', 'D4', 'B3', 'G3', 'A3', 'B3', 'C4', 'A3']);
+  });
+
+  it('Minuet in G: D G A B C D G G', () => {
+    expect(t('eser-minuet-in-g', 0, 3)).toEqual(['D4', 'G3', 'A3', 'B3', 'C4', 'D4', 'G3', 'G3', 'E4', 'C4', 'D4', 'E4', 'F#4']);
+  });
+
+  it('Pachelbel Canon: F# E D C# B A B C#', () => {
+    expect(t('eser-pachelbel-canon', 2, 4)).toEqual(['F#4', 'E4', 'D4', 'C#4', 'B3', 'A3', 'B3', 'C#4']);
+  });
+
+  it('Blue Danube: D D F# A A, then A A / F# F# above the bass', () => {
+    expect(t('eser-mavi-tuna', 0, 5)).toEqual(['D3', 'D3', 'F#3', 'A3', 'A3', 'D3', 'A4', 'A4', 'D3', 'F#4', 'F#4']);
+  });
+
+  it('Can-Can: C D F E D G G G A E F', () => {
+    expect(t('eser-can-can', 0, 2)).toEqual(['C4', 'D4', 'F4', 'E4', 'D4', 'G4', 'G4', 'G4', 'A4', 'E4', 'F4']);
+  });
+
+  it('Für Elise: E D# E D# E B D C A', () => {
+    expect(t('eser-fur-elise', 0, 3)).toEqual(['E4', 'D#4', 'E4', 'D#4', 'E4', 'B3', 'D4', 'C4', 'A3', 'C3', 'E3', 'A3']);
+  });
+
+  it('Romance: B B B B A G G F# E E G B on the first string, in triplets', () => {
+    const score = load('eser-romance-anonimo');
+    const melody = beatsOf(score).slice(0, 4).flat().filter((_, i) => i % 3 === 0).map((b) => pitchName(Math.max(...b.notes.map((n) => n.realValue))));
+    expect(melody).toEqual(['B4', 'B4', 'B4', 'B4', 'A4', 'G4', 'G4', 'F#4', 'E4', 'E4', 'G4', 'B4']);
+    expect(beatsOf(score)[0][0].tupletNumerator).toBe(3);
+  });
+  it('Mountain King: B C# D E F# D F#, F C# F, E C E', () => {
+    expect(t('eser-dag-kralinin-salonu', 0, 2)).toEqual(['B2', 'C#3', 'D3', 'E3', 'F#3', 'D3', 'F#3', 'F3', 'C#3', 'F3', 'E3', 'C3', 'E3']);
+  });
+
+  it('Habanera: chromatic descent D C# C C C B Bb A A A G# G over the D-A-F-A bass', () => {
+    const melody = t('eser-habanera', 2, 6).filter((p) => Number(p.at(-1)) >= 4);
+    expect(melody).toEqual(['D5', 'C#5', 'C5', 'C5', 'C5', 'B4', 'A#4', 'A4', 'A4', 'A4', 'G#4', 'G4', 'F4', 'G4', 'F4', 'E4', 'F4', 'G4', 'F4']);
+    expect(t('eser-habanera', 0, 1)).toEqual(['D3', 'A2', 'F3', 'A2']);
+  });
+
+  it('Lágrima: G# A B over the open B string, then F#', () => {
+    expect(t('eser-lagrima', 0, 2)).toEqual(['G#4', 'B3', 'A4', 'B3', 'B4', 'B3', 'F#4', 'B3', 'A3', 'B3', 'B2', 'B3']);
+    expect(t('eser-lagrima', 4, 5)).toEqual(['E5', 'D#5', 'C#5']);
+  });
+
+  it('Adelita: E D# C, D C F#, C B D# G', () => {
+    expect(t('eser-adelita', 0, 3)).toEqual(['E5', 'D#5', 'C5', 'D5', 'C5', 'F#4', 'C5', 'B4', 'D#4', 'G4']);
+  });
+
+  it('Bourrée BWV 996: E F# | G F# E D# E F# | B C# D# E D C', () => {
+    expect(t('eser-bourree-mi-minor', 0, 3)).toEqual(['E4', 'F#4', 'G4', 'F#4', 'E4', 'D#4', 'E4', 'F#4', 'B3', 'C#4', 'D#4', 'E4', 'D4', 'C4']);
+  });
+
+  it('Moonlight (in D minor): A D F triplets, melody enters on A', () => {
+    const score = load('eser-ay-isigi-sonati');
+    expect(top(score, 0, 1)).toEqual(['A3', 'D4', 'F4', 'A3', 'D4', 'F4', 'A3', 'D4', 'F4', 'A3', 'D4', 'F4']);
+    expect(beatsOf(score)[0].every((b) => b.tupletNumerator === 3)).toBe(true);
+    expect(top(score, 4, 5).slice(-3)).toEqual(['A4', 'D4', 'A4']);
+  });
+
+  it('Eine kleine Nachtmusik: G D G D G D G B D', () => {
+    expect(t('eser-eine-kleine-nachtmusik', 0, 2)).toEqual(['G4', 'D4', 'G4', 'D4', 'G4', 'D4', 'G4', 'B4', 'D5']);
+  });
+
+  it('Rondo alla Turca: B A G# A C, D C B C E, F E D# E', () => {
+    expect(t('eser-rondo-alla-turca', 0, 3)).toEqual(['B3', 'A3', 'G#3', 'A3', 'C4', 'D4', 'C4', 'B3', 'C4', 'E4', 'F4', 'E4', 'D#4', 'E4']);
+  });
+
+  it('Toccata BWV 565: A G F E D C# D, then A E F C# D an octave lower', () => {
+    expect(t('eser-toccata-re-minor', 0, 2)).toEqual(['A4', 'G4', 'F4', 'E4', 'D4', 'C#4', 'D4', 'A3', 'E3', 'F3', 'C#3', 'D3']);
+  });
+
+  it('Gymnopédie No. 1: F# A G F# C# B C# D A F#', () => {
+    expect(t('eser-gymnopedie-1', 4, 9).slice(1)).toEqual(['F#4', 'A4', 'G4', 'F#4', 'C#4', 'B3', 'C#4', 'D4', 'A3', 'F#3', 'F#3', 'B3']);
+  });
+  it('Korobeiniki: E B C D C B A A C E D C', () => {
+    expect(t('eser-korobeiniki', 0, 2)).toEqual(['E4', 'B3', 'C4', 'D4', 'C4', 'B3', 'A3', 'A3', 'C4', 'E4', 'D4', 'C4']);
+  });
+
+  it('Gavotte en Rondeau: B G# | G# F# E F# A | A B G# A F#', () => {
+    expect(t('eser-gavotte-en-rondeau', 0, 3)).toEqual(['B3', 'G#4', 'G#4', 'F#4', 'E4', 'F#4', 'A4', 'A4', 'B4', 'G#4', 'A4', 'F#4']);
+  });
+
+  it('Bourrée BWV 1006: E | A B C# D# E | G# B E E D# E', () => {
+    expect(t('eser-bourree-mi-major', 0, 3)).toEqual(['B3', 'C#4', 'A3', 'B3', 'C#4', 'D#4', 'E4', 'G#3', 'B3', 'E4', 'E4', 'D#4', 'E4']);
+  });
+
+  it('Prelude in C: C E G C E, C D A D F, B D G D F', () => {
+    const p = t('eser-prelude-do-major', 0, 3);
+    expect(p.slice(0, 8)).toEqual(['C3', 'E3', 'G3', 'C4', 'E4', 'G3', 'C4', 'E4']);
+    expect(p.slice(16, 21)).toEqual(['C3', 'D3', 'A3', 'D4', 'F4']);
+    expect(p.slice(32, 37)).toEqual(['B2', 'D3', 'G3', 'D4', 'F4']);
+  });
+
+  it('Paganini Caprice 24: A A A C B A, E E E G# F# E', () => {
+    expect(t('eser-paganini-kapris-24', 0, 2)).toEqual(['A3', 'A3', 'A3', 'C4', 'B3', 'A3', 'E4', 'E3', 'E3', 'G#3', 'F#3', 'E3']);
+  });
+
+  it('Cello Suite No. 1 Prelude: G D B A B D B D', () => {
+    expect(t('eser-cello-suit-prelud', 0, 1).slice(0, 8)).toEqual(['G2', 'D3', 'B3', 'A3', 'B3', 'D3', 'B3', 'D3']);
+    expect(t('eser-cello-suit-prelud', 1, 2).slice(0, 8)).toEqual(['G2', 'E3', 'C4', 'B3', 'C4', 'E3', 'C4', 'E3']);
+  });
+
+  it('Recuerdos: tremolo melody E D | C D | E | E F | G F', () => {
+    const melody = beatsOf(load('eser-recuerdos-de-la-alhambra'))
+      .slice(0, 5)
+      .map((bar) => bar.filter((_, i) => i % 8 === 1).map((b) => pitchName(b.notes[0].realValue)));
+    expect(melody).toEqual([['E4', 'E4', 'D4'], ['C4', 'C4', 'D4'], ['E4', 'E4', 'E4'], ['E4', 'E4', 'F4'], ['G4', 'G4', 'F4']]);
+  });
+
+  it('Summer Presto: G over repeated G, then F, Eb, D', () => {
+    const score = load('eser-yaz-presto');
+    expect(beatsOf(score).slice(0, 4).map((bar) => pitchName(bar[0].notes[0].realValue))).toEqual(['G4', 'F4', 'D#4', 'D4']);
+    expect(t('eser-yaz-presto', 9, 10)).toEqual(['D5', 'C5', 'A#4', 'A4', 'G4', 'F#4', 'E4', 'D4', 'C4', 'A#3', 'A3']);
+  });
+
+  it('Partita No. 3 Preludio: E D# E B G# B, E F# E D# E B G# B', () => {
+    expect(t('eser-partita-prelud', 0, 2)).toEqual(['E5', 'D#5', 'E5', 'B4', 'G#4', 'B4', 'E4', 'F#4', 'E4', 'D#4', 'E4', 'B3', 'G#3', 'B3']);
+  });
+
+  it('Flight of the Bumblebee: chromatic descent E D# D C# D C# C B', () => {
+    expect(t('eser-yaban-arisinin-ucusu', 0, 2)).toEqual(['E5', 'D#5', 'D5', 'C#5', 'D5', 'C#5', 'C5', 'B4', 'C5', 'B4', 'A#4', 'A4', 'G#4', 'G4', 'F#4', 'F4']);
   });
 });
