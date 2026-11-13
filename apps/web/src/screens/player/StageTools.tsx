@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Maximize, Minimize, ZoomIn, ZoomOut } from 'lucide-react';
 import { IconButton, SegmentedControl } from '../../ui/kit';
 
@@ -30,12 +30,16 @@ interface Props {
   fullscreen: boolean;
   fullscreenSupported: boolean;
   onFullscreen: () => void;
+  /** Extra control shown first (capo / tuning). */
+  extra?: ReactNode;
 }
 
 /** Floating controls in the stage corner: neck/tab focus, zoom and fullscreen. */
 export function StageTools(p: Props) {
   return (
     <div className="stage-tools" role="toolbar" aria-label="Sahne">
+      {p.extra}
+      {p.extra && <span className="stage-tools-sep" aria-hidden />}
       <SegmentedControl<'neck' | 'tab'>
         aria-label="Odak"
         size="sm"

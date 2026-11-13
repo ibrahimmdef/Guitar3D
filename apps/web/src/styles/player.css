@@ -1009,3 +1009,38 @@
     animation: none;
   }
 }
+
+/* ---------- Capo / tuning control ---------- */
+.stage-capo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.stage-capo:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.stage-capo.is-on {
+  color: var(--accent);
+}
+.stage-capo:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.stage-capo-tuning {
+  color: #a3a6ad;
+}
+.capo-pop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 280px;
+}
