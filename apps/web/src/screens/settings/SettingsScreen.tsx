@@ -1,3 +1,4 @@
+import { GUITAR_SOUNDS } from '../../audio/sounds';
 import { Card, SegmentedControl, Slider, Toggle } from '../../ui/kit';
 import { DEFAULT_SETTINGS, useSettings, type Settings } from '../../ui/settings';
 import { ShortcutList } from '../../ui/ShortcutList';
@@ -36,6 +37,27 @@ export function SettingsScreen() {
           <hr />
           <Toggle label="Metronom açık başlasın" checked={s.metronome} onChange={(v) => set({ metronome: v })} />
           <Slider label="Metronom sesi" min={0} max={1} step={0.05} value={s.metronomeVolume} onChange={(v) => set({ metronomeVolume: v })} format={pct} />
+          <hr />
+          <div className="setting setting-col">
+            <div className="setting-text">
+              <div className="setting-label" id="set-sound">Gitar sesi</div>
+              <p className="setting-desc">Tab bu enstrümanla çalınır.</p>
+            </div>
+            <div className="sound-list" role="radiogroup" aria-labelledby="set-sound">
+              {GUITAR_SOUNDS.map((snd) => (
+                <button
+                  key={snd.program}
+                  type="button"
+                  role="radio"
+                  aria-checked={s.program === snd.program}
+                  className={`sound-opt${s.program === snd.program ? ' is-on' : ''}`}
+                  onClick={() => set({ program: snd.program })}
+                >
+                  {snd.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </Card>
       </section>
 
@@ -78,6 +100,8 @@ export function SettingsScreen() {
           </div>
           <hr />
           <Toggle label="Tab şeridini göster" checked={s.showTabStrip} onChange={(v) => set({ showTabStrip: v })} />
+          <hr />
+          <Toggle label="Perde numaraları" description="Sapın kenarında perde numaralarını gösterir." checked={s.showFretNumbers} onChange={(v) => set({ showFretNumbers: v })} />
         </Card>
         <button type="button" className="link-btn" onClick={() => set(DEFAULT_SETTINGS)}>Varsayılanlara dön</button>
       </section>

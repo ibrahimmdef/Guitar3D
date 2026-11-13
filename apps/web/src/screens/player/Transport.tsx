@@ -1,4 +1,5 @@
-import { Metronome, PanelBottom, Pause, Play, Repeat, SkipBack, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { GraduationCap, Metronome, Mic, MicOff, Minus, PanelBottom, Pause, Play, Plus, Repeat, SkipBack, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { GUITAR_SOUNDS, MIXES, mixOf, type Mix } from '../../audio/sounds';
 import { Button, IconButton, Popover, SegmentedControl, Slider, Toggle, Tooltip } from '../../ui/kit';
 import { formatPercent, formatTime } from '../../ui/format';
 import { Scrubber } from './Scrubber';
@@ -18,6 +19,7 @@ export interface TransportProps {
   endTick: number;
   barTicks: number[] | null;
   loopTicks: [number, number] | null;
+  density: number[] | null;
   currentBar: number;
   barCount: number;
   onPlayPause: () => void;
@@ -27,6 +29,8 @@ export interface TransportProps {
 
   speed: number;
   onSpeed: (v: number) => void;
+  /** Song tempo at 100 %, for the BPM readout. */
+  bpm: number | null;
   metronome: boolean;
   onMetronome: (v: boolean) => void;
   metroVol: number;
@@ -45,10 +49,23 @@ export interface TransportProps {
 
   showTab: boolean;
   onToggleTab: () => void;
+
+  program: number;
+  onProgram: (p: number) => void;
+  onMix: (m: Mix) => void;
+
+  listening: boolean;
+  listenDisabled?: boolean;
+  onListen: (v: boolean) => void;
+
+  practiceOpen: boolean;
+  onPractice: () => void;
 }
 
 export function Transport(p: TransportProps) {
   const speedPreset = SPEED_PRESETS.find((v) => Math.abs(v - p.speed) < 0.001);
+  const bpm = p.bpm ? Math.round(p.bpm * p.speed) : null;
+  const mix = mixOf(!p.muted && p.guitarVol > 0, p.metronome);
   const loopLabel = p.loop
     ? p.loop[0] === p.loop[1] ? `Ölçü ${p.loop[0] + 1}` : `${p.loop[0] + 1}–${p.loop[1] + 1}`
     : p.abPending != null ? `A: ${p.abPending + 1} · B?` : 'A–B';
@@ -78,6 +95,7 @@ export function Transport(p: TransportProps) {
           endTick={p.endTick}
           barTicks={p.barTicks}
           loopTicks={p.loopTicks}
+          density={p.density}
           currentBar={p.currentBar}
           barCount={p.barCount}
           disabled={!p.hasScore}
@@ -89,28 +107,32 @@ export function Transport(p: TransportProps) {
       </div>
 
       <div className="tp-group tp-tools">
-        <Popover
-          label="Hız"
-          trigger={
-            <Tooltip content="Hız" shortcut="- / +">
-                <button type="button" className={`btn btn-ghost btn-md tp-speed${p.speed !== 1 ? ' is-changed' : ''}`} aria-label={`Hız ${pct(p.speed)}`}>
-                  <span className="num">{pct(p.speed)}</span>
-                </button>
-            </Tooltip>
-          }
-        >
-          <div className="pop-stack">
-            <div className="pop-title">Çalma hızı</div>
-            <SegmentedControl
-              aria-label="Hız ön ayarları"
-              size="sm"
-              value={speedPreset ? String(speedPreset) : ''}
-              onChange={(v) => p.onSpeed(Number(v))}
-              options={SPEED_PRESETS.map((v) => ({ value: String(v), label: pct(v) }))}
-            />
-            <Slider label="Hız" min={0.25} max={1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={pct} />
-          </div>
-        </Popover>
+        <div className="tp-tempo" role="group" aria-label="Tempo">
+          <IconButton label="Yavaşlat" shortcut="-" size="sm" icon={<Minus size={15} />} onClick={() => p.onSpeed(p.speed - 0.05)} disabled={p.speed <= 0.25} />
+          <Slider label="Hız" compact min={0.25} max={1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={pct} className="tp-tempo-slider tp-hide-md" />
+          <IconButton label="Hızlandır" shortcut="+" size="sm" icon={<Plus size={15} />} onClick={() => p.onSpeed(p.speed + 0.05)} disabled={p.speed >= 1.5} />
+          <Popover
+            label="Hız"
+            trigger={
+              <button type="button" className={`btn btn-ghost btn-sm tp-speed${p.speed !== 1 ? ' is-changed' : ''}`} aria-label={`Hız ${pct(p.speed)}${bpm ? `, ${bpm} BPM` : ''}`}>
+                <span className="num">{pct(p.speed)}</span>
+                {bpm != null && <span className="tp-bpm num">{bpm} BPM</span>}
+              </button>
+            }
+          >
+            <div className="pop-stack">
+              <div className="pop-title">Çalma hızı</div>
+              <SegmentedControl
+                aria-label="Hız ön ayarları"
+                size="sm"
+                value={speedPreset ? String(speedPreset) : ''}
+                onChange={(v) => p.onSpeed(Number(v))}
+                options={SPEED_PRESETS.map((v) => ({ value: String(v), label: pct(v) }))}
+              />
+              <Slider label="Hız" min={0.25} max={1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={(v) => `${pct(v)}${p.bpm ? ` · ${Math.round(p.bpm * v)} BPM` : ''}`} />
+            </div>
+          </Popover>
+        </div>
 
         <span className="tp-sep" aria-hidden />
 
@@ -132,7 +154,7 @@ export function Transport(p: TransportProps) {
           label="Ses"
           trigger={
             <Tooltip content="Ses">
-                <button type="button" className={`btn btn-ghost btn-md icon-btn${p.muted ? ' is-pressed' : ''}`} aria-label={p.muted ? 'Ses: gitar kapalı' : 'Ses'}>
+                <button type="button" className={`btn btn-ghost btn-md icon-btn${p.muted ? ' is-pressed' : ''}`} aria-label={p.muted ? 'Ses: gitar kapalı' : 'Ses ve enstrüman'}>
                   {p.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                 </button>
             </Tooltip>
@@ -140,6 +162,28 @@ export function Transport(p: TransportProps) {
         >
           <div className="pop-stack">
             <div className="pop-title">Ses</div>
+            <SegmentedControl<Mix | ''>
+              aria-label="Ne duyulsun"
+              size="sm"
+              value={mix}
+              onChange={(v) => v && p.onMix(v)}
+              options={MIXES.map((m) => ({ value: m.value, label: m.label }))}
+              className="tp-mix"
+            />
+            <div className="sound-list" role="radiogroup" aria-label="Gitar sesi">
+              {GUITAR_SOUNDS.map((snd) => (
+                <button
+                  key={snd.program}
+                  type="button"
+                  role="radio"
+                  aria-checked={p.program === snd.program}
+                  className={`sound-opt${p.program === snd.program ? ' is-on' : ''}`}
+                  onClick={() => p.onProgram(snd.program)}
+                >
+                  {snd.label}
+                </button>
+              ))}
+            </div>
             <Slider label="Gitar" min={0} max={1} step={0.05} value={p.muted ? 0 : p.guitarVol} onChange={(v) => { p.onGuitarVol(v); p.onMuted(v === 0); }} format={(v) => (v === 0 ? 'Kapalı' : pct(v))} />
             <Toggle label="Gitarı sustur" description="Sadece metronomla kendin çal." checked={p.muted} onChange={p.onMuted} />
             <Slider label="Metronom" min={0} max={1} step={0.05} value={p.metroVol} onChange={(v) => { p.onMetroVol(v); if (v > 0) p.onMetronome(true); }} format={pct} />
@@ -171,7 +215,18 @@ export function Transport(p: TransportProps) {
           icon={<PanelBottom size={18} />}
           pressed={p.showTab}
           onClick={p.onToggleTab}
+          className="tp-hide-sm"
         />
+        <IconButton
+          label={p.listening ? 'Dinle ve bekle: açık' : 'Dinle ve bekle (mikrofon)'}
+          icon={p.listening ? <Mic size={18} /> : <MicOff size={18} />}
+          pressed={p.listening}
+          disabled={p.listenDisabled}
+          onClick={() => p.onListen(!p.listening)}
+        />
+        <Button variant="primary" icon={<GraduationCap size={16} />} pressed={p.practiceOpen} onClick={p.onPractice} aria-keyshortcuts="P" className="tp-practice">
+          Çalış
+        </Button>
       </div>
     </div>
   );
