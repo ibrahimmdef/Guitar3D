@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { Activity, Drum, Ear, GraduationCap, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, PencilLine, Repeat, Settings, Target } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Activity, Drum, Ear, GraduationCap, Gauge, Grid3x3, Guitar, Library, ListChecks, Menu, Music2, PencilLine, Repeat, Settings, Target } from 'lucide-react';
+import { Sheet } from '../ui/kit';
 import { routeHref, type Route, type SimpleRouteName } from '../ui/router';
 
 export interface NavEntry { route: SimpleRouteName; label: string; icon: ReactNode }
@@ -72,7 +73,54 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
         ))}
       </nav>
       <main className="shell-main">{children}</main>
+      <BottomNav route={route} />
     </div>
+  );
+}
+
+/** Phone tab bar: the most used destinations plus a "Menü" sheet with every screen, grouped. */
+export const PRIMARY: SimpleRouteName[] = ['library', 'course', 'rhythm', 'tuner'];
+
+function BottomNav({ route }: { route: Route }) {
+  const [open, setOpen] = useState(false);
+  const all = NAV_GROUPS.flatMap((g) => g.items);
+  const primary = PRIMARY.map((r) => all.find((n) => n.route === r)!);
+  const inMenu = !PRIMARY.includes(route.name as SimpleRouteName);
+  return (
+    <nav className="bottom-nav" aria-label="Alt menü">
+      {primary.map((n) => {
+        const active = n.route === route.name;
+        return (
+          <a key={n.route} className={`bn-item${active ? ' active' : ''}`} href={routeHref({ name: n.route })} aria-current={active ? 'page' : undefined}>
+            <span aria-hidden className="nav-ic">{n.icon}</span>
+            <span>{n.label}</span>
+          </a>
+        );
+      })}
+      <button type="button" className={`bn-item${inMenu ? ' active' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+        <span aria-hidden className="nav-ic"><Menu size={18} /></span>
+        <span>Menü</span>
+      </button>
+      <Sheet open={open} onOpenChange={setOpen} title="Tüm ekranlar">
+        <div className="bn-sheet">
+          {NAV_GROUPS.map((g) => (
+            <section key={g.label}>
+              <h2 className="nav-group-label">{g.label}</h2>
+              <ul className="bn-grid">
+                {g.items.map((n) => (
+                  <li key={n.route}>
+                    <a className={`bn-tile${n.route === route.name ? ' active' : ''}`} href={routeHref({ name: n.route })} onClick={() => setOpen(false)} aria-current={n.route === route.name ? 'page' : undefined}>
+                      <span aria-hidden className="nav-ic">{n.icon}</span>
+                      <span>{n.label}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </Sheet>
+    </nav>
   );
 }
 
