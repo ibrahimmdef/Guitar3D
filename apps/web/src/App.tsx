@@ -17,12 +17,13 @@ import { PlayerScreen } from './screens/player/PlayerScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
 import { ToastProvider, TooltipProvider } from './ui/kit';
 import { useRoute } from './ui/router';
-import { useSettings, useThemeEffect } from './ui/settings';
+import { useA11yEffect, useSettings, useThemeEffect } from './ui/settings';
 
 export function App() {
   const route = useRoute();
   const [settings] = useSettings();
   useThemeEffect(settings.theme);
+  useA11yEffect(settings);
 
   return (
     <TooltipProvider>

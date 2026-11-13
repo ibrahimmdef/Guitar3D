@@ -704,3 +704,77 @@ textarea.input {
     min-height: 60vw;
   }
 }
+
+/* ---------- Accessibility (set on <html> by useA11yEffect) ---------- */
+:root[data-contrast='high'] {
+  --text: #ffffff;
+  --text-2: #d4d6da;
+  --text-3: #b6b9bf;
+  --border: rgba(255, 255, 255, 0.18);
+  --border-strong: rgba(255, 255, 255, 0.34);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --surface-active: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme='light'][data-contrast='high'] {
+  --text: #000000;
+  --text-2: #26282c;
+  --text-3: #3c3f44;
+  --border: rgba(0, 0, 0, 0.22);
+  --border-strong: rgba(0, 0, 0, 0.4);
+}
+:root[data-contrast='high'] :focus-visible {
+  outline-width: 3px !important;
+}
+/* Okabe–Ito: blue for right, vermillion for wrong — distinct for every common colour-vision type. */
+:root[data-palette='cb'] {
+  --success: #56b4e9;
+  --success-soft: rgba(86, 180, 233, 0.16);
+  --danger: #e36b1f;
+  --danger-soft: rgba(227, 107, 31, 0.16);
+}
+:root[data-theme='light'][data-palette='cb'] {
+  --success: #0072b2;
+  --success-soft: rgba(0, 114, 178, 0.12);
+  --danger: #b84a00;
+  --danger-soft: rgba(184, 74, 0, 0.12);
+}
+/* Right/wrong is never colour alone: icons and text carry it too; add an underline for wrong feedback. */
+:root[data-palette='cb'] .game-feedback.is-bad {
+  text-decoration: underline wavy;
+  text-underline-offset: 4px;
+}
+:root[data-markers='large'] .cue-list,
+:root[data-markers='large'] .chord-diagram,
+:root[data-markers='large'] .rhythm-static,
+:root[data-markers='large'] .course-targets {
+  zoom: 1.3;
+}
+:root[data-markers='large'] .stroke svg {
+  width: 34px;
+  height: 34px;
+}
+:root[data-markers='large'] .ed-cell {
+  min-width: 38px;
+  height: 34px;
+  font-size: var(--fs-lg);
+}
+:root[data-markers='large'] .game-note {
+  font-size: 52px;
+}
+:root[data-motion='reduce'] {
+  --dur-fast: 0ms;
+  --dur: 0ms;
+}
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-cell.is-now .stroke {
+    transform: none;
+  }
+}
