@@ -247,3 +247,43 @@
   gap: var(--sp-6);
   margin-top: var(--sp-6);
 }
+
+/* Ear training */
+.ear-section {
+  margin-top: var(--sp-4);
+}
+.answer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--sp-2);
+}
+.answer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.answer span {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.answer:hover:not(:disabled) {
+  border-color: var(--accent-line);
+}
+.answer:disabled {
+  cursor: default;
+}
+.answer.is-right {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
