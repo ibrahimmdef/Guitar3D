@@ -1,4 +1,4 @@
-/** Metadata of a built-in lesson. `level` runs from 1 (first day) to 5 (hard); the built-in set stays within 1–3. */
+/** Metadata of a built-in lesson. `level` runs from 1 (first day) to 5 (hard); the regular built-in set stays within 1–3, the packs go up to 5. */
 export interface BuiltinLesson {
   id: string;
   /** Turkish display title. */
@@ -13,8 +13,8 @@ export interface BuiltinLesson {
   tip: string;
   /** Where the material comes from: an exercise written for this app or a public-domain melody. */
   source: 'original' | 'public-domain';
-  /** Library group; 'turkuler' = the Turkish folk-style pack. Missing = the regular lessons. */
-  group?: 'turkuler';
+  /** Library group; 'turkuler' = the Turkish folk-style pack, 'eserler' = the classical/traditional pieces pack. Missing = the regular lessons. */
+  group?: 'turkuler' | 'eserler';
 }
 
 export interface BuiltinLessonDef extends BuiltinLesson {
