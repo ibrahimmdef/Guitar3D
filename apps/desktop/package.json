@@ -1,6 +1,6 @@
 {
   "name": "@guitar3d/desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Guitar3D desktop app",
   "author": {
@@ -81,7 +81,8 @@
       "uninstallDisplayName": "Guitar3D",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "deleteAppDataOnUninstall": true
     },
     "electronVersion": "45.3.2"
   },
