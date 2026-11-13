@@ -7,6 +7,7 @@ import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
 import { getTuning, withCapo } from '../../music/tunings';
 import { useSessionRecorder } from '../../player/useSessionRecorder';
+import { useRun } from '../routines/routineStore';
 import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
@@ -230,7 +231,9 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
 
   /* ---------- Session recording ---------- */
   const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
-  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle });
+  // A running routine records its own time, so the player does not count it twice.
+  const routineRunning = !!useRun();
+  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle, disabled: routineRunning });
 
   /* ---------- Listen and wait ---------- */
   const onPass = useCallback((p: PassSummary) => {
