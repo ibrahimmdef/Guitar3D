@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
+import { ArrowRight, Clapperboard, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
 import { navigate, playLesson, playTab } from '../../ui/router';
@@ -10,6 +10,9 @@ import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
 import { groupByLevel, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
 import { ImageImportDialog, TextImportDialog } from './TextImport';
+import { YouTubeImportDialog } from './YouTubeImport';
+import { writeTabSetup } from '../../player/tabSetup';
+import type { VideoLink } from '../../player/youtube';
 
 type Sort = 'recent' | 'title' | 'added';
 
@@ -26,7 +29,9 @@ export function LibraryScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
-  const [importMode, setImportMode] = useState<'text' | 'image' | null>(null);
+  const [importMode, setImportMode] = useState<'text' | 'image' | 'youtube' | null>(null);
+  // A video waiting for the tab being imported (YouTube → new tab).
+  const [pendingVideo, setPendingVideo] = useState<VideoLink | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -72,6 +77,14 @@ export function LibraryScreen() {
     }
   };
 
+  const savedImport = (t: TabMeta) => {
+    onAdded([t]);
+    if (pendingVideo) {
+      writeTabSetup(t.id, { video: pendingVideo });
+      setPendingVideo(null);
+      navigate(playTab(t.id));
+    }
+  };
   const onAdded = (added: TabMeta[]) => {
     setTabs((x) => [...added, ...(x ?? []).filter((t) => !added.some((a) => a.id === t.id))]);
     toast({
@@ -88,6 +101,7 @@ export function LibraryScreen() {
       onError={(m) => toast({ tone: 'danger', title: 'Dosya yüklenemedi.', description: m, durationMs: 7000 })}
     />
     <div className="lib-import-row">
+      <Button variant="secondary" icon={<Clapperboard size={15} />} onClick={() => setImportMode('youtube')}>YouTube'dan</Button>
       <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Metinden içe aktar</Button>
       <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => setImportMode('image')}>Görselden içe aktar</Button>
     </div>
@@ -221,8 +235,20 @@ export function LibraryScreen() {
         </section>
       )}
 
-      {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={(t) => onAdded([t])} />}
-      {importMode === 'image' && <ImageImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={(t) => onAdded([t])} />}
+      {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
+      {importMode === 'image' && <ImageImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
+      {importMode === 'youtube' && (
+        <YouTubeImportDialog
+          open
+          onOpenChange={(o) => !o && setImportMode(null)}
+          tabs={tabs ?? []}
+          lessons={lessons ?? []}
+          onNewTab={(kind, link) => {
+            setPendingVideo(link);
+            setImportMode(kind);
+          }}
+        />
+      )}
 
       <Dialog
         open={!!confirm}

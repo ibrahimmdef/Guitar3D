@@ -67,6 +67,41 @@ export function needsSeek(o: { playing: boolean; prevSongMs: number; songMs: num
   return o.msSinceFix >= 1500 && Math.abs(o.videoSec - o.targetSec) > 0.35;
 }
 
+export const thumbUrl = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+export const watchUrl = (l: VideoLink) => `https://www.youtube.com/watch?v=${l.id}${l.offset >= 1 ? `&t=${Math.floor(l.offset)}s` : ''}`;
+
+/** Title and channel through YouTube's public oEmbed endpoint (null when offline or unknown). */
+export async function fetchVideoInfo(id: string): Promise<{ title: string; author: string } | null> {
+  try {
+    const r = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`);
+    if (!r.ok) return null;
+    const j = (await r.json()) as { title?: string; author_name?: string };
+    return j.title ? { title: j.title, author: j.author_name ?? '' } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Human message for an IFrame player error code. */
+export function ytErrorMessage(code: number) {
+  if (code === 2) return 'Bağlantı geçersiz.';
+  if (code === 5) return 'Video bu tarayıcıda oynatılamıyor.';
+  if (code === 100) return 'Video bulunamadı ya da gizli.';
+  if (code === 101 || code === 150 || code === 153) return 'Videonun sahibi başka sitelerde oynatılmasına izin vermiyor.';
+  return 'Video oynatılamıyor.';
+}
+
+const NOISE = new Set(['official', 'video', 'music', 'audio', 'lyrics', 'lyric', 'hd', '4k', 'remaster', 'remastered', 'live', 'guitar', 'gitar', 'tab', 'tabs', 'lesson', 'ders', 'cover', 'tutorial', 'how', 'to', 'play', 'the', 'a', 'and', 've', 'ile', 'nasıl', 'çalınır', 'akor', 'chords', 'feat', 'ft']);
+const words = (s: string) => s.toLocaleLowerCase('tr').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9ğüşöçı]+/).filter((w) => w.length > 1 && !NOISE.has(w));
+
+/** 0..1: how well a tab / lesson title matches a video title (shared meaningful words). */
+export function titleMatch(video: string, candidate: string): number {
+  const v = new Set(words(video));
+  const c = words(candidate);
+  if (!v.size || !c.length) return 0;
+  return c.filter((w) => v.has(w)).length / c.length;
+}
+
 /* ---------- IFrame API ---------- */
 export interface YTPlayer {
   playVideo(): void;
@@ -74,6 +109,7 @@ export interface YTPlayer {
   seekTo(s: number, allowSeekAhead: boolean): void;
   getCurrentTime(): number;
   getPlayerState(): number;
+  getDuration(): number;
   setPlaybackRate(r: number): void;
   destroy(): void;
 }

@@ -38,6 +38,15 @@ function readAll(): Record<string, TabSetup> {
   }
 }
 
+/** Writes one tab's setup outside the player (e.g. linking a video from the library). */
+export function writeTabSetup(key: string, patch: TabSetup) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(mergeSetup(readAll(), key, patch)));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 export function useTabSetup(key: string): [TabSetup, (patch: TabSetup) => void] {
   const [setup, setSetup] = useState<TabSetup>(() => readAll()[key] ?? {});
   const update = useCallback((patch: TabSetup) => {

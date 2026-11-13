@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alignOffset, needsSeek, videoRate, parseT, parseYouTube, videoTimeFor } from './youtube';
+import { alignOffset, needsSeek, titleMatch, videoRate, watchUrl, ytErrorMessage, parseT, parseYouTube, videoTimeFor } from './youtube';
 
 describe('parseYouTube', () => {
   it('reads the common link forms', () => {
@@ -48,5 +48,18 @@ describe('needsSeek', () => {
   it('paused: follows tab moves only', () => {
     expect(needsSeek({ ...base, playing: false, songMs: 10_000 })).toBe(false);
     expect(needsSeek({ ...base, playing: false, songMs: 14_000 })).toBe(true);
+  });
+});
+
+describe('youtube helpers', () => {
+  it('matches tab titles against noisy video titles', () => {
+    const v = 'Metallica - Nothing Else Matters (Official Music Video) guitar lesson';
+    expect(titleMatch(v, 'Nothing Else Matters')).toBe(1);
+    expect(titleMatch(v, 'Ode to Joy')).toBe(0);
+    expect(titleMatch('Çiçekli Dağlar - Gitar Dersi', 'Cicekli daglar')).toBe(1);
+  });
+  it('builds watch links and error messages', () => {
+    expect(watchUrl({ id: 'dQw4w9WgXcQ', offset: 12.4 })).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12s');
+    expect(ytErrorMessage(150)).toMatch(/izin vermiyor/);
   });
 });
