@@ -295,4 +295,52 @@ describe('Eserler melodies', () => {
   it('Gymnopédie No. 1: F# A G F# C# B C# D A F#', () => {
     expect(t('eser-gymnopedie-1', 4, 9).slice(1)).toEqual(['F#4', 'A4', 'G4', 'F#4', 'C#4', 'B3', 'C#4', 'D4', 'A3', 'F#3', 'F#3', 'B3']);
   });
+  it('Korobeiniki: E B C D C B A A C E D C', () => {
+    expect(t('eser-korobeiniki', 0, 2)).toEqual(['E4', 'B3', 'C4', 'D4', 'C4', 'B3', 'A3', 'A3', 'C4', 'E4', 'D4', 'C4']);
+  });
+
+  it('Gavotte en Rondeau: B G# | G# F# E F# A | A B G# A F#', () => {
+    expect(t('eser-gavotte-en-rondeau', 0, 3)).toEqual(['B3', 'G#4', 'G#4', 'F#4', 'E4', 'F#4', 'A4', 'A4', 'B4', 'G#4', 'A4', 'F#4']);
+  });
+
+  it('Bourrée BWV 1006: E | A B C# D# E | G# B E E D# E', () => {
+    expect(t('eser-bourree-mi-major', 0, 3)).toEqual(['B3', 'C#4', 'A3', 'B3', 'C#4', 'D#4', 'E4', 'G#3', 'B3', 'E4', 'E4', 'D#4', 'E4']);
+  });
+
+  it('Prelude in C: C E G C E, C D A D F, B D G D F', () => {
+    const p = t('eser-prelude-do-major', 0, 3);
+    expect(p.slice(0, 8)).toEqual(['C3', 'E3', 'G3', 'C4', 'E4', 'G3', 'C4', 'E4']);
+    expect(p.slice(16, 21)).toEqual(['C3', 'D3', 'A3', 'D4', 'F4']);
+    expect(p.slice(32, 37)).toEqual(['B2', 'D3', 'G3', 'D4', 'F4']);
+  });
+
+  it('Paganini Caprice 24: A A A C B A, E E E G# F# E', () => {
+    expect(t('eser-paganini-kapris-24', 0, 2)).toEqual(['A3', 'A3', 'A3', 'C4', 'B3', 'A3', 'E4', 'E3', 'E3', 'G#3', 'F#3', 'E3']);
+  });
+
+  it('Cello Suite No. 1 Prelude: G D B A B D B D', () => {
+    expect(t('eser-cello-suit-prelud', 0, 1).slice(0, 8)).toEqual(['G2', 'D3', 'B3', 'A3', 'B3', 'D3', 'B3', 'D3']);
+    expect(t('eser-cello-suit-prelud', 1, 2).slice(0, 8)).toEqual(['G2', 'E3', 'C4', 'B3', 'C4', 'E3', 'C4', 'E3']);
+  });
+
+  it('Recuerdos: tremolo melody E D | C D | E | E F | G F', () => {
+    const melody = beatsOf(load('eser-recuerdos-de-la-alhambra'))
+      .slice(0, 5)
+      .map((bar) => bar.filter((_, i) => i % 8 === 1).map((b) => pitchName(b.notes[0].realValue)));
+    expect(melody).toEqual([['E4', 'E4', 'D4'], ['C4', 'C4', 'D4'], ['E4', 'E4', 'E4'], ['E4', 'E4', 'F4'], ['G4', 'G4', 'F4']]);
+  });
+
+  it('Summer Presto: G over repeated G, then F, Eb, D', () => {
+    const score = load('eser-yaz-presto');
+    expect(beatsOf(score).slice(0, 4).map((bar) => pitchName(bar[0].notes[0].realValue))).toEqual(['G4', 'F4', 'D#4', 'D4']);
+    expect(t('eser-yaz-presto', 9, 10)).toEqual(['D5', 'C5', 'A#4', 'A4', 'G4', 'F#4', 'E4', 'D4', 'C4', 'A#3', 'A3']);
+  });
+
+  it('Partita No. 3 Preludio: E D# E B G# B, E F# E D# E B G# B', () => {
+    expect(t('eser-partita-prelud', 0, 2)).toEqual(['E5', 'D#5', 'E5', 'B4', 'G#4', 'B4', 'E4', 'F#4', 'E4', 'D#4', 'E4', 'B3', 'G#3', 'B3']);
+  });
+
+  it('Flight of the Bumblebee: chromatic descent E D# D C# D C# C B', () => {
+    expect(t('eser-yaban-arisinin-ucusu', 0, 2)).toEqual(['E5', 'D#5', 'D5', 'C#5', 'D5', 'C#5', 'C5', 'B4', 'C5', 'B4', 'A#4', 'A4', 'G#4', 'G4', 'F#4', 'F4']);
+  });
 });

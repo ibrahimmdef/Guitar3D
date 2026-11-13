@@ -328,4 +328,165 @@ ${tri16('3.2', '0.1', '2.2')} ${tri16('3.2', '0.1', '2.2')} ${tri16('3.2', '0.1'
   }),
 ];
 
-export const ESERLER: BuiltinLessonDef[] = [...LEVEL_3, ...LEVEL_4];
+/** Sixteenth notes from a space-separated list of fret.string positions. */
+const s16 = (notes: string) => notes.trim().split(/\s+/).map((n) => `${n}.16`).join(' ');
+
+/** One bar of Bach's C major prelude: two bass notes, then a three-note figure twice, all played twice. */
+const preludeBar = (b1: string, b2: string, a: string, b: string, c: string) => s16(`${b1} ${b2} ${a} ${b} ${c} ${a} ${b} ${c} `.repeat(2));
+
+/** One 3/4 bar of tremolo: per eighth a thumb note and three 32nd repeats of the melody note. */
+const tremoloBar = (groups: [string, string][]) => groups.map(([p, m]) => `${p}.32 ${m}.32 ${m}.32 ${m}.32`).join(' ');
+
+const LEVEL_5: BuiltinLessonDef[] = [
+  e({
+    id: 'eser-korobeiniki',
+    title: 'Korobeiniki (Rus halk ezgisi)',
+    level: 5,
+    tempo: 120,
+    goal: '5. pozisyonda hızlı melodiyi açık tel baslarıyla birlikte, tempo kaçırmadan çalmak.',
+    description: 'Anonim Rus halk şarkısı "Korobeiniki" (Seyyar Satıcılar), La minörde. Melodi 5. pozisyonda, açık tellerde bas. Tarantella yerine seçilen hızlı dans ezgisi; düzenleme.',
+    tip: 'Sol el 5. perdede sabit: işaret 5, orta 6, yüzük 7, serçe 8. Basları başparmakla, melodiyi i-m ile çal. 120\'de temizse 140, sonra 160 BPM.',
+    bars: `
+:4 (5.2 0.6).4 4.3.8 5.3.8 (7.3 0.6).4 5.3.8 4.3.8 | (7.4 0.5).4 7.4.8 5.3.8 (5.2 0.5).4 7.3.8 5.3.8 | (4.3 0.6).4{d} 5.3.8 (7.3 0.6).4 5.2.4 | (5.3 0.5).4 7.4.4 (7.4 0.5).2 |
+r.8 (7.3 0.4).4 6.2.8 (5.1 0.4).4 8.2.8 6.2.8 | (5.2 0.5).4{d} 5.3.8 (5.2 0.5).4 7.3.8 5.3.8 | (4.3 0.6).4 4.3.8 5.3.8 (7.3 0.6).4 5.2.4 | (5.3 0.5).4 7.4.4 (7.4 0.5).2 |
+(0.5 2.4 2.3 1.2 0.1).1
+`,
+  }),
+  e({
+    id: 'eser-gavotte-en-rondeau',
+    title: 'Gavotte en Rondeau (Bach)',
+    level: 5,
+    tempo: 100,
+    goal: 'Barok dans ritminde melodi ve bası eşit, akıcı sekizliklerle çalmak.',
+    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006\'dan "Gavotte en Rondeau" ana teması, Mi majörde, bir oktav pes. Brahms\'ın Macar Dansı No. 5 yerine seçildi. Düzenleme.',
+    tip: 'Gavot iki vuruşluk öncülle başlar: ilk ölçüdeki iki dörtlüğü hafif çal, ilk tam ölçünün başına vurgu ver. 3. ölçüdeki onaltılıkları (Fa#-Sol#) bağlı çal. Hedef tempo 132.',
+    bars: `
+:4 r.2 (0.2 2.4).4 4.1.4 | (4.1 2.3).4 2.1.8 0.1.8 2.1.4 5.1.4 | (5.1 4.3).2 7.1.8 4.1.8 5.1.8 2.1.8 | 0.2.8 2.1.16 4.1.16 5.1.8 2.1.8 4.1.8 0.1.8 2.1.8 4.2.8 |
+0.1.8 0.2.8 1.3.8 2.4.8 1.3.8 0.2.8 0.1.8 4.1.8 | 2.3.8 4.1.8 2.1.8 0.1.8 2.1.8 4.1.8 5.1.8 2.1.8 | (5.1 4.3).2 (0.2 2.4).4 4.1.4 | (2.2 2.3).4 2.1.4 (4.4 2.5).4 4.2.4 | (0.1 2.4).2 r.2
+`,
+  }),
+  e({
+    id: 'eser-bourree-mi-major',
+    title: 'Bourrée Mi Majör (Bach)',
+    level: 5,
+    tempo: 104,
+    goal: 'Hızlı sekizlik dizilerinde birinci pozisyonu ve açık telleri temiz kullanmak.',
+    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006\'dan Bourrée, ilk dokuz ölçü, Mi majörde, bir oktav pes. Monti\'nin Czardas\'ı yerine seçildi. Düzenleme.',
+    tip: 'Sekizlikleri i-m dönüşümlü çal, aynı parmakla iki kez vurma. 5.–8. ölçülerdeki yükselen diziler aynı kalıbı tekrarlar: önce yalnız onları çalış. Hedef tempo yarımlık = 80.',
+    bars: `
+\\ts 2 2 r.2 r.4 (2.4 0.2).4 | (2.3 2.2).4 2.3.8 0.2.8 2.2.8 4.2.8 0.1.4 | 1.3.8 0.2.8 0.1.4 0.1.8 4.2.8 0.1.4 | 4.4.8 1.3.8 2.3.8 0.2.8 2.2.8 2.3.8 0.2.4 |
+2.3.8 1.3.8 4.4.8 1.3.8 2.4.4 4.1.8 0.1.8 | 2.1.8 4.2.8 0.2.8 2.2.8 4.2.8 0.1.8 2.1.8 5.1.8 | 4.1.8 0.1.8 0.2.8 4.2.8 0.1.8 2.1.8 4.1.8 7.1.8 |
+2.1.8 4.2.8 0.2.8 2.2.8 4.2.8 0.1.8 2.1.8 5.1.8 | 4.1.8 0.1.8 0.2.8 4.2.8 0.1.8 2.1.8 4.1.8 7.1.8 | 0.1.8 4.2.8 2.2.8 4.2.8 0.1.8 4.2.8 2.2.8 0.2.8 |
+(0.6 2.5 2.4 1.3 0.2 0.1).1
+`,
+  }),
+  e({
+    id: 'eser-prelude-do-major',
+    title: 'Prelüd Do Majör (Bach)',
+    level: 5,
+    tempo: 66,
+    goal: 'Onaltılık arpejde akor şekillerini tutarak geniş açıklı parmak dağılımını çalmak.',
+    description: 'Johann Sebastian Bach, İyi Düzenlenmiş Klavye I\'den Prelüd Do majör BWV 846, ilk yedi ölçü ve kapanış akoru. Do majörde, her ölçü bir akor. Rossini\'nin Wilhelm Tell uvertürü yerine seçildi. Düzenleme.',
+    tip: 'Her ölçünün başında akorun tamamını bas ve ölçü boyunca bırakma; sağ el p-i-m-a sırasıyla dolaşsın. 5. ölçüde (Am) Mi notası 2. telin 5. perdesinde. Hedef tempo 80.',
+    bars: `
+${preludeBar('3.5', '2.4', '0.3', '1.2', '0.1')} | ${preludeBar('3.5', '0.4', '2.3', '3.2', '1.1')} | ${preludeBar('2.5', '0.4', '0.3', '3.2', '1.1')} | ${preludeBar('3.5', '2.4', '0.3', '1.2', '0.1')} |
+${preludeBar('3.5', '2.4', '2.3', '5.2', '5.1')} | ${preludeBar('3.5', '0.4', '4.4', '2.3', '3.2')} | ${preludeBar('2.5', '0.4', '0.3', '3.2', '3.1')} | (3.5 2.4 0.3 1.2 0.1).1
+`,
+  }),
+  e({
+    id: 'eser-paganini-kapris-24',
+    title: 'Kapris No. 24 (Paganini)',
+    level: 5,
+    tempo: 76,
+    goal: 'Onaltılık figürleri pozisyon atlamalarıyla hızlı ve temiz çalmak.',
+    description: 'Niccolò Paganini, Keman için 24 Kapris\'ten No. 24, La minör tema (tekrarıyla 16 ölçü). Kemandaki sesler bir oktav pes alındı. Düzenleme.',
+    tip: 'Her ölçü aynı kalıp: uzun nota, onaltılık susuş, dört onaltılık. Susuşu say, kısaltma. Önce 60\'ta, sonra hedef 120 BPM.',
+    bars: `
+\\ts 2 4 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.8 r.16 2.4.16 2.4.16 1.3.16 4.4.16 2.4.16 | 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.4 2.4.8 r.8 |
+2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.8 r.16 2.4.16 2.4.16 1.3.16 4.4.16 2.4.16 | 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.4 2.4.8 r.8 |
+5.1.8 r.16 5.1.16 5.1.16 6.1.16 5.1.16 3.1.16 | 1.1.8 r.16 3.2.16 3.2.16 1.1.16 0.1.16 3.2.16 | 3.1.8 r.16 3.1.16 3.1.16 5.1.16 3.1.16 1.1.16 | 0.1.8 r.16 1.2.16 1.2.16 0.1.16 3.2.16 1.2.16 |
+1.1.8 r.16 0.2.16 0.2.16 3.2.16 1.2.16 0.2.16 | 0.1.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 3.4.8 r.16 4.2.16 2.4.16 0.1.16 3.2.16 0.2.16 | 2.3.4 0.5.8 r.8
+`,
+  }),
+  e({
+    id: 'eser-cello-suit-prelud',
+    title: 'Çello Süiti No. 1 Prelüd (Bach)',
+    level: 5,
+    tempo: 72,
+    goal: 'Sürekli onaltılıklarda bas notasını ve açık telleri kullanarak akıcı arpej çalmak.',
+    description: 'Johann Sebastian Bach, Solo Çello Süiti No. 1 BWV 1007, Prelüd\'ün ilk sekiz ölçüsü. Çellodaki gibi Sol majörde ve aynı seslerde; gitarda birinci pozisyon. Düzenleme.',
+    tip: 'Her ölçünün ilk notası (bas) bir sonraki ölçüye kadar çınlasın. Açık telleri bol kullan; sol el sadece değişen notaya basar. Hedef tempo 90.',
+    bars: `
+${s16('3.6 0.4 0.2 2.3 0.2 0.4 0.2 0.4 3.6 0.4 0.2 2.3 0.2 0.4 0.2 0.4')} | ${s16('3.6 2.4 1.2 0.2 1.2 2.4 1.2 2.4 3.6 2.4 1.2 0.2 1.2 2.4 1.2 2.4')} |
+${s16('3.6 4.4 1.2 0.2 1.2 4.4 1.2 4.4 3.6 4.4 1.2 0.2 1.2 4.4 1.2 4.4')} | ${s16('3.6 0.3 0.2 2.3 0.2 0.3 0.2 0.3 3.6 0.3 0.2 2.3 0.2 0.3 0.2 4.4')} |
+${s16('3.6 2.4 0.2 2.3 0.2 0.3 4.4 0.3 2.4 0.3 4.4 0.3 2.5 0.4 4.5 2.5')} | ${s16('4.5 0.3 2.3 0.3 2.3 0.3 2.3 0.3 4.5 0.3 2.3 0.3 2.3 0.3 2.3 0.3')} |
+${s16('4.4 2.3 3.2 2.2 3.2 2.3 0.3 2.3 4.4 2.3 0.3 2.3 0.4 4.4 2.4 0.4')} | ${s16('0.6 2.5 0.3 4.4 0.3 2.5 0.3 2.5 0.6 2.5 0.3 4.4 0.3 2.5 0.3 2.5')}
+`,
+  }),
+  e({
+    id: 'eser-recuerdos-de-la-alhambra',
+    title: 'Elhamra Hatıraları (Tárrega)',
+    level: 5,
+    tempo: 50,
+    goal: 'p-a-m-i tremolo tekniğinde melodiyi kesintisiz, başparmakla arpeji eşit çalmak.',
+    description: 'Francisco Tárrega, "Recuerdos de la Alhambra", La minör açılışın ilk sekiz ölçüsü: başparmakta bas ve arpej, tremoloda melodi. Düzenleme.',
+    tip: 'Her grup dört nota: başparmak (p), sonra aynı melodi notası a-m-i ile üç kez. Önce dörtlü grubu yavaşça eşitle, sonra hızlandır. Tremolo bir çizgi gibi duyulmalı. Hedef tempo 76.',
+    bars: `
+\\ts 3 4 ${tremoloBar([['0.5', '0.1'], ['2.4', '0.1'], ['1.2', '0.1'], ['2.4', '0.1'], ['4.3', '3.2'], ['2.4', '3.2']])} |
+${tremoloBar([['0.5', '1.2'], ['2.4', '1.2'], ['2.3', '1.2'], ['2.4', '1.2'], ['4.3', '3.2'], ['2.4', '3.2']])} |
+${tremoloBar([['0.5', '0.1'], ['2.4', '0.1'], ['1.2', '0.1'], ['2.4', '0.1'], ['1.2', '0.1'], ['2.4', '0.1']])} |
+${tremoloBar([['0.5', '0.1'], ['2.4', '0.1'], ['1.2', '0.1'], ['2.4', '0.1'], ['3.2', '1.1'], ['0.3', '1.1']])} |
+${tremoloBar([['3.5', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1'], ['3.2', '1.1'], ['0.3', '1.1']])} |
+${tremoloBar([['3.5', '0.1'], ['0.3', '0.1'], ['1.2', '0.1'], ['0.3', '0.1'], ['3.2', '1.1'], ['0.3', '1.1']])} |
+${tremoloBar([['3.5', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1']])} |
+${tremoloBar([['3.5', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1']])}
+`,
+  }),
+  e({
+    id: 'eser-yaz-presto',
+    title: 'Yaz, Presto (Vivaldi)',
+    level: 5,
+    tempo: 90,
+    goal: 'Hızlı tekrar eden onaltılıkları (tremolo) ve inen diziyi temiz çalmak.',
+    description: 'Antonio Vivaldi, Dört Mevsim\'den "Yaz" (L\'estate), 3. bölüm Presto, fırtına açılışı (1. keman). Sol minörde, bir oktav pes. Düzenleme.',
+    tip: 'Tekrarlanan Sol notalarında i-m dönüşümlü ve hafif çal, ölçü başındaki notayı vurgula. 10. ölçüdeki inen diziyi 5. pozisyonda ayrıca çalış. Hedef tempo 150.',
+    bars: `
+\\ts 3 4 ${s16('3.1' + ' 0.3'.repeat(11))} | ${s16('1.1' + ' 0.3'.repeat(11))} | ${s16('4.2' + ' 0.3'.repeat(11))} | ${s16('3.2' + ' 0.3'.repeat(7))} 0.3.8 r.8 | r.2{d} |
+${s16('10.1' + ' 7.3'.repeat(11))} | ${s16('8.1' + ' 7.3'.repeat(11))} | ${s16('6.1' + ' 7.3'.repeat(11))} | ${s16('5.1' + ' 7.3'.repeat(7))} 7.3.8 r.8 |
+r.16 ${s16('10.1 8.1 6.1 5.1 8.2 7.2 5.2 7.3 5.3 8.4 7.4')} | (3.6 0.4 0.3 3.3).2{d}
+`,
+  }),
+  e({
+    id: 'eser-partita-prelud',
+    title: 'Partita No. 3 Prelüd (Bach)',
+    level: 5,
+    tempo: 80,
+    goal: 'Sürekli onaltılıklarda açık Si teliyle "bariolage" ve 12. pozisyon geçişlerini çalmak.',
+    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006, Preludio\'nun ilk on ölçüsü, Mi majörde, bir oktav pes. Albéniz\'in Asturias\'ı yerine seçildi. Düzenleme.',
+    tip: '3. ve 5. ölçülerde her iki notadan biri açık Si teli: sol el yalnız diğer notaya basar. 8. ölçüde 7. pozisyona, 9. ölçüde 9.–12. perdelere kay. Hedef tempo 116.',
+    bars: `
+\\ts 3 4 r.8 12.1.16 11.1.16 12.1.8 12.2.8 9.2.8 12.2.8 | 5.2.16 7.2.16 5.2.16 4.2.16 5.2.8 4.3.8 6.4.8 4.3.8 |
+${s16('2.4 0.2 4.4 0.2 1.3 0.2 2.3 0.2 1.3 0.2 4.4 0.2')} | ${s16('2.4 0.1 4.2 2.2 0.2 0.1 4.2 2.2 0.2 2.3 1.3 4.4')} |
+${s16('2.4 0.2 4.4 0.2 1.3 0.2 2.3 0.2 1.3 0.2 4.4 0.2')} | ${s16('2.4 0.1 4.2 2.2 0.2 0.1 4.2 2.2 0.2 2.3 1.3 4.4')} |
+${s16('2.4 4.4 1.3 2.3 0.2 2.2 4.2 0.1 2.1 4.1 5.1 2.1')} | ${s16('9.2 7.1 9.3 7.2 9.2 10.2 7.1 9.1 11.1 12.1 9.1 11.1')} |
+${s16('12.1 12.2 10.2 12.2 9.2 12.2 10.2 12.2 9.2 12.2 11.3 12.2')} | ${s16('9.3 12.1 11.1 9.1 12.2 9.3 9.1 9.3 12.2 9.3 10.2 9.3')} |
+(0.6 2.5 2.4 1.3 0.2 0.1).2{d}
+`,
+  }),
+  e({
+    id: 'eser-yaban-arisinin-ucusu',
+    title: 'Yaban Arısının Uçuşu (Rimsky-Korsakov)',
+    level: 5,
+    tempo: 80,
+    goal: 'Kromatik onaltılık koşuyu pozisyon değiştirerek eşit ve hızlı çalmak.',
+    description: 'Nikolay Rimsky-Korsakov, "Yaban Arısının Uçuşu", açılıştaki iki oktav inen kromatik koşu (iki kez). Mi\'den başlayıp gitara uygun oktavda. Düzenleme.',
+    tip: 'Her ölçü iki grup dörtlü: grup başını hafif vurgula. Pozisyon geçişlerini (12 → 5 → 4 → 3. perde) ayrı ayrı çalış. 80\'de eşitse 120, hedef 160 BPM.',
+    bars: `
+\\ts 2 4 ${s16('12.1 11.1 10.1 9.1 10.1 9.1 8.1 7.1')} | ${s16('8.1 7.1 6.1 5.1 9.2 8.2 7.2 6.2')} | ${s16('5.2 8.3 7.3 6.3 7.3 6.3 5.3 4.3')} | ${s16('5.3 4.3 8.4 7.4 6.4 5.4 4.4 3.4')} |
+${s16('12.1 11.1 10.1 9.1 10.1 9.1 8.1 7.1')} | ${s16('8.1 7.1 6.1 5.1 9.2 8.2 7.2 6.2')} | ${s16('5.2 8.3 7.3 6.3 7.3 6.3 5.3 4.3')} | ${s16('5.3 4.3 8.4 7.4 6.4 5.4 4.4 3.4')} |
+2.4.2
+`,
+  }),
+];
+
+export const ESERLER: BuiltinLessonDef[] = [...LEVEL_3, ...LEVEL_4, ...LEVEL_5];
