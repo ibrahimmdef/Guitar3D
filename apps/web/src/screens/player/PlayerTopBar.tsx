@@ -24,6 +24,10 @@ interface Props {
   onShowShortcuts: () => void;
   onBack: () => void;
   onShare?: () => void;
+  /** Playable tracks of a multi-track file; a picker shows when there is more than one. */
+  tracks?: { index: number; name: string }[];
+  trackIndex?: number;
+  onTrack?: (index: number) => void;
 }
 
 export function PlayerTopBar(p: Props) {
@@ -35,6 +39,11 @@ export function PlayerTopBar(p: Props) {
           <h1 className="pt-title" title={p.title}>{p.title}</h1>
           {p.subtitle && <p className="pt-sub">{p.subtitle}</p>}
         </div>
+        {p.tracks && p.tracks.length > 1 && p.onTrack && (
+          <select className="select pt-track" aria-label="Parça" value={p.trackIndex} onChange={(e) => p.onTrack?.(Number(e.target.value))}>
+            {p.tracks.map((t) => <option key={t.index} value={t.index}>{t.name || `Parça ${t.index + 1}`}</option>)}
+          </select>
+        )}
       </div>
       <div className="pt-center">
         <SegmentedControl aria-label="Görünüm" value={p.view} onChange={p.onView} options={VIEWS} className="pt-view" />

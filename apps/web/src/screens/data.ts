@@ -26,6 +26,17 @@ export async function deleteTab(id: string) {
 export async function uploadTab(file: File): Promise<TabMeta> {
   const fd = new FormData();
   fd.append('file', file);
+  // Guitar Pro files are binary: read title / artist here (the server only parses text formats).
+  if (/\.(gp|gp3|gp4|gp5|gpx|gp7)$/i.test(file.name)) {
+    try {
+      const { importer, Settings } = await import('@coderline/alphatab');
+      const score = importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(await file.arrayBuffer()), new Settings());
+      if (score.title.trim()) fd.append('title', score.title.trim());
+      if (score.artist.trim()) fd.append('artist', score.artist.trim());
+    } catch {
+      /* unreadable here: the server keeps the file name, the player shows the error */
+    }
+  }
   return fetch('/api/tabs', { method: 'POST', body: fd }).then((r) => json<TabMeta>(r));
 }
 
