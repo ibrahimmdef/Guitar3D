@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Crosshair, Minus, Plus, X } from 'lucide-react';
-import { alignOffset, loadYouTubeApi, nearestRate, parseYouTube, videoTimeFor, type VideoLink, type YTPlayer } from '../../player/youtube';
+import { alignOffset, loadYouTubeApi, needsSeek, parseYouTube, videoRate, videoTimeFor, type VideoLink, type YTPlayer } from '../../player/youtube';
 import { Button, IconButton } from '../../ui/kit';
 
 interface Props {
@@ -72,7 +72,7 @@ export function VideoPanel({ link, onChange, playing, timeMs, speed }: Props) {
 
   // speed
   useEffect(() => {
-    if (ready) yt.current?.setPlaybackRate(nearestRate(speed));
+    if (ready) yt.current?.setPlaybackRate(videoRate(speed));
   }, [speed, ready]);
 
   // seeks, loop jumps and drift
@@ -84,18 +84,18 @@ export function VideoPanel({ link, onChange, playing, timeMs, speed }: Props) {
     lastSong.current = songMs;
     if (!p || !ready) return;
     const target = videoTimeFor(link, songMs);
-    if (!playing) {
-      // Tab moved while paused (seek, bar step): bring the video along. Scrubbing the video alone is left alone.
-      if (Math.abs(songMs - prev) > 1) p.seekTo(target, true);
-      return;
-    }
     const now = performance.now();
-    if (now - lastFix.current < 1500) return;
-    if (Math.abs(p.getCurrentTime() - target) > 0.35) {
+    if (needsSeek({ playing, prevSongMs: prev, songMs, videoSec: p.getCurrentTime(), targetSec: target, msSinceFix: now - lastFix.current, ytState: p.getPlayerState() })) {
       lastFix.current = now;
       p.seekTo(target, true);
+      if (playing) p.playVideo();
     }
   }, [songMs, playing, ready, link]);
+
+  // A new offset (nudge, align) moves the video to the matching moment.
+  useEffect(() => {
+    if (ready) yt.current?.seekTo(videoTimeFor(live.current.link, live.current.songMs), true);
+  }, [link.offset, ready]);
 
   const align = () => {
     const p = yt.current;

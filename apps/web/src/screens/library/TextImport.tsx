@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Play, Save, Square, SquareArrowOutUpRight } from 'lucide-react';
 import type { TabMeta } from '@guitar3d/shared';
 import { convertAscii, withTitle } from '../../tabs/textImport';
@@ -134,20 +134,39 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
   const [text, setText] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const run = async (file: File) => {
+  const [note, setNote] = useState<string | null>(null);
+  const busy = progress != null;
+  const run = async (file: Blob) => {
     setError(null);
+    setNote(null);
     setProgress(0);
     try {
       const { ocrImage } = await import('../../tabs/ocr');
       const out = await ocrImage(file, setProgress);
-      setText(out || ' ');
-      if (!out.trim()) setError('Görselde metin bulunamadı.');
+      setText(out.text || ' ');
+      if (!out.text.trim()) setError('Görselde tab bulunamadı.');
+      else if (out.mode === 'layout') setNote(`${out.systems} tab satırı bulundu. Notaları görselle karşılaştır, yanlış okunan perdeleri metinde düzelt.`);
+      else setNote('Tel çizgileri bulunamadı; metin olarak okundu. Sonucu kontrol et.');
     } catch (e) {
       setError(`Metin okunamadı: ${(e as Error).message}`);
     } finally {
       setProgress(null);
     }
   };
+  // Ctrl+V a screenshot straight into the dialog.
+  useEffect(() => {
+    if (!p.open) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'));
+      const f = item?.getAsFile();
+      if (f && !busy) {
+        e.preventDefault();
+        void run(f);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  });
   const header = (
     <div className="ti-image">
       <div className="ti-row">
@@ -157,7 +176,7 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
             type="file"
             accept="image/*"
             hidden
-            disabled={progress != null}
+            disabled={busy}
             onChange={(e) => {
               const f = e.target.files?.[0];
               e.target.value = '';
@@ -165,9 +184,10 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
             }}
           />
         </label>
-        <span className="subtle small">En iyi sonuç: düz yazı (ASCII) tabların net ekran görüntüsü. Nota yazılı ya da el yazısı tablar okunmaz.</span>
+        <span className="subtle small">Görsel seç ya da ekran görüntüsünü yapıştır (Ctrl+V). Yazı (ASCII) tablar ve programların çizdiği tablar okunur; el yazısı, eğik fotoğraf ve nota dizeği okunmaz.</span>
       </div>
       {error && <p className="ti-err" role="alert">{error}</p>}
+      {note && <p className="subtle small" role="status">{note}</p>}
     </div>
   );
   return (
