@@ -61,6 +61,18 @@ function summary(p: GuitarProfile): GuitarSummary {
 
 const isTextureName = (n: string): n is GuitarTextureName => (GUITAR_TEXTURE_NAMES as string[]).includes(n);
 
+/** Static texture URLs shipped with the web app (templates) may be referenced directly. */
+const isStaticUrl = (u: unknown): u is string => typeof u === 'string' && /^\/guitar\/[\w./-]+$/.test(u) && !u.includes('..');
+
+/** Keeps only the texture references that point at the app's static files (e.g. a template's fretboard photo). */
+export function staticTextures(t: GuitarProfile['textures'] | undefined): GuitarProfile['textures'] {
+  const out: GuitarProfile['textures'] = {};
+  if (!t || typeof t !== 'object') return out;
+  for (const k of ['bodyTop', 'headstock', 'bodyBack', 'rosette'] as const) if (isStaticUrl(t[k])) out[k] = t[k];
+  if (t.fretboard && isStaticUrl(t.fretboard.url) && Number.isInteger(t.fretboard.toFret)) out.fretboard = { url: t.fretboard.url, toFret: t.fretboard.toFret };
+  return out;
+}
+
 export function guitarsRouter(store: Store): Router {
   const r = express.Router();
 
@@ -80,8 +92,9 @@ export function guitarsRouter(store: Store): Router {
       return;
     }
     const now = new Date().toISOString();
-    // Server owns id, timestamps and texture URLs; clients upload textures separately.
-    const profile: GuitarProfile = { ...(req.body as GuitarProfile), id: crypto.randomUUID(), builtIn: undefined, createdAt: now, updatedAt: now, textures: {} };
+    // Server owns id, timestamps and texture URLs; clients upload textures separately (static template URLs are kept).
+    const body = req.body as GuitarProfile;
+    const profile: GuitarProfile = { ...body, id: crypto.randomUUID(), builtIn: undefined, createdAt: now, updatedAt: now, textures: staticTextures(body.textures) };
     delete profile.builtIn;
     res.status(201).json(store.putGuitar(profile));
   });
@@ -126,6 +139,30 @@ export function guitarsRouter(store: Store): Router {
     };
     delete next.builtIn;
     res.json(store.putGuitar(next));
+  });
+
+  /** Copy of a stored guitar, texture files included. Body may carry `{ name }`. */
+  r.post('/guitars/:id/duplicate', (req, res) => {
+    const src = store.getGuitar(req.params.id);
+    if (!src) {
+      res.status(req.params.id === BUILTIN_GUITAR_ID ? 400 : 404).json({
+        error: req.params.id === BUILTIN_GUITAR_ID ? 'Yerleşik gitarı kopyalamak için profilini POST /api/guitars ile gönder.' : 'Gitar bulunamadı.',
+      });
+      return;
+    }
+    const reqName = (req.body as { name?: unknown } | undefined)?.name;
+    const name = typeof reqName === 'string' && reqName.trim() ? reqName.trim().slice(0, 120) : `${src.name} (kopya)`.slice(0, 120);
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    const from = store.guitarDir(src.id);
+    if (fs.existsSync(from)) fs.cpSync(from, store.guitarDir(id), { recursive: true });
+    const rewrite = (u: string) => u.replace(`/api/guitars/${src.id}/`, `/api/guitars/${id}/`);
+    const t = src.textures ?? {};
+    const textures: GuitarProfile['textures'] = {};
+    for (const k of ['bodyTop', 'headstock', 'bodyBack', 'rosette'] as const) if (t[k]) textures[k] = rewrite(t[k]!);
+    if (t.fretboard) textures.fretboard = { ...t.fretboard, url: rewrite(t.fretboard.url) };
+    const copy: GuitarProfile = { ...structuredClone(src), id, name, textures, createdAt: now, updatedAt: now };
+    res.status(201).json(store.putGuitar(copy));
   });
 
   r.delete('/guitars/:id', (req, res) => {
