@@ -13,6 +13,8 @@ export interface BuiltinLesson {
   tip: string;
   /** Where the material comes from: an exercise written for this app or a public-domain melody. */
   source: 'original' | 'public-domain';
+  /** Library group; 'turkuler' = the Turkish folk-style pack. Missing = the regular lessons. */
+  group?: 'turkuler';
 }
 
 export interface BuiltinLessonDef extends BuiltinLesson {

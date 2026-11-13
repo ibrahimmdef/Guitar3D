@@ -25,6 +25,8 @@ export interface LessonMeta {
   level: LessonLevel;
   description?: string;
   tempo?: number;
+  /** 'turkuler' = the Turkish folk-style pack (own library section). */
+  group?: string;
 }
 
 export type LessonContent = { kind: 'tex'; tex: string } | { kind: 'buffer'; data: ArrayBuffer };
@@ -91,6 +93,7 @@ export function toLessonMeta(x: unknown): LessonMeta | null {
     level: normalizeLevel(o.level ?? o.difficulty),
     description: typeof o.description === 'string' ? o.description : undefined,
     tempo: typeof o.tempo === 'number' ? o.tempo : typeof o.bpm === 'number' ? o.bpm : undefined,
+    ...(typeof o.group === 'string' ? { group: o.group } : {}),
   };
 }
 

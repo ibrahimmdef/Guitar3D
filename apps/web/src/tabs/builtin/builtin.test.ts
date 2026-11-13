@@ -29,7 +29,9 @@ function quarters(b: model.Beat): number {
   return q;
 }
 
-const lessons = listBuiltinLessons();
+const all = listBuiltinLessons();
+const lessons = all.filter((l) => !l.group);
+const turkuler = all.filter((l) => l.group === 'turkuler');
 
 describe('built-in lesson list', () => {
   it('has 10 lessons with complete Turkish metadata, ordered easy to medium', () => {
@@ -53,12 +55,21 @@ describe('built-in lesson list', () => {
     expect(levels[0]).toBe(1);
   });
 
+  it('has the Türküler pack: 8 original pieces, levelled, no lyrics', () => {
+    expect(turkuler).toHaveLength(8);
+    expect(new Set(all.map((l) => l.id)).size).toBe(all.length);
+    expect(turkuler.every((l) => l.source === 'original')).toBe(true);
+    const levels = turkuler.map((l) => l.level);
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+    for (const l of turkuler) expect(loadBuiltinLesson(l.id)).not.toMatch(/\\lyrics/);
+  });
+
   it('throws for an unknown lesson id', () => {
     expect(() => loadBuiltinLesson('nope')).toThrow(/bulunamadı/);
   });
 });
 
-describe.each(lessons)('lesson $id', (lesson) => {
+describe.each(all)('lesson $id', (lesson) => {
   const score = load(lesson.id);
   const staff = score.tracks[0].staves[0];
   const bars = beatsOf(score);
@@ -70,12 +81,13 @@ describe.each(lessons)('lesson $id', (lesson) => {
     expect(staff.tuning).toEqual([64, 59, 55, 50, 45, 40]);
   });
 
-  it('has only full 4/4 bars', () => {
+  it('has only full bars', () => {
     expect(score.masterBars.length).toBeGreaterThan(0);
     expect(bars.length).toBe(score.masterBars.length);
     bars.forEach((beats, i) => {
+      const mb = score.masterBars[i];
       expect(beats.length, `bar ${i + 1} is empty`).toBeGreaterThan(0);
-      expect(beats.reduce((s, b) => s + quarters(b), 0), `bar ${i + 1} length`).toBeCloseTo(4);
+      expect(beats.reduce((s, b) => s + quarters(b), 0), `bar ${i + 1} length`).toBeCloseTo((mb.timeSignatureNumerator * 4) / mb.timeSignatureDenominator);
     });
   });
 
