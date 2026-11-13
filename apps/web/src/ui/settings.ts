@@ -38,6 +38,8 @@ export interface Settings {
   largeMarkers: boolean;
   /** Accessibility: 'system' follows prefers-reduced-motion, 'reduce' always cuts animations. */
   motion: 'system' | 'reduce';
+  /** Weekly practice goal in minutes (progress screen). */
+  weeklyGoalMinutes: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorBlind: false,
   largeMarkers: false,
   motion: 'system',
+  weeklyGoalMinutes: 60,
 };
 
 const KEY = 'guitar3d.settings.v1';
