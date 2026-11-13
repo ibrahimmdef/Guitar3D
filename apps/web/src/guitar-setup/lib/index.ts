@@ -7,3 +7,5 @@ export * from './fretboard';
 export * from './headstock';
 export { toHex, fromHex, sampleColorAt, maskedMedianColor } from './colors';
 export * from './profile';
+export * from './auto';
+export * from './customize';
