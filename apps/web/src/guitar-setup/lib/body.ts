@@ -113,14 +113,14 @@ export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number
   const neckWidthCm = measured >= 3.5 && measured <= 8 ? measured : 5.5;
   const ppc = pxPerCmAt(frame, -scaleLengthCm * 0.8);
   const r = Math.max(1, Math.round(0.7 * neckWidthCm * ppc));
-  // Seal the fretboard channel / soundhole first so the opening sees a solid body.
-  const solid = closeDiskFilled(mask, Math.max(1, Math.round(0.45 * neckWidthCm * ppc)));
-  const opened = openDisk(solid, r);
+  const opened = openDisk(mask, r);
   // Seed between soundhole and bridge: certainly body.
   const seed = toImage(frame, [-scaleLengthCm * 0.88, 0]);
   let body = floodFill(opened, seed);
   if (maskArea(body) === 0) body = largestComponent(opened);
   if (maskArea(body) === 0) throw new Error('Gövde maskeden ayrılamadı. Eşiği düşürmeyi ya da gövdeye tıklamayı dene.');
+  // On real photos the fretboard / strings often cut a channel into the body down to the soundhole: seal and fill it.
+  body = closeDiskFilled(body, Math.max(1, Math.round(0.65 * neckWidthCm * ppc)));
   const contour = traceContour(body);
   let outline = smoothClosed(contour.map((p) => toGuitar(frame, p)), 2);
   outline = resampleClosed(outline, points);

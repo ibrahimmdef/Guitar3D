@@ -86,9 +86,6 @@ export interface SolveOptions {
   imageLongSidePx?: number;
 }
 
-/** The saddle is compensated: it sits ~0.4 % further from the nut than the theoretical scale length. */
-const SADDLE_COMPENSATION = 1.004;
-
 /**
  * Fits the guitar's centre line through the clicked landmarks, sets the scale from the chosen size
  * and returns the photo frame. With both a fret and the saddle clicked, the three collinear points
@@ -135,7 +132,7 @@ export function solveFrame(lm: Landmarks, size: SizeSpec, options: SolveOptions 
   let K = fretOnly ?? saddlePx;
   if (lm.fret && opts.perspective !== false) {
     const pf = -proj(lm.fret.p);
-    const ps = saddlePx / SADDLE_COMPENSATION;
+    const ps = saddlePx;
     const raw = (ps * uf - pf) / (uf * (pf - ps));
     q = Math.max(-0.3, Math.min(0.45, raw));
     K = q === raw ? ps * (1 + q) : pf * (1 + q * uf) / uf;
