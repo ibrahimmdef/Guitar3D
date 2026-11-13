@@ -13,6 +13,14 @@ interface DbShape {
   assignments: Assignment[];
 }
 
+export interface ServerBackup {
+  version: 1;
+  createdAt: string;
+  db: unknown;
+  /** Path relative to the data dir (`tabs/…`, `guitars/<id>/…`) → base64 content. */
+  files: Record<string, string>;
+}
+
 /** Oldest sessions are dropped beyond this many. */
 export const MAX_SESSIONS = 20000;
 
@@ -171,6 +179,53 @@ export class Store {
 
   guitarDir(id: string) {
     return path.join(this.guitarsDir, id);
+  }
+
+  // ---- backup / restore -----------------------------------------------------------------
+
+  /** Everything this server stores: db.json content plus tab and guitar files (base64). */
+  exportAll(): ServerBackup {
+    const files: Record<string, string> = {};
+    const walk = (dir: string, rel: string) => {
+      if (!fs.existsSync(dir)) return;
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const r = `${rel}/${e.name}`;
+        if (e.isDirectory()) walk(path.join(dir, e.name), r);
+        else files[r] = fs.readFileSync(path.join(dir, e.name)).toString('base64');
+      }
+    };
+    walk(this.tabsDir, 'tabs');
+    walk(this.guitarsDir, 'guitars');
+    return { version: 1, createdAt: new Date().toISOString(), db: structuredClone(this.db), files };
+  }
+
+  /** Replaces all data with a backup. Throws on a malformed backup (nothing is changed then). */
+  importAll(b: ServerBackup) {
+    if (!b || b.version !== 1 || typeof b.db !== 'object' || !b.db || typeof b.files !== 'object') throw new Error('Geçersiz yedek dosyası.');
+    const entries = Object.entries(b.files ?? {});
+    for (const [rel, data] of entries) {
+      if (!/^(tabs|guitars)\/[\w.\-/]+$/.test(rel) || rel.split('/').includes('..') || typeof data !== 'string') throw new Error(`Geçersiz dosya yolu: ${rel}`);
+    }
+    const d = b.db as Partial<DbShape>;
+    fs.rmSync(this.tabsDir, { recursive: true, force: true });
+    fs.rmSync(this.guitarsDir, { recursive: true, force: true });
+    fs.mkdirSync(this.tabsDir, { recursive: true });
+    fs.mkdirSync(this.guitarsDir, { recursive: true });
+    for (const [rel, data] of entries) {
+      const file = path.join(this.dataDir, rel);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, Buffer.from(data, 'base64'));
+    }
+    this.db = {
+      tabs: Array.isArray(d.tabs) ? d.tabs : [],
+      progress: d.progress ?? {},
+      guitars: d.guitars ?? {},
+      settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...d.settings },
+      sessions: Array.isArray(d.sessions) ? d.sessions : [],
+      notes: Array.isArray(d.notes) ? d.notes : [],
+      assignments: Array.isArray(d.assignments) ? d.assignments : [],
+    };
+    this.save();
   }
 
   // ---- settings ---------------------------------------------------------------------------
