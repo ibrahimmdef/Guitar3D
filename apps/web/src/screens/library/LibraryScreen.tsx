@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
+import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
 import { navigate, playLesson, playTab } from '../../ui/router';
@@ -9,7 +9,7 @@ import { ScreenHeader } from '../AppShell';
 import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
 import { groupByLevel, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
-import { TextImportDialog } from './TextImport';
+import { ImageImportDialog, TextImportDialog } from './TextImport';
 
 type Sort = 'recent' | 'title' | 'added';
 
@@ -26,7 +26,7 @@ export function LibraryScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
-  const [textOpen, setTextOpen] = useState(false);
+  const [importMode, setImportMode] = useState<'text' | 'image' | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -86,7 +86,8 @@ export function LibraryScreen() {
       onError={(m) => toast({ tone: 'danger', title: 'Dosya yüklenemedi.', description: m, durationMs: 7000 })}
     />
     <div className="lib-import-row">
-      <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setTextOpen(true)}>Metinden içe aktar</Button>
+      <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Metinden içe aktar</Button>
+      <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => setImportMode('image')}>Görselden içe aktar</Button>
     </div>
     </>
   );
@@ -223,7 +224,8 @@ export function LibraryScreen() {
         </section>
       )}
 
-      <TextImportDialog open={textOpen} onOpenChange={setTextOpen} onSaved={(t) => onAdded([t])} />
+      {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={(t) => onAdded([t])} />}
+      {importMode === 'image' && <ImageImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={(t) => onAdded([t])} />}
 
       <Dialog
         open={!!confirm}
