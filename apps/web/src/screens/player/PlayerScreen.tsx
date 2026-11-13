@@ -5,6 +5,8 @@ import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
+import { getTuning, withCapo } from '../../music/tunings';
+import { useTabSetup } from '../../player/tabSetup';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
@@ -20,6 +22,7 @@ import { ShortcutList } from '../../ui/ShortcutList';
 import { fetchTabFile, listTabs } from '../data';
 import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
+import { CapoControl } from './CapoControl';
 import { CueStrip } from './CueStrip';
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
@@ -52,6 +55,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const [ladder, setLadder] = useState<Ladder>({ speed: 1, clean: 0, target: 1 });
   const [listening, setListening] = useState(false);
   const [countValue, setCountValue] = useState<number | null>(null);
+
+  const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
 
   const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus } = settings;
   const fs = useFullscreen(useCallback(() => root.current, []));
@@ -122,6 +127,37 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   useEffect(() => {
     if (state.ready && state.track) setProgram(program);
   }, [program, state.ready, state.track, setProgram]);
+  /* ---------- Capo and tuning ---------- */
+  // What the file says, captured before we change the staves.
+  const origin = useMemo(() => {
+    const st = state.track?.staves[0];
+    return st ? { capo: st.capo ?? 0, tuning: [...st.stringTuning.tunings] } : null;
+  }, [state.track]);
+  const capo = setup.capo ?? origin?.capo ?? 0;
+  const tuningOverride = setup.tuningId && origin && getTuning(setup.tuningId).midi.length === origin.tuning.length ? setup.tuningId : '';
+  useEffect(() => {
+    const a = api.current;
+    const t = state.track;
+    if (!a || !t || !origin) return;
+    const tuning = tuningOverride ? getTuning(tuningOverride).midi : origin.tuning;
+    let changed = false;
+    for (const st of t.staves) {
+      if (st.capo !== capo) {
+        st.capo = capo;
+        changed = true;
+      }
+      const cur = st.stringTuning.tunings;
+      if (cur.length === tuning.length && tuning.some((m, i) => m !== cur[i])) {
+        st.stringTuning.tunings = [...tuning];
+        changed = true;
+      }
+    }
+    // Regenerating the MIDI applies the new pitches (and stops playback).
+    if (changed) a.loadMidiForScore();
+  }, [capo, tuningOverride, origin, api, state.track]);
+  const stageNotes = useMemo(() => withCapo(state.notes, capo), [state.notes, capo]);
+  const stageUpcoming = useMemo(() => (capo ? state.upcoming.map((b) => withCapo(b, capo)) : state.upcoming), [state.upcoming, capo]);
+
   useEffect(() => {
     setTabScale(focus === 'tab' ? 1.6 : 0.95);
   }, [focus, setTabScale, state.score]);
@@ -389,10 +425,10 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           >
             <StageGuitar
               className="stage-canvas"
-              notes={state.notes}
+              notes={stageNotes}
               beatId={state.beatId}
               beatProgress={state.beatProgress}
-              upcoming={state.upcoming}
+              upcoming={stageUpcoming}
               zoom={stageZoom}
               showFretNumbers={showFretNumbers}
               view={view}
@@ -411,6 +447,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
                 </span>
               )}
               {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
+              {capo > 0 && <span className="hud-chip hud-capo num">Kapo {capo}. perde</span>}
+              {tuningOverride && tuningOverride !== 'standard' && <span className="hud-chip">{getTuning(tuningOverride).label}</span>}
               {!state.playing && state.timeMs > 500 && <span className="hud-chip">Duraklatıldı</span>}
             </div>
           )}
@@ -425,6 +463,15 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
               fullscreen={fs.on}
               fullscreenSupported={fs.supported}
               onFullscreen={fs.toggle}
+              extra={origin ? (
+                <CapoControl
+                  capo={capo}
+                  onCapo={(c) => setSetup({ capo: c })}
+                  tuningId={tuningOverride}
+                  onTuning={(id) => setSetup({ tuningId: id })}
+                  tabTuning={origin.tuning}
+                />
+              ) : null}
             />
           )}
 
