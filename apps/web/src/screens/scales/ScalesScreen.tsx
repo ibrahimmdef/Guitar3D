@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Play, Square } from 'lucide-react';
+import { AudioLines, Play, Square } from 'lucide-react';
 import { noteName, SHARP_NAMES, SOLFEGE } from '../../music/notes';
 import { ascendDescend, degreeLabel, firstOctave, getScale, neckNotes, scaleMarkers, scalePcs, scalePositions, SCALES, type ScaleId } from '../../music/scales';
 import { sequenceTex } from '../../music/tex';
@@ -8,6 +8,11 @@ import { useTexPlayer } from '../../player/useTexPlayer';
 import { ChipGroup } from '../../ui/ChipGroup';
 import { Button } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
+import { setHandoff } from '../../ui/handoff';
+import { navigate } from '../../ui/router';
+import { useBacking } from '../../audio/backing';
+import { presetChords } from '../../music/backing';
+import { BACKING_HANDOFF } from '../backing/BackingScreen';
 import { ScreenHeader } from '../AppShell';
 import { LearnStage } from '../LearnStage';
 import { TuningSelect } from '../TuningSelect';
@@ -23,6 +28,9 @@ export function ScalesScreen() {
   const [position, setPosition] = useState('all');
   const [tempo, setTempo] = useState(100);
   const player = useTexPlayer();
+  const minorScale = getScale(scaleId).intervals.includes(3);
+  const backingChords = useMemo(() => presetChords(minorScale ? 'minor-rock' : 'pop', root), [minorScale, root]);
+  const backing = useBacking({ chords: backingChords, style: 'rock', bpm: tempo, pad: true, volume: 0.7 });
 
   const scale = getScale(scaleId);
   const positions = useMemo(() => scalePositions(root, scaleId, tuning), [root, scaleId, tuning]);
@@ -71,6 +79,14 @@ export function ScalesScreen() {
             ))}
           </div>
           <p className="subtle small">Çal: {pos ? 'bu pozisyonu' : 'kökten bir oktav'} çıkıcı ve inici, {tempo} BPM.</p>
+          <div className="learn-row">
+            <Button size="sm" icon={backing.playing ? <Square size={14} fill="currentColor" /> : <AudioLines size={14} />} pressed={backing.playing} onClick={backing.toggle}>
+              {backing.playing ? 'Eşliği durdur' : 'Eşlikle doğaçla'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { backing.stop(); setHandoff(BACKING_HANDOFF, { key: root, minor: minorScale }); navigate({ name: 'backing' }); }}>
+              Eşlik ayarları
+            </Button>
+          </div>
           <div className="learn-row">
             <label className="field">
               Tempo

@@ -1,4 +1,5 @@
 import { AppShell } from './screens/AppShell';
+import { BackingScreen } from './screens/backing/BackingScreen';
 import { ChordsScreen } from './screens/chords/ChordsScreen';
 import { GuitarScreen } from './screens/guitar/GuitarScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
@@ -47,6 +48,7 @@ export function App() {
             {route.name === 'ear' && <EarScreen />}
             {route.name === 'course' && <CourseScreen />}
             {route.name === 'editor' && <EditorScreen />}
+            {route.name === 'backing' && <BackingScreen />}
           </AppShell>
         )}
         <RoutineBar route={route} />
