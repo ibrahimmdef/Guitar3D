@@ -1,0 +1,44 @@
+[
+  {
+    "id": "natural-dreadnought",
+    "name": "Doğal Dreadnought",
+    "description": "Ladin kapak, gül ağacı sırt ve yanlar, nokta işaretler. Klasik akustik ses.",
+    "kind": "Dreadnought",
+    "profileUrl": "/guitar/templates/natural-dreadnought.profile.json"
+  },
+  {
+    "id": "sunburst-dreadnought",
+    "name": "Sunburst Dreadnought",
+    "description": "Kenarlara doğru koyulaşan sunburst ladin kapak, maun gövde. Sıcak ve dolgun.",
+    "kind": "Dreadnought",
+    "profileUrl": "/guitar/templates/sunburst-dreadnought.profile.json"
+  },
+  {
+    "id": "classical",
+    "name": "Klasik Gitar",
+    "description": "Naylon teller, 5,2 cm geniş eşik, oluklu kafa, 12. perdeden birleşen sap. Parmak stili için.",
+    "kind": "Klasik",
+    "profileUrl": "/guitar/templates/classical.profile.json"
+  },
+  {
+    "id": "mahogany-parlor",
+    "name": "Maun Parlor",
+    "description": "Küçük, rahat gövde; maun kapak ve gövde, kısa tel boyu. Yumuşak, odaklı ton.",
+    "kind": "Parlor",
+    "profileUrl": "/guitar/templates/mahogany-parlor.profile.json"
+  },
+  {
+    "id": "cutaway-grand-auditorium",
+    "name": "Kesik Grand Auditorium",
+    "description": "Doğal ladin kapak, akçaağaç gövde, tiz tarafta kesik. Yüksek perdelere kolay erişim.",
+    "kind": "Grand Auditorium",
+    "profileUrl": "/guitar/templates/cutaway-grand-auditorium.profile.json"
+  },
+  {
+    "id": "solid-electric",
+    "name": "Elektro Gitar",
+    "description": "Masif gövde, iki manyetik, 22 perde. Ses deliği yok; ince sap, hafif teller.",
+    "kind": "Elektro",
+    "profileUrl": "/guitar/templates/solid-electric.profile.json"
+  }
+]
