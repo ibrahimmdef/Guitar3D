@@ -1044,3 +1044,48 @@
   gap: var(--sp-3);
   width: 280px;
 }
+
+/* ---------- Automatic tempo ladder ---------- */
+.ladder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+.ladder-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ladder-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.ladder-status-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.ladder-now {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+}
+.ladder-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.ladder-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease);
+}
