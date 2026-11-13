@@ -146,3 +146,28 @@
 .rhythm-cell.is-now .stroke {
   transform: scale(1.18);
 }
+
+/* Games */
+.game-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.game-note {
+  font-size: 40px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.game-feedback {
+  min-height: 1.5em;
+  margin: 0;
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+}
+.game-feedback.is-ok {
+  color: var(--success);
+}
+.game-feedback.is-bad {
+  color: var(--danger);
+}
