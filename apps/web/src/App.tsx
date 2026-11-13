@@ -11,6 +11,7 @@ import { EditorScreen } from './screens/editor/EditorScreen';
 import { EarScreen } from './screens/games/EarScreen';
 import { FretGameScreen } from './screens/games/FretGameScreen';
 import { RhythmScreen } from './screens/rhythm/RhythmScreen';
+import { OfflineIndicator } from './pwa/OfflineIndicator';
 import { RoutineBar } from './screens/routines/RoutineBar';
 import { RoutinesScreen } from './screens/routines/RoutinesScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
@@ -49,6 +50,7 @@ export function App() {
           </AppShell>
         )}
         <RoutineBar route={route} />
+        <OfflineIndicator />
       </ToastProvider>
     </TooltipProvider>
   );
