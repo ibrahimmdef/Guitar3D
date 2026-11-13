@@ -1,0 +1,326 @@
+/* ---------- Learning screens: chords, scales, tuner, routines, progress ---------- */
+
+/* Stage + side panel */
+.learn {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+  gap: var(--sp-4);
+  align-items: stretch;
+}
+.learn-stage {
+  position: relative;
+  margin: 0;
+  min-height: 300px;
+  border-radius: var(--r-lg);
+  background: var(--stage);
+  overflow: hidden;
+}
+.learn-canvas {
+  position: absolute;
+  inset: 0;
+}
+.learn-stage-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.learn-stage-hud {
+  position: absolute;
+  left: var(--sp-3);
+  top: var(--sp-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  pointer-events: none;
+}
+.learn-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  min-width: 0;
+}
+.learn-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.learn-title {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+.learn-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.learn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* Chips */
+.chip-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.chip-group-label {
+  flex: none;
+  width: 44px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.chip {
+  height: 30px;
+  min-width: 34px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.chip:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.chip.is-on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.select {
+  height: var(--control-h, 34px);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+}
+.select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+/* Chord diagram */
+.chord-diagram {
+  display: block;
+  flex: none;
+}
+.cd-line {
+  stroke: var(--text-3);
+  stroke-width: 0.8;
+}
+.cd-nut {
+  fill: var(--text-2);
+}
+.cd-fretno,
+.cd-mark {
+  fill: var(--text-2);
+  font-size: 9px;
+  font-family: var(--font);
+}
+.cd-open {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.2;
+}
+.cd-dot,
+.cd-barre {
+  fill: var(--accent);
+}
+.cd-finger {
+  fill: var(--accent-ink);
+  font-size: 8.5px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+.chord-detail {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: flex-start;
+}
+.chord-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0;
+  font-size: var(--fs-md);
+}
+.chord-facts dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.chord-facts dd {
+  margin: 2px 0 0;
+}
+.chord-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: var(--sp-3);
+}
+.chord-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--sp-3) var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.chord-card:hover {
+  background: var(--surface-2);
+}
+.chord-card.is-on {
+  border-color: var(--accent-line);
+}
+.chord-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.chord-card-name {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-lg);
+}
+.chord-card-sub {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+/* Small stat tiles (scales, progress, feedback) */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-3);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+}
+.stat-label {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.stat-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+}
+.stat-value small {
+  margin-left: 4px;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+}
+
+.note-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.note-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-size: var(--fs-md);
+}
+.note-pill small {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.note-pill.is-root {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 960px) {
+  .learn {
+    grid-template-columns: 1fr;
+  }
+  .learn-stage {
+    min-height: 240px;
+  }
+}
+@media (max-width: 860px) {
+  .chip-group {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 2px;
+  }
+  .chip {
+    flex: none;
+  }
+  .chord-detail {
+    flex-wrap: wrap;
+  }
+}
+
+/* Eight destinations: the phone tab bar scrolls sideways instead of squeezing labels. */
+@media (max-width: 860px) {
+  .nav-list {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-list li {
+    flex: 1 0 64px;
+  }
+}

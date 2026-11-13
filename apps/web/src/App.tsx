@@ -1,4 +1,5 @@
 import { AppShell } from './screens/AppShell';
+import { ChordsScreen } from './screens/chords/ChordsScreen';
 import { GuitarScreen } from './screens/guitar/GuitarScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
@@ -22,6 +23,7 @@ export function App() {
             {route.name === 'library' && <LibraryScreen />}
             {route.name === 'guitar' && <GuitarScreen />}
             {route.name === 'settings' && <SettingsScreen />}
+            {route.name === 'chords' && <ChordsScreen />}
           </AppShell>
         )}
       </ToastProvider>
