@@ -25,6 +25,8 @@ describe('service worker strategies', () => {
   it('keeps API reads for offline but never touches writes or foreign hosts', () => {
     expect(at('/api/tabs')?.kind).toBe('network-first');
     expect(at('/api/tabs', 'cors', 'POST')).toBeNull();
+    expect(at('/api/backup')).toBeNull();
+    expect(at('/api/backups/x.json')).toBeNull();
     expect(sw.strategyFor('GET', 'https://example.com/x.js', O)).toBeNull();
   });
   it('precaches the essentials', () => {

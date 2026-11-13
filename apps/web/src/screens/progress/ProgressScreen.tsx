@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, Flame } from 'lucide-react';
+import { Activity, Award, Flame } from 'lucide-react';
+import { loadDone } from '../../music/course';
+import { useSettings } from '../../ui/settings';
+import { ALL_BADGES, earnedBadges, weekMinutes } from './badges';
 import type { PracticeSession } from '@guitar3d/shared';
 import { Button, EmptyState, Spinner } from '../../ui/kit';
 import { relativeTime } from '../../ui/format';
@@ -29,6 +32,10 @@ export function ProgressScreen() {
   const refs = useMemo(() => statsByRef(sessions ?? []).filter((r) => r.kind === 'tab' || r.kind === 'lesson'), [sessions]);
   const streak = dayStreak(sessions ?? [], now);
   const weekTotal = week.reduce((a, d) => a + d.minutes, 0);
+  const [settings, setSettings] = useSettings();
+  const goal = settings.weeklyGoalMinutes;
+  const thisWeek = weekMinutes(sessions ?? [], now);
+  const earned = useMemo(() => new Set(earnedBadges({ sessions: sessions ?? [], courseDone: loadDone(), weeklyGoalMinutes: goal })), [sessions, goal]);
 
   return (
     <div className="screen">
@@ -54,6 +61,36 @@ export function ProgressScreen() {
               <span className="stat-label">Toplam seans</span>
               <span className="stat-value num">{sessions.length}</span>
             </div>
+          </section>
+
+          <section className="progress-card goal-card" aria-labelledby="goal-title">
+            <div className="goal-head">
+              <h2 id="goal-title" className="eyebrow">Haftalık hedef</h2>
+              <label className="field goal-field">
+                Hedef
+                <select className="select" value={goal} onChange={(e) => setSettings({ weeklyGoalMinutes: Number(e.target.value) })}>
+                  {[30, 60, 90, 120, 180, 300, 420].map((m) => <option key={m} value={m}>{m} dk</option>)}
+                </select>
+              </label>
+            </div>
+            <Meter value={thisWeek / Math.max(1, goal)} label={`${thisWeek} / ${goal} dk`} />
+            <p className="subtle small">{thisWeek >= goal ? 'Bu haftanın hedefi tamam.' : `Bu hafta (Pazartesiden beri) ${goal - thisWeek} dk kaldı.`}</p>
+          </section>
+
+          <section className="progress-card" aria-labelledby="badge-title">
+            <h2 id="badge-title" className="eyebrow">Rozetler · {earned.size}/{ALL_BADGES.length}</h2>
+            <ul className="badge-grid">
+              {ALL_BADGES.map((b) => {
+                const on = earned.has(b.id);
+                return (
+                  <li key={b.id} className={`badge${on ? ' is-on' : ''}`} title={b.description}>
+                    <Award size={18} aria-hidden />
+                    <span className="badge-title">{b.title}</span>
+                    <span className="sr-only">{on ? 'kazanıldı' : 'henüz kazanılmadı'}: {b.description}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </section>
 
           <section className="progress-card" aria-labelledby="week-title">

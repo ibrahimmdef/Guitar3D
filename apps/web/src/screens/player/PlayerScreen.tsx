@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Box, FileMusic, GraduationCap } from 'lucide-react';
-import type { CameraMode, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { CameraMode, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
@@ -19,6 +19,9 @@ import { LadderPanel } from '../../ui/LadderPanel';
 import { ErrorBoundary } from '../../ui/ErrorBoundary';
 import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
+import { buildShareHash, type ShareParams } from '../../ui/share';
+import { getActiveGuitar } from '../../guitar-setup/activeGuitar';
+import { guitarsApi } from '../../guitar-setup/api';
 import { markPlayed, useSettings } from '../../ui/settings';
 import { useHotkeys, zoomDelta } from '../../ui/shortcuts';
 import { ShortcutList } from '../../ui/ShortcutList';
@@ -32,10 +35,13 @@ import { EasierPositionPanel, ghostNotes, useEasierPosition } from './EasierPosi
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
+import { VideoLinkField, VideoPanel } from './VideoPanel';
+import { RecordPanel } from './RecordPanel';
+import { NotesPanel, useBarNotes } from '../teacher/NotesPanel';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
-export function PlayerScreen({ source }: { source: PlaySource }) {
+export function PlayerScreen({ source, share }: { source: PlaySource; share?: ShareParams }) {
   const tabId = source.kind === 'tab' ? source.id : null;
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -68,6 +74,19 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const [countValue, setCountValue] = useState<number | null>(null);
 
   const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
+  const video = setup.video ?? share?.video ?? null;
+  const tabKey = source.kind === 'lesson' ? `lesson:${source.id}` : source.id;
+  const barNotes = useBarNotes(tabKey);
+  // Shared view: show the sender's guitar when this server has it (built-in templates always), else ours.
+  const [sharedGuitar, setSharedGuitar] = useState<GuitarProfile | null>(null);
+  useEffect(() => {
+    if (!share?.guitarId || share.guitarId === getActiveGuitar().id) return;
+    let alive = true;
+    guitarsApi.loadProfile(share.guitarId).then((p) => alive && setSharedGuitar(p)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [share?.guitarId]);
 
   const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus } = settings;
   const fs = useFullscreen(useCallback(() => root.current, []));
@@ -116,6 +135,14 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     setLadder(startLadder({ start: report.suggestedStartSpeed, target: settings.ladderTarget, passes: settings.ladderPasses }));
     setAutoLadder(false);
     setSpeed(settings.defaultSpeed);
+    if (share && state.score) {
+      const last = state.score.masterBars.length - 1;
+      if (share.loop && share.loop[0] <= last) {
+        setLoop([share.loop[0], Math.min(share.loop[1], last)]);
+        setTimeout(() => seekBar(share.loop![0]), 0);
+      }
+      if (share.speed) setSpeed(share.speed);
+    }
     // Only on a new score; settings changes should not reset the session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report]);
@@ -278,6 +305,16 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     api.current?.playPause();
   }, [api, listening]);
   const stop = useCallback(() => api.current?.stop(), [api]);
+  /** Recording / take overlay: same position and speed, start now. */
+  const playFrom = useCallback((tick: number, spd: number) => {
+    const a = api.current;
+    if (!a) return;
+    setListening(false);
+    setSpeed(spd);
+    a.playbackSpeed = spd;
+    seekTick(tick);
+    a.play();
+  }, [api, seekTick]);
   const stepBar = useCallback((d: number) => seekBar(state.currentBar + d), [seekBar, state.currentBar]);
 
   const toggleLoopCurrent = useCallback(() => {
@@ -414,6 +451,16 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     Escape: () => showPractice && window.innerWidth < 1100 && togglePractice(),
   });
 
+  const copyShareLink = useCallback(() => {
+    const hash = buildShareHash({ source, guitarId: sharedGuitar?.id ?? getActiveGuitar().id, loop: loop ?? undefined, speed, video: video ?? undefined });
+    const url = `${location.origin}${location.pathname}${hash}`;
+    const local = source.kind === 'tab';
+    const note = local ? 'Yüklediğin tablar yalnızca bu sunucuya bağlananlarda açılır.' : 'Hazır dersler her Guitar3D\'de açılır.';
+    (navigator.clipboard?.writeText(url) ?? Promise.reject())
+      .then(() => toast({ tone: 'success', title: 'Paylaşım bağlantısı kopyalandı.', description: note }))
+      .catch(() => toast({ tone: 'info', title: 'Bağlantı', description: url, durationMs: 12000 }));
+  }, [source, sharedGuitar, loop, speed, video, toast]);
+
   /* ---------- View ---------- */
   const title = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
   const subtitle = [
@@ -436,6 +483,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         cameraMode={cameraMode}
         onCameraMode={setCamera}
         onShowShortcuts={() => setShortcutsOpen(true)}
+        onShare={copyShareLink}
         onBack={() => navigate({ name: 'library' })}
       />
 
@@ -472,6 +520,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           >
             <StageGuitar
               className="stage-canvas"
+              profile={sharedGuitar}
               notes={stageNotes}
               beatId={state.beatId}
               beatProgress={state.beatProgress}
@@ -488,6 +537,10 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
 
           {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
+              {share && <span className="hud-chip">Paylaşılan görünüm</span>}
+              {barNotes.notes.filter((n) => n.bar === state.currentBar).slice(0, 1).map((n) => (
+                <span key={n.id} className="hud-chip hud-note" title={n.text}>Not: {n.text}</span>
+              ))}
               {listening && <span className="hud-chip hud-accent">Dinliyorum: notayı çal</span>}
               {loop && (
                 <span className="hud-chip hud-accent num">
@@ -502,6 +555,9 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           )}
 
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
+          {hasScore && video && (
+            <VideoPanel link={video} onChange={(v) => setSetup({ video: v })} playing={state.playing} timeMs={state.timeMs} speed={speed} />
+          )}
           {hasScore && (
             <StageTools
               zoom={stageZoom}
@@ -580,6 +636,9 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
             onPlay={playLoop}
           />
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
+          {hasScore && <NotesPanel tabKey={tabKey} notes={barNotes.notes} refresh={barNotes.refresh} currentBar={state.currentBar} onSeekBar={seekBar} />}
+          {hasScore && <RecordPanel tabKey={tabKey} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
+          {hasScore && <VideoLinkField link={video} onChange={(v) => setSetup({ video: v })} />}
         </Drawer>
       </div>
 

@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, useSettings, type Settings } from '../../ui/settings'
 import { ShortcutList } from '../../ui/ShortcutList';
 import { ScreenHeader } from '../AppShell';
 import { SPEED_PRESETS } from '../player/Transport';
+import { BackupSection } from './BackupSection';
 
 const pct = (v: number) => `%${Math.round(v * 100)}`;
 
@@ -13,7 +14,7 @@ export function SettingsScreen() {
 
   return (
     <div className="screen screen-narrow">
-      <ScreenHeader title="Ayarlar" description="Bu cihazda saklanır." />
+      <ScreenHeader title="Ayarlar" description="Bu cihazda saklanır. Yedekleme en altta." />
 
       <section className="settings-sec" aria-labelledby="set-play">
         <h2 id="set-play" className="eyebrow">Çalma</h2>
@@ -140,6 +141,7 @@ export function SettingsScreen() {
           <ShortcutList />
         </Card>
       </section>
+      <BackupSection />
     </div>
   );
 }

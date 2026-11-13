@@ -1,4 +1,6 @@
 import { AppShell } from './screens/AppShell';
+import { BackingScreen } from './screens/backing/BackingScreen';
+import { AssignmentsScreen } from './screens/teacher/AssignmentsScreen';
 import { ChordsScreen } from './screens/chords/ChordsScreen';
 import { GuitarScreen } from './screens/guitar/GuitarScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
@@ -13,6 +15,7 @@ import { FretGameScreen } from './screens/games/FretGameScreen';
 import { RhythmScreen } from './screens/rhythm/RhythmScreen';
 import { OfflineIndicator } from './pwa/OfflineIndicator';
 import { RoutineBar } from './screens/routines/RoutineBar';
+import { BadgeWatcher } from './screens/progress/BadgeWatcher';
 import { RoutinesScreen } from './screens/routines/RoutinesScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
@@ -30,7 +33,7 @@ export function App() {
     <TooltipProvider>
       <ToastProvider>
         {route.name === 'player' ? (
-          <PlayerScreen key={`${route.source.kind}:${route.source.id}`} source={route.source} />
+          <PlayerScreen key={`${route.source.kind}:${route.source.id}`} source={route.source} share={route.share} />
         ) : (
           <AppShell route={route}>
             {route.name === 'library' && <LibraryScreen />}
@@ -47,10 +50,13 @@ export function App() {
             {route.name === 'ear' && <EarScreen />}
             {route.name === 'course' && <CourseScreen />}
             {route.name === 'editor' && <EditorScreen />}
+            {route.name === 'backing' && <BackingScreen />}
+            {route.name === 'assignments' && <AssignmentsScreen />}
           </AppShell>
         )}
         <RoutineBar route={route} />
         <OfflineIndicator />
+        <BadgeWatcher />
       </ToastProvider>
     </TooltipProvider>
   );

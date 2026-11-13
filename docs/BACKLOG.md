@@ -54,3 +54,9 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 - Sıra: gitar ekleme → 3D/şablonlar + baloncuk düzeltmeleri → çalışma ekranı (sıradaki nota şeridi vb.) → P1 → P2 → P3. Aynı anda tek ajan (Opus, medium).
 
 - 13 Kasım (ek): Sağ el gösterimi (25) ve MIDI girişi (28) iptal. Tab yazı/görsel içe aktarma (29) ve video bağlantısı (30) eklendi; videodan otomatik tab çıkarma yapılmayacak. P3 hızlı ve sade tutulacak.
+
+## P3 notları (uygulama)
+- Bulut eşitleme (27) şimdilik asgari: Ayarlar → "Yedekleme ve taşıma" tüm veriyi (sunucu: tablar, gitarlar, seanslar, ilerleme, notlar, ödevler; tarayıcı: `guitar3d.*` ayarları) tek JSON dosyası olarak dışa/içe aktarır, ya da sunucuda son 10 anlık yedeği tutar (`GET/POST /api/backup`, `GET/POST /api/backups`). Ses kayıtları (IndexedDB) dahil değil. Gerçek hesaplar, kimlik doğrulama ve otomatik çok cihazlı eşitleme ileride yapılacak.
+- Öğretmen modu (21) hesapsız: ödevler ve ölçü notları aynı sunucuda tutulur; öğretmen ve öğrenci aynı sunucuyu kullanır.
+- Paylaşım bağlantısı (20): hazır dersler her yerde açılır; yüklenen tablar ve özel gitarlar yalnızca aynı sunucuda.
+- Türküler paketi (22): telif ve doğruluk riskine karşı mevcut türkülerin transkripsiyonu yerine türkü havasında 8 özgün etüt; söz yok.
