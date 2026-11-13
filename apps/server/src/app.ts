@@ -160,64 +160,6 @@ export function createApp(store: Store) {
 
   app.use('/api', guitarsRouter(store));
 
-  // ---- legacy single-guitar texture endpoints (v1 UI); kept until the new UI is wired. ----
-  const guitarDir = path.join(store.dataDir, 'guitar');
-  fs.mkdirSync(guitarDir, { recursive: true });
-  const TEXTURES = ['fretboard', 'top'];
-  const IMAGE_TYPES: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-  const findTexture = (name: string) =>
-    Object.values(IMAGE_TYPES).map((ext) => path.join(guitarDir, name + ext)).find((p) => fs.existsSync(p));
-
-  app.get('/api/guitar/assets', (_req, res) => {
-    const textures: Record<string, string | null> = {};
-    for (const t of TEXTURES) {
-      const f = findTexture(t);
-      textures[t] = f ? `/api/guitar/textures/${t}?v=${Math.round(fs.statSync(f).mtimeMs)}` : null;
-    }
-    const glb = path.join(guitarDir, 'body.glb');
-    res.json({ textures, bodyModel: fs.existsSync(glb) ? '/api/guitar/model' : null });
-  });
-
-  app.get('/api/guitar/textures/:name', (req, res) => {
-    const f = TEXTURES.includes(req.params.name) ? findTexture(req.params.name) : undefined;
-    if (!f) {
-      res.status(404).end();
-      return;
-    }
-    res.sendFile(f);
-  });
-
-  app.put('/api/guitar/textures/:name', express.raw({ type: Object.keys(IMAGE_TYPES), limit: '25mb' }), (req, res) => {
-    const ext = IMAGE_TYPES[req.headers['content-type'] ?? ''];
-    if (!TEXTURES.includes(req.params.name) || !ext || !Buffer.isBuffer(req.body) || req.body.length === 0) {
-      res.status(400).json({ error: 'PNG, JPEG veya WebP görsel gönder.' });
-      return;
-    }
-    for (const e of Object.values(IMAGE_TYPES)) fs.rmSync(path.join(guitarDir, req.params.name + e), { force: true });
-    fs.writeFileSync(path.join(guitarDir, req.params.name + ext), req.body);
-    res.status(204).end();
-  });
-
-  app.delete('/api/guitar/textures/:name', (req, res) => {
-    const f = TEXTURES.includes(req.params.name) ? findTexture(req.params.name) : undefined;
-    if (f) fs.rmSync(f);
-    res.status(204).end();
-  });
-
-  app.get('/api/guitar/model', (_req, res) => {
-    const glb = path.join(guitarDir, 'body.glb');
-    if (!fs.existsSync(glb)) {
-      res.status(404).end();
-      return;
-    }
-    res.type('model/gltf-binary').sendFile(glb);
-  });
-
-  app.get('/api/guitar/spec', (_req, res) => {
-    const f = path.join(guitarDir, 'guitar.json');
-    res.json(fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {});
-  });
-
   return app;
 }
 

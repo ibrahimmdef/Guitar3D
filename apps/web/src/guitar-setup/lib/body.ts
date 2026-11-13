@@ -2,8 +2,8 @@
 import type { Point2 } from '@guitar3d/shared';
 import { createImage, median, sampleBilinear, sampleGray, type GrayImage, type Mask, type Pt, type RGBAImage } from './image';
 import { crossingsAtX, polygonArea, rasterizePolygon, resampleClosed, smoothClosed, traceContour } from './contour';
-import { floodFill, largestComponent, maskArea, openDisk } from './segment';
-import { fretDistance, toGuitar, toImage, type PhotoFrame } from './geometry';
+import { closeDiskFilled, floodFill, largestComponent, maskArea, openDisk } from './segment';
+import { fretDistance, pxPerCmAt, toGuitar, toImage, type PhotoFrame } from './geometry';
 
 export interface Bounds {
   minX: number;
@@ -25,7 +25,7 @@ export interface BodyMeasurements {
 
 /** Full width (cm) of the mask across the guitar at position x, scanning ±halfSpan cm. */
 export function maskWidthAt(mask: Mask, frame: PhotoFrame, x: number, halfSpan = 30): number {
-  const step = 1 / frame.pxPerCm;
+  const step = 1 / pxPerCmAt(frame, x);
   let count = 0;
   for (let y = -halfSpan; y <= halfSpan; y += step) {
     const [px, py] = toImage(frame, [x, y]);
@@ -73,27 +73,90 @@ export function measureBouts(outline: Point2[]) {
 }
 
 /**
+ * Mirror-symmetric version of an outline about the centre line (y = 0): at every x the half width is
+ * the smaller of the two sides. A photo taken slightly from the side shows the guitar's rim (and
+ * shadows or clutter stick to one side only), which only ever adds to the silhouette.
+ */
+export function symmetrizeOutline(outline: Point2[], points = outline.length, neckWidthCm = 0): Point2[] {
+  const b = outlineBounds(outline);
+  if (neckWidthCm > 0) b.maxX = trimNeckStub(outline, b, neckWidthCm);
+  const cx = (b.minX + b.maxX) / 2, hw = (b.maxX - b.minX) / 2;
+  const M = 200;
+  const top: Pt[] = [];
+  for (let i = 0; i <= M; i++) {
+    const x = cx - hw * Math.cos((i / M) * Math.PI); // dense at both ends
+    const ys = crossingsAtX(outline as Pt[], Math.min(b.maxX - 1e-6, Math.max(b.minX + 1e-6, x)));
+    const half = ys.length >= 2 ? Math.max(0, Math.min(ys[ys.length - 1], -ys[0])) : 0;
+    top.push([x, i === 0 || i === M ? Math.min(half, 0.01) : half]);
+  }
+  // clockwise in the x-right / y-up frame: along +y from the tail to the neck, back along -y
+  const loop: Pt[] = [...top, ...top.slice(1, -1).reverse().map(([x, y]) => [x, -y] as Pt)];
+  return resampleClosed(loop, points) as Point2[];
+}
+
+/**
+ * The opening that separates the body keeps the neck heel and the corners where the neck meets the
+ * shoulders. Walking down from the top end, anything narrower than ~1.6 neck widths for more than
+ * 1 cm while widening slowly is such a stub: returns the x where the real shoulder line starts (or maxX when there is none).
+ */
+export function trimNeckStub(outline: Point2[], b: Bounds, neckWidthCm: number): number {
+  const limit = 1.6 * neckWidthCm;
+  for (let x = b.maxX - 0.05; x > b.minX + (b.maxX - b.minX) * 0.5; x -= 0.25) {
+    if (outlineWidthAt(outline, x) < limit) continue;
+    const run = b.maxX - x;
+    // a rounded body end widens fast; a neck stub keeps roughly the neck's width
+    const slope = (outlineWidthAt(outline, x + 0.25) - outlineWidthAt(outline, b.maxX - 0.3)) / Math.max(0.1, run - 0.55);
+    return run > 1 && slope < 2 ? x + 0.25 : b.maxX;
+  }
+  return b.maxX;
+}
+
+export interface ExtractBodyOptions {
+  points?: number;
+  /** Mirror the outline about the centre line (default true; turn off for cutaway bodies). */
+  symmetric?: boolean;
+}
+
+/**
  * Separates the body from neck + headstock with a morphological opening wider than the neck, traces
  * the outline and converts it to the guitar frame. `frame` must be in the mask's pixel space.
  */
-export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number, points = 240): BodyMeasurements {
+export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number, options: ExtractBodyOptions | number = {}): BodyMeasurements {
+  const opts: ExtractBodyOptions = typeof options === 'number' ? { points: options } : options;
+  const points = opts.points ?? 240;
   const neckSamples: number[] = [];
   for (let n = 3; n <= 9; n++) neckSamples.push(maskWidthAt(mask, frame, -fretDistance(scaleLengthCm, n), 10));
-  const neckWidthCm = median(neckSamples.filter((w) => w > 0)) || 5.5;
-  const r = Math.max(1, Math.round(0.7 * neckWidthCm * frame.pxPerCm));
+  const measured = median(neckSamples.filter((w) => w > 0));
+  // On busy photos the neck may be missing from the mask or fused with clutter: fall back to a typical width.
+  const neckWidthCm = measured >= 3.5 && measured <= 8 ? measured : 5.5;
+  const ppc = pxPerCmAt(frame, -scaleLengthCm * 0.8);
+  const r = Math.max(1, Math.round(0.7 * neckWidthCm * ppc));
   const opened = openDisk(mask, r);
   // Seed between soundhole and bridge: certainly body.
   const seed = toImage(frame, [-scaleLengthCm * 0.88, 0]);
   let body = floodFill(opened, seed);
   if (maskArea(body) === 0) body = largestComponent(opened);
   if (maskArea(body) === 0) throw new Error('Gövde maskeden ayrılamadı. Eşiği düşürmeyi ya da gövdeye tıklamayı dene.');
+  // On real photos the fretboard / strings often cut a channel into the body down to the soundhole: seal and fill it.
+  body = closeDiskFilled(body, Math.max(1, Math.round(0.65 * neckWidthCm * ppc)));
   const contour = traceContour(body);
   let outline = smoothClosed(contour.map((p) => toGuitar(frame, p)), 2);
   outline = resampleClosed(outline, points);
+  if (opts.symmetric !== false) outline = symmetrizeOutline(outline as Point2[], points, neckWidthCm) as Pt[];
   if (polygonArea(outline) > 0) outline.reverse(); // clockwise in the x-right / y-up guitar frame
   const out = outline.map(([x, y]) => [r2(x), r2(y)] as Point2);
   const bounds = outlineBounds(out);
   return { outline: out, bounds, lengthCm: r2(bounds.maxX - bounds.minX), bouts: measureBouts(out), neckWidthCm: r2(neckWidthCm), bodyMask: body };
+}
+
+/**
+ * Where to look for the soundhole once the body outline is known: its centre sits 15–50 % of the body
+ * length below the neck joint. Searching by body rather than by scale length matters when the scale is
+ * only estimated (quick mode): the fretboard end at the joint otherwise looks like a ringed dark hole.
+ */
+export function soundholeRange(b: Bounds): [number, number] {
+  const len = b.maxX - b.minX;
+  return [b.maxX - 0.5 * len, b.maxX - 0.15 * len];
 }
 
 export interface SoundholeGuess {
@@ -107,12 +170,17 @@ export interface SoundholeGuess {
 
 /**
  * Looks for a dark circle on the centre line around the 19th–20th fret position (where acoustic
- * soundholes sit). `gray` and `frame` share pixel space.
+ * soundholes sit), or inside `opts.body` when given. `gray` and `frame` share pixel space.
  */
-export function detectSoundhole(gray: GrayImage, frame: PhotoFrame, scaleLengthCm: number, opts: { xRange?: [number, number]; rRange?: [number, number] } = {}): SoundholeGuess {
-  const [x0, x1] = opts.xRange ?? [-scaleLengthCm * 0.8, -scaleLengthCm * 0.56];
+export function detectSoundhole(
+  gray: GrayImage,
+  frame: PhotoFrame,
+  scaleLengthCm: number,
+  opts: { xRange?: [number, number]; rRange?: [number, number]; body?: Bounds } = {},
+): SoundholeGuess {
+  const [x0, x1] = opts.xRange ?? (opts.body ? soundholeRange(opts.body) : [-scaleLengthCm * 0.8, -scaleLengthCm * 0.56]);
   const [rmin, rmax] = opts.rRange ?? [3.5, 6.5];
-  const step = Math.max(0.2, 1.5 / frame.pxPerCm);
+  const step = Math.max(0.2, 1.5 / pxPerCmAt(frame, (x0 + x1) / 2));
   const A = 36;
   const cos = Array.from({ length: A }, (_, i) => Math.cos((i / A) * 2 * Math.PI));
   const sin = Array.from({ length: A }, (_, i) => Math.sin((i / A) * 2 * Math.PI));
