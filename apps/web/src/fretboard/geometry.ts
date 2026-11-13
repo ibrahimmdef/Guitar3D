@@ -229,3 +229,18 @@ export function followTarget(scale: number, frets: number[], current: number | n
   if (current !== null && lo >= current - window && hi <= current + window) return current;
   return mid;
 }
+
+/** Box placement of a capo just behind fret wire `fret` (guitar frame, cm). */
+export function capoLayout(profile: GuitarProfile, fret: number) {
+  const f = Math.min(Math.max(1, Math.round(fret)), profile.fretCount - 1);
+  const x = fretX(profile.scaleLengthCm, f) + 0.5; // the nut is at x = 0, frets go towards -x
+  const width = fretboardWidth(profile, x) + 0.5;
+  const sz = stringZ(profile, x);
+  return {
+    x,
+    width,
+    pad: { z: (FB_TOP + sz) / 2 + 0.12, h: Math.max(0.25, sz - FB_TOP + 0.22), len: 0.9 },
+    bar: { z: sz + 0.38, h: 0.3, len: 0.7 },
+  };
+}
+

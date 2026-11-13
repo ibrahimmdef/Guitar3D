@@ -467,6 +467,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
               beatId={state.beatId}
               beatProgress={state.beatProgress}
               upcoming={stageUpcoming}
+              capoFret={capo}
               zoom={stageZoom}
               showFretNumbers={showFretNumbers}
               view={view}
