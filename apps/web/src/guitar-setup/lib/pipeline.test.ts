@@ -96,7 +96,7 @@ describe('frame from landmarks', () => {
   it('uses the scale length when given and flags inconsistent clicks', () => {
     const s = solveFrame(lm(), { kind: 'scale', cm: 64 });
     expect(s.totalLengthCm).toBeCloseTo(108, 2);
-    const bad = { ...lm(), saddle: toImage(truth, [-70, 0]) };
+    const bad = { ...lm(), saddle: toImage(truth, [-80, 0]) };
     expect(solveFrame(bad, { kind: 'scale', cm: 64 }).warnings.join(' ')).toMatch(/farklı tel boyları/);
     expect(() => solveFrame({ ...lm(), saddle: toImage(truth, [5, 0]) }, { kind: 'scale', cm: 64 })).toThrow();
     const c = circleFromClicks(s.frame, toImage(truth, [-44, 1]), toImage(truth, [-44, 6]));

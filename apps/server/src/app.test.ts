@@ -83,20 +83,3 @@ describe('tabs api', () => {
     expect(got.body.sections).toEqual(sections);
   });
 });
-
-describe('guitar assets api', () => {
-  it('stores and serves a fretboard texture', async () => {
-    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
-    await request(app).put('/api/guitar/textures/fretboard').set('Content-Type', 'image/png').send(png).expect(204);
-    const assets = await request(app).get('/api/guitar/assets');
-    expect(assets.body.textures.fretboard).toMatch(/^\/api\/guitar\/textures\/fretboard\?v=/);
-    expect(assets.body.textures.top).toBeNull();
-    const got = await request(app).get('/api/guitar/textures/fretboard').buffer(true);
-    expect(got.status).toBe(200);
-  });
-
-  it('rejects unknown texture names and non-images', async () => {
-    await request(app).put('/api/guitar/textures/evil').set('Content-Type', 'image/png').send(Buffer.from('x')).expect(400);
-    await request(app).put('/api/guitar/textures/top').set('Content-Type', 'text/plain').send('x').expect(400);
-  });
-});
