@@ -26,12 +26,23 @@ function melody(score: model.Score, bars: number): string[] {
 function quarters(b: model.Beat): number {
   let q = 4 / b.duration;
   if (b.dots === 1) q *= 1.5;
+  if (b.hasTuplet) q *= b.tupletDenominator / b.tupletNumerator;
   return q;
 }
 
 const all = listBuiltinLessons();
 const lessons = all.filter((l) => !l.group);
 const turkuler = all.filter((l) => l.group === 'turkuler');
+const eserler = all.filter((l) => l.group === 'eserler');
+
+/** Highest pitch of every sounding beat (rests skipped) in bars [from, to): the melody of a piece with bass notes. */
+function top(score: model.Score, from: number, to: number): string[] {
+  return beatsOf(score)
+    .slice(from, to)
+    .flat()
+    .filter((b) => b.notes.length > 0)
+    .map((b) => pitchName(Math.max(...b.notes.map((n) => n.realValue))));
+}
 
 describe('built-in lesson list', () => {
   it('has 10 lessons with complete Turkish metadata, ordered easy to medium', () => {
@@ -64,6 +75,24 @@ describe('built-in lesson list', () => {
     for (const l of turkuler) expect(loadBuiltinLesson(l.id)).not.toMatch(/\\lyrics/);
   });
 
+  it('has the Eserler pack: 30 public-domain pieces, 10 per level 3/4/5, no lyrics', () => {
+    expect(eserler).toHaveLength(30);
+    for (const level of [3, 4, 5]) expect(eserler.filter((l) => l.level === level), `level ${level}`).toHaveLength(10);
+    const levels = eserler.map((l) => l.level);
+    expect(levels).toEqual([...levels].sort((a, b) => a - b));
+    expect(new Set(all.map((l) => l.id)).size).toBe(all.length);
+    for (const l of eserler) {
+      expect(l.source).toBe('public-domain');
+      expect(l.id).toMatch(/^eser-[a-z0-9-]+$/);
+      expect(l.tempo).toBeGreaterThanOrEqual(50);
+      expect(l.tempo).toBeLessThanOrEqual(160);
+      expect(l.goal.length).toBeGreaterThan(10);
+      expect(l.description.length).toBeGreaterThan(10);
+      expect(l.tip.length).toBeGreaterThan(10);
+      expect(loadBuiltinLesson(l.id)).not.toMatch(/\\lyrics/);
+    }
+  });
+
   it('throws for an unknown lesson id', () => {
     expect(() => loadBuiltinLesson('nope')).toThrow(/bulunamadı/);
   });
@@ -91,12 +120,13 @@ describe.each(all)('lesson $id', (lesson) => {
     });
   });
 
-  it('stays within frets 0–12 on strings 1–6', () => {
+  const maxFret = lesson.group === 'eserler' ? 17 : 12;
+  it(`stays within frets 0–${maxFret} on strings 1–6`, () => {
     const notes = bars.flat().flatMap((b) => b.notes);
     expect(notes.length).toBeGreaterThan(0);
     for (const n of notes) {
       expect(n.fret).toBeGreaterThanOrEqual(0);
-      expect(n.fret).toBeLessThanOrEqual(12);
+      expect(n.fret).toBeLessThanOrEqual(maxFret);
       expect(n.string).toBeGreaterThanOrEqual(1);
       expect(n.string).toBeLessThanOrEqual(6);
     }
@@ -172,5 +202,52 @@ describe('lesson content', () => {
     expect(melody(score, 2)).toEqual(['A3', 'C4', 'E4', 'C4', 'D4', 'E4', 'F4', 'E4']);
     expect(Math.max(...beatsOf(score).flat().flatMap((b) => b.notes.map((n) => n.fret)))).toBe(5);
     expect(melody(score, 8).at(-1)).toBe('A3');
+  });
+});
+
+describe('Eserler melodies', () => {
+  const t = (id: string, from: number, to: number) => top(load(id), from, to);
+
+  it('Amazing Grace: D G B G B A G E D', () => {
+    expect(t('eser-amazing-grace', 0, 5)).toEqual(['D3', 'G3', 'B3', 'G3', 'B3', 'A3', 'G3', 'E3', 'D3', 'D3']);
+  });
+
+  it('Sakura: A A B, A A B, A B C B, A B A F', () => {
+    expect(t('eser-sakura', 0, 4)).toEqual(['A3', 'A3', 'B3', 'A3', 'A3', 'B3', 'A3', 'B3', 'C4', 'B3', 'A3', 'B3', 'A3', 'F3']);
+  });
+
+  it('Scarborough Fair: D D A A E F E D', () => {
+    expect(t('eser-scarborough-fair', 0, 4)).toEqual(['D3', 'D3', 'A3', 'A3', 'E3', 'F3', 'E3', 'D3']);
+  });
+
+  it('Greensleeves: A C D E F E D B G A B C A', () => {
+    expect(t('eser-greensleeves', 0, 6)).toEqual(['A3', 'C4', 'D4', 'E4', 'F4', 'E4', 'D4', 'B3', 'G3', 'A3', 'B3', 'C4', 'A3']);
+  });
+
+  it('Minuet in G: D G A B C D G G', () => {
+    expect(t('eser-minuet-in-g', 0, 3)).toEqual(['D4', 'G3', 'A3', 'B3', 'C4', 'D4', 'G3', 'G3', 'E4', 'C4', 'D4', 'E4', 'F#4']);
+  });
+
+  it('Pachelbel Canon: F# E D C# B A B C#', () => {
+    expect(t('eser-pachelbel-canon', 2, 4)).toEqual(['F#4', 'E4', 'D4', 'C#4', 'B3', 'A3', 'B3', 'C#4']);
+  });
+
+  it('Blue Danube: D D F# A A, then A A / F# F# above the bass', () => {
+    expect(t('eser-mavi-tuna', 0, 5)).toEqual(['D3', 'D3', 'F#3', 'A3', 'A3', 'D3', 'A4', 'A4', 'D3', 'F#4', 'F#4']);
+  });
+
+  it('Can-Can: C D F E D G G G A E F', () => {
+    expect(t('eser-can-can', 0, 2)).toEqual(['C4', 'D4', 'F4', 'E4', 'D4', 'G4', 'G4', 'G4', 'A4', 'E4', 'F4']);
+  });
+
+  it('Für Elise: E D# E D# E B D C A', () => {
+    expect(t('eser-fur-elise', 0, 3)).toEqual(['E4', 'D#4', 'E4', 'D#4', 'E4', 'B3', 'D4', 'C4', 'A3', 'C3', 'E3', 'A3']);
+  });
+
+  it('Romance: B B B B A G G F# E E G B on the first string, in triplets', () => {
+    const score = load('eser-romance-anonimo');
+    const melody = beatsOf(score).slice(0, 4).flat().filter((_, i) => i % 3 === 0).map((b) => pitchName(Math.max(...b.notes.map((n) => n.realValue))));
+    expect(melody).toEqual(['B4', 'B4', 'B4', 'B4', 'A4', 'G4', 'G4', 'F#4', 'E4', 'E4', 'G4', 'B4']);
+    expect(beatsOf(score)[0][0].tupletNumerator).toBe(3);
   });
 });

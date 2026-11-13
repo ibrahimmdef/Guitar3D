@@ -8,6 +8,7 @@ import { odeToJoy } from './ode-to-joy';
 import { openChords } from './open-chords';
 import { openStrings } from './open-strings';
 import { twinkle } from './twinkle';
+import { ESERLER } from './eserler';
 import { TURKULER } from './turkuler';
 import { lessonTex, type BuiltinLesson, type BuiltinLessonDef } from './types';
 
@@ -27,9 +28,9 @@ const LESSONS: BuiltinLessonDef[] = [
   morningWalk,
 ];
 
-const ALL = [...LESSONS, ...TURKULER];
+const ALL = [...LESSONS, ...TURKULER, ...ESERLER];
 
-/** Metadata of every built-in lesson: the regular lessons easiest first, then the "Türküler" pack easiest first. */
+/** Metadata of every built-in lesson: the regular lessons easiest first, then the "Türküler" and "Eserler" packs easiest first. */
 export function listBuiltinLessons(): BuiltinLesson[] {
   return ALL.map(({ bars: _bars, ...meta }) => meta);
 }
