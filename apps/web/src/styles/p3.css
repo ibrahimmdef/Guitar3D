@@ -1,0 +1,60 @@
+/* P3: import, video, backing, recordings, badges, teacher, sync */
+
+.ti-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+  gap: var(--sp-4);
+}
+.ti-grid textarea.input {
+  width: 100%;
+  min-height: 260px;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.ti-side {
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+}
+.ti-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.ti-summary {
+  font-size: var(--fs-md);
+  color: var(--text-2);
+}
+.ti-warn {
+  margin: 0;
+  padding-left: var(--sp-4);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.ti-err {
+  color: var(--danger);
+  font-size: var(--fs-md);
+}
+.ti-code {
+  max-height: 160px;
+  overflow: auto;
+  padding: var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre;
+}
+.lib-import-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+@media (max-width: 720px) {
+  .ti-grid {
+    grid-template-columns: 1fr;
+  }
+}

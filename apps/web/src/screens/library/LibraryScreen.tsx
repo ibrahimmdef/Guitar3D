@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight, CloudOff, FileMusic, GraduationCap, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
+import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
 import { navigate, playLesson, playTab } from '../../ui/router';
@@ -9,6 +9,7 @@ import { ScreenHeader } from '../AppShell';
 import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
 import { groupByLevel, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
+import { TextImportDialog } from './TextImport';
 
 type Sort = 'recent' | 'title' | 'added';
 
@@ -25,6 +26,7 @@ export function LibraryScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
+  const [textOpen, setTextOpen] = useState(false);
 
   const load = useCallback(() => {
     setError(null);
@@ -68,18 +70,25 @@ export function LibraryScreen() {
     }
   };
 
+  const onAdded = (added: TabMeta[]) => {
+    setTabs((x) => [...added, ...(x ?? []).filter((t) => !added.some((a) => a.id === t.id))]);
+    toast({
+      tone: 'success',
+      title: added.length === 1 ? `“${added[0].title}” eklendi.` : `${added.length} tab eklendi.`,
+      description: added.length === 1 ? 'Açmak için karta tıkla.' : undefined,
+    });
+  };
+
   const importer = (
+    <>
     <TabImportSlot
-      onImported={(added) => {
-        setTabs((x) => [...added, ...(x ?? []).filter((t) => !added.some((a) => a.id === t.id))]);
-        toast({
-          tone: 'success',
-          title: added.length === 1 ? `“${added[0].title}” eklendi.` : `${added.length} tab eklendi.`,
-          description: added.length === 1 ? 'Açmak için karta tıkla.' : undefined,
-        });
-      }}
+      onImported={onAdded}
       onError={(m) => toast({ tone: 'danger', title: 'Dosya yüklenemedi.', description: m, durationMs: 7000 })}
     />
+    <div className="lib-import-row">
+      <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setTextOpen(true)}>Metinden içe aktar</Button>
+    </div>
+    </>
   );
 
   return (
@@ -213,6 +222,8 @@ export function LibraryScreen() {
           {importer}
         </section>
       )}
+
+      <TextImportDialog open={textOpen} onOpenChange={setTextOpen} onSaved={(t) => onAdded([t])} />
 
       <Dialog
         open={!!confirm}
