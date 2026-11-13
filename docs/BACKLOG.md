@@ -39,7 +39,7 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 27. **Hesap ve bulut eşitleme** — gitarlar, tab'lar ve ilerleme cihazlar arasında — mobil + masaüstü birlikte kullanım için ön koşul — L
 28. ~~**MIDI / ses arayüzü girişi** — elektro gitar için doğrudan giriş, daha isabetli nota tanıma — mikrofonun zorlandığı gürültülü ortamlar — M~~ (iptal)
 29. **Tab içe aktarma: yazı ve görsel** — ASCII tab yapıştırma → alphaTex; tab ekran görüntüsü/fotoğrafı → tarayıcıda OCR → aynı ayrıştırıcı, kaydetmeden önce düzeltme ekranı — M
-30. **Video bağlantısı** — YouTube videosu tabın yanında, tek seferlik başlangıç hizalaması, hız ve döngü senkron — sesten otomatik tab çıkarma yok — M
+30. ~~**Video bağlantısı** — YouTube videosu tabın yanında, tek seferlik başlangıç hizalaması, hız ve döngü senkron — sesten otomatik tab çıkarma yok — M~~ (kaldırıldı)
 
 ## Önerilen sıra
 - İlk dalga (hızlı kazanım): 3, 5, 7, 13 — hepsi S, mevcut mikrofon ve döngü altyapısını kullanır.
@@ -60,3 +60,4 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 - Öğretmen modu (21) hesapsız: ödevler ve ölçü notları aynı sunucuda tutulur; öğretmen ve öğrenci aynı sunucuyu kullanır.
 - Paylaşım bağlantısı (20): hazır dersler her yerde açılır; yüklenen tablar ve özel gitarlar yalnızca aynı sunucuda.
 - Türküler paketi (22): telif ve doğruluk riskine karşı mevcut türkülerin transkripsiyonu yerine türkü havasında 8 özgün etüt; söz yok.
+- 13 Kasım (ek 2): YouTube video bağlantısı kaldırıldı. Sahibi videodan otomatik tab çıkarmayı istedi; YouTube'dan ses almak kullanım şartlarına aykırı ve karışık kayıtlardan güvenilir tab çıkarılamıyor.

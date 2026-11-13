@@ -4,9 +4,9 @@ import { parseRoute } from './router';
 
 describe('share links', () => {
   it('round-trips every field', () => {
-    const p = { source: { kind: 'lesson' as const, id: 'turku-halay-adimi' }, guitarId: 'builtin', loop: [2, 5] as [number, number], speed: 0.8, video: { id: 'dQw4w9WgXcQ', offset: 3.5 } };
+    const p = { source: { kind: 'lesson' as const, id: 'turku-halay-adimi' }, guitarId: 'builtin', loop: [2, 5] as [number, number], speed: 0.8 };
     const hash = buildShareHash(p);
-    expect(hash).toBe('#/share?lesson=turku-halay-adimi&g=builtin&loop=3-6&speed=80&v=dQw4w9WgXcQ&vo=3.5');
+    expect(hash).toBe('#/share?lesson=turku-halay-adimi&g=builtin&loop=3-6&speed=80');
     expect(parseShareQuery(hash.split('?')[1])).toEqual(p);
   });
   it('keeps only valid values', () => {

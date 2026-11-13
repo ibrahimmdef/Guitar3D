@@ -35,7 +35,6 @@ import { EasierPositionPanel, ghostNotes, useEasierPosition } from './EasierPosi
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
-import { VideoLinkField, VideoPanel } from './VideoPanel';
 import { RecordPanel } from './RecordPanel';
 import { NotesPanel, useBarNotes } from '../teacher/NotesPanel';
 
@@ -55,8 +54,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const [fetching, setFetching] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [videoDialog, setVideoDialog] = useState(false);
-  const [videoShown, setVideoShown] = useState(true);
 
   const [speed, setSpeed] = useState(settings.defaultSpeed);
   const [metronome, setMetronome] = useState(settings.metronome);
@@ -76,7 +73,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const [countValue, setCountValue] = useState<number | null>(null);
 
   const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
-  const video = setup.video ?? share?.video ?? null;
   const tabKey = source.kind === 'lesson' ? `lesson:${source.id}` : source.id;
   const barNotes = useBarNotes(tabKey);
   // Shared view: show the sender's guitar when this server has it (built-in templates always), else ours.
@@ -454,14 +450,14 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   });
 
   const copyShareLink = useCallback(() => {
-    const hash = buildShareHash({ source, guitarId: sharedGuitar?.id ?? getActiveGuitar().id, loop: loop ?? undefined, speed, video: video ?? undefined });
+    const hash = buildShareHash({ source, guitarId: sharedGuitar?.id ?? getActiveGuitar().id, loop: loop ?? undefined, speed });
     const url = `${location.origin}${location.pathname}${hash}`;
     const local = source.kind === 'tab';
     const note = local ? 'Yüklediğin tablar yalnızca bu sunucuya bağlananlarda açılır.' : 'Hazır dersler her Guitar3D\'de açılır.';
     (navigator.clipboard?.writeText(url) ?? Promise.reject())
       .then(() => toast({ tone: 'success', title: 'Paylaşım bağlantısı kopyalandı.', description: note }))
       .catch(() => toast({ tone: 'info', title: 'Bağlantı', description: url, durationMs: 12000 }));
-  }, [source, sharedGuitar, loop, speed, video, toast]);
+  }, [source, sharedGuitar, loop, speed, toast]);
 
   /* ---------- View ---------- */
   const title = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
@@ -487,7 +483,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         onShowShortcuts={() => setShortcutsOpen(true)}
         onShare={copyShareLink}
         onBack={() => navigate({ name: 'library' })}
-        video={hasScore ? { linked: !!video, shown: videoShown, onClick: () => (video ? setVideoShown((v) => !v) : setVideoDialog(true)) } : undefined}
       />
 
       <CueStrip
@@ -558,9 +553,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           )}
 
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
-          {hasScore && video && videoShown && (
-            <VideoPanel link={video} onChange={(v) => setSetup({ video: v })} playing={state.playing} timeMs={state.timeMs} speed={speed} />
-          )}
           {hasScore && (
             <StageTools
               zoom={stageZoom}
@@ -641,7 +633,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
           {hasScore && <NotesPanel tabKey={tabKey} notes={barNotes.notes} refresh={barNotes.refresh} currentBar={state.currentBar} onSeekBar={seekBar} />}
           {hasScore && <RecordPanel tabKey={tabKey} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
-          {hasScore && <VideoLinkField link={video} onChange={(v) => setSetup({ video: v })} />}
         </Drawer>
       </div>
 
@@ -711,18 +702,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         }}
       />
 
-      <Dialog open={videoDialog} onOpenChange={setVideoDialog} title="YouTube videosu ekle" description="Bu parçanın videosunu yapıştır; tab ile birlikte oynar, hız ve döngüyü izler." size="sm">
-        <VideoLinkField
-          bare
-          autoFocus
-          link={null}
-          onChange={(v) => {
-            setSetup({ video: v });
-            setVideoShown(true);
-            setVideoDialog(false);
-          }}
-        />
-      </Dialog>
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Klavye kısayolları" description="Her şeyi klavyeden de yapabilirsin.">
         <ShortcutList />
       </Dialog>
