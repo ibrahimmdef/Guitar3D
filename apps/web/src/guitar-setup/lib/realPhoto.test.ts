@@ -33,6 +33,9 @@ const FULL: Landmarks = {
   bodyEnd: [770, 1600],
 };
 
+/** Centre of the soundhole in front-full.jpg. */
+const SOUNDHOLE: Pt = [787, 1186];
+
 /** front-neck.jpg: fretboard edges at the nut and at the 15th fret; fret wire rows on the centre line. */
 const NECK = {
   nut: { low: [703, 624] as Pt, high: [827, 624] as Pt },
@@ -90,8 +93,10 @@ describe.skipIf(!has)('pipeline on the real photos', () => {
     // symmetric about the centre line
     expect(Math.abs(body.bounds.maxY + body.bounds.minY)).toBeLessThan(0.3);
 
-    const hole = detectSoundhole(luminance(img), sol.frame, sol.scaleLengthCm);
+    const hole = detectSoundhole(luminance(img), sol.frame, sol.scaleLengthCm, { body: body.bounds });
     expect(Math.abs(hole.y)).toBeLessThan(1.5);
+    const hc = toImage(sol.frame, [hole.x, hole.y]);
+    expect(Math.hypot(hc[0] - SOUNDHOLE[0], hc[1] - SOUNDHOLE[1])).toBeLessThan(25);
     expect(hole.radiusCm).toBeGreaterThan(3.5);
     const rgb = maskedMedianColor(small.image, body.bodyMask);
     expect(Math.max(...rgb)).toBeLessThan(70); // a black guitar
@@ -118,6 +123,12 @@ describe.skipIf(!has)('pipeline on the real photos', () => {
     expect(body.lengthCm).toBeGreaterThan(42);
     expect(body.lengthCm).toBeLessThan(55);
     expect(body.bouts.lowerCm).toBeGreaterThan(body.bouts.upperCm);
+    // without a fret click the scale is only estimated: searching inside the body still finds the hole
+    const hole = detectSoundhole(luminance(small.image), quick.frame, quick.scaleLengthCm, { body: body.bounds });
+    const c = up(toImage(quick.frame, [hole.x, hole.y]));
+    near(c, SOUNDHOLE, 25);
+    expect(hole.radiusCm).toBeGreaterThan(4);
+    expect(hole.radiusCm).toBeLessThan(6.5);
   });
 
   it('finds the fret wires on the neck close-up', () => {

@@ -15,7 +15,7 @@ export function Field({ label, hint, children, error }: { label: string; hint?: 
   );
 }
 
-export function NumberInput({ id, value, onChange, step = 0.1, min, max, unit, width = 96 }: {
+export function NumberInput({ id, value, onChange, step = 0.1, min, max, unit, width = 112 }: {
   id?: string;
   value: number | '';
   onChange: (v: number) => void;

@@ -230,7 +230,7 @@ export function GuitarSetupWizard({ mode = 'photo', onSaved, onCancel, api = gui
         const b = extractBody(seg.mask, f, sol.scaleLengthCm);
         setSolution(sol);
         setBody(b);
-        setHole(detectSoundhole(luminance(small.image), f, sol.scaleLengthCm));
+        setHole(detectSoundhole(luminance(small.image), f, sol.scaleLengthCm, { body: b.bounds }));
         if (topFromPhoto) setFinish((o) => ({ ...o, top: toHex(maskedMedianColor(small.image, b.bodyMask)) }));
         setError(null);
       } catch (e) {
