@@ -2,7 +2,7 @@
 # Build:   cd apps/desktop && npm run dist:arch      (or: electron-builder --linux dir, then makepkg -f here)
 # Install: sudo pacman -U guitar3d-*.pkg.tar.zst
 pkgname=guitar3d
-pkgver=1.0.1
+pkgver=1.0.2
 pkgrel=1
 pkgdesc="Guitar Pro / MusicXML / PDF tablarını kendi gitarının 3D modelinde çal"
 arch=('x86_64')
