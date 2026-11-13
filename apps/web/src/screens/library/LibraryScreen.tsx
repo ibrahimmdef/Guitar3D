@@ -27,6 +27,7 @@ export function LibraryScreen() {
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
   const [importMode, setImportMode] = useState<'text' | 'image' | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   const load = useCallback(() => {
     setError(null);
@@ -86,11 +87,12 @@ export function LibraryScreen() {
     <>
     <TabImportSlot
       onImported={onAdded}
+        onReadable={(f) => { setImportFile(f); setImportMode('image'); }}
       onError={(m) => toast({ tone: 'danger', title: 'Dosya yüklenemedi.', description: m, durationMs: 7000 })}
     />
     <div className="lib-import-row">
       <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Metinden içe aktar</Button>
-      <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => setImportMode('image')}>Görselden içe aktar</Button>
+      <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => { setImportFile(null); setImportMode('image'); }}>PDF / görselden</Button>
     </div>
     </>
   );
@@ -223,7 +225,7 @@ export function LibraryScreen() {
       )}
 
       {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
-      {importMode === 'image' && <ImageImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
+      {importMode === 'image' && <ImageImportDialog open initialFile={importFile} onOpenChange={(o) => { if (!o) { setImportMode(null); setImportFile(null); } }} onSaved={savedImport} />}
 
       <Dialog
         open={!!confirm}

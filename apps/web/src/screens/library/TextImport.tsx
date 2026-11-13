@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Play, Save, Square, SquareArrowOutUpRight } from 'lucide-react';
 import type { TabMeta } from '@guitar3d/shared';
 import { convertAscii, withTitle } from '../../tabs/textImport';
@@ -130,7 +130,7 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
 }
 
 /** Image → OCR → the same editable text dialog. */
-export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'title' | 'description'>) {
+export function ImageImportDialog({ initialFile, ...p }: Omit<Props, 'initialText' | 'header' | 'title' | 'description'> & { initialFile?: File | null }) {
   const [text, setText] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +141,16 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
     setNote(null);
     setProgress(0);
     try {
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test((file as File).name ?? '');
+      if (isPdf) {
+        const { readPdf } = await import('../../tabs/pdf');
+        const out = await readPdf(file, setProgress);
+        setText(out.text || ' ');
+        if (out.mode === 'text') setNote(`PDF'teki tab metni alındı (${out.pages} sayfa). Ritim aralıklardan tahmin edilir; kontrol et.`);
+        else if (out.mode === 'scan') setNote(`Sayfalar görsel olarak okundu: ${out.systems} tab satırı (${out.pages} sayfa). Notaları PDF ile karşılaştır, yanlışları düzelt.`);
+        else setError(out.text.trim() ? 'PDF\'te tab satırı bulunamadı; içindeki metin aşağıda.' : 'PDF\'te tab bulunamadı.');
+        return;
+      }
       const { ocrImage } = await import('../../tabs/ocr');
       const out = await ocrImage(file, setProgress);
       setText(out.text || ' ');
@@ -153,6 +163,14 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
       setProgress(null);
     }
   };
+  // A file dropped on the library's upload area.
+  const startedWith = useRef<File | null>(null);
+  useEffect(() => {
+    if (initialFile && startedWith.current !== initialFile) {
+      startedWith.current = initialFile;
+      void run(initialFile);
+    }
+  });
   // Ctrl+V a screenshot straight into the dialog.
   useEffect(() => {
     if (!p.open) return;
@@ -171,10 +189,10 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
     <div className="ti-image">
       <div className="ti-row">
         <label className="btn btn-secondary btn-md">
-          <span className="btn-label">{progress != null ? `Okunuyor… %${Math.round(progress * 100)}` : 'Görsel seç'}</span>
+          <span className="btn-label">{progress != null ? `Okunuyor… %${Math.round(progress * 100)}` : 'Görsel ya da PDF seç'}</span>
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             hidden
             disabled={busy}
             onChange={(e) => {
@@ -184,7 +202,7 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
             }}
           />
         </label>
-        <span className="subtle small">Görsel seç ya da ekran görüntüsünü yapıştır (Ctrl+V). Yazı (ASCII) tablar ve programların çizdiği tablar okunur; el yazısı, eğik fotoğraf ve nota dizeği okunmaz.</span>
+        <span className="subtle small">PDF ya da görsel seç, ya da ekran görüntüsünü yapıştır (Ctrl+V). Yazı (ASCII) tablar ve programların çizdiği tablar okunur; el yazısı, eğik fotoğraf ve nota dizeği okunmaz.</span>
       </div>
       {error && <p className="ti-err" role="alert">{error}</p>}
       {note && <p className="subtle small" role="status">{note}</p>}
@@ -195,8 +213,8 @@ export function ImageImportDialog(p: Omit<Props, 'initialText' | 'header' | 'tit
       {...p}
       initialText={text}
       header={header}
-      title="Görselden tab"
-      description="Tab ekran görüntüsü ya da fotoğrafı seç. Metin tarayıcında okunur; hataları kaydetmeden önce düzelt."
+      title="PDF ya da görselden tab"
+      description="Tab PDF'i, ekran görüntüsü ya da fotoğrafı seç. Her şey tarayıcında okunur; hataları kaydetmeden önce düzelt."
     />
   );
 }

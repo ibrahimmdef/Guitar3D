@@ -18,17 +18,23 @@ import { uploadTab } from '../data';
 export interface TabImportSlotProps {
   onImported: (tabs: TabMeta[]) => void;
   onError: (message: string) => void;
+  /** A PDF or image dropped here is read in the image / PDF import dialog instead of uploaded. */
+  onReadable?: (file: File) => void;
 }
 
-const ACCEPT = '.gp,.gp3,.gp4,.gp5,.gpx,.gp7,.xml,.musicxml';
+const ACCEPT = '.gp,.gp3,.gp4,.gp5,.gpx,.gp7,.xml,.musicxml,.mxl,.pdf,image/*';
+const readable = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name) || f.type.startsWith('image/');
 
-export function TabImportSlot({ onImported, onError }: TabImportSlotProps) {
+export function TabImportSlot({ onImported, onError, onReadable }: TabImportSlotProps) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(0);
 
   const handle = async (files: FileList | File[]) => {
-    const list = [...files];
+    let list = [...files];
+    const other = onReadable ? list.find(readable) : undefined;
+    if (other) onReadable!(other);
+    list = list.filter((f) => !(onReadable && readable(f)));
     if (!list.length) return;
     setBusy(list.length);
     const ok: TabMeta[] = [];
@@ -60,7 +66,7 @@ export function TabImportSlot({ onImported, onError }: TabImportSlotProps) {
       <div className="dropzone-ic" aria-hidden>{busy ? <Spinner /> : <Upload size={20} />}</div>
       <div className="dropzone-text">
         <p className="dropzone-title">{busy ? `${busy} dosya yükleniyor…` : 'Tab dosyalarını buraya bırak'}</p>
-        <p className="dropzone-desc">Guitar Pro (.gp, .gp3–.gp7, .gpx) ve MusicXML. Birden çok dosya seçebilirsin.</p>
+        <p className="dropzone-desc">Guitar Pro (.gp, .gp3–.gp7, .gpx) ve MusicXML en doğru sonucu verir. PDF ve tab görselleri de okunur.</p>
       </div>
       <Button variant="secondary" onClick={() => input.current?.click()} disabled={!!busy}>Dosya seç</Button>
       <input

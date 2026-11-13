@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeTabImage, binarize, cleanToken, groupSystems, layoutToAscii, type Bitmap } from './tabImage';
+import { analyzeTabImage, binarize, cleanToken, fixZeros, groupSystems, layoutToAscii, zeroLike, type Bitmap } from './tabImage';
 
 /** Paper with drawing helpers; "digits" are solid blocks (recognition is not under test here). */
 function sheet(w: number, h: number) {
@@ -91,5 +91,48 @@ describe('layoutToAscii', () => {
     expect(cleanToken('1O')).toBe('10');
     expect(cleanToken('5h7 ')).toBe('5h7');
     expect(cleanToken('(3)')).toBe('3');
+  });
+});
+
+
+/** Draws glyph shapes on a bitmap: ring = zero, ring with a dot / slash, a 6-like and an 8-like glyph. */
+function glyphSheet() {
+  const { bm, rect } = sheet(200, 40);
+  const ring = (x: number, y: number, w: number, h: number) => {
+    rect(x, y, x + w - 1, y + 2);
+    rect(x, y + h - 3, x + w - 1, y + h - 1);
+    rect(x, y, x + 2, y + h - 1);
+    rect(x + w - 3, y, x + w - 1, y + h - 1);
+  };
+  ring(10, 5, 12, 20); // 0 at x 10..21
+  ring(40, 5, 12, 20);
+  rect(45, 13, 46, 16); // dotted 0 (dot inside)
+  ring(70, 5, 12, 20);
+  rect(70, 13, 81, 14); // stacked holes: 8
+  ring(100, 14, 12, 11);
+  rect(100, 5, 102, 14); // 6: stem on the left, hole low
+  ring(130, 5, 12, 20);
+  for (let i = 0; i < 14; i++) rect(134 + Math.floor(i / 4), 8 + i, 135 + Math.floor(i / 4), 8 + i); // slashed 0
+  rect(160, 5, 162, 24); // "1"
+  ring(170, 5, 12, 20); // "0" → token "10"
+  return bm;
+}
+
+describe('zero check by shape', () => {
+  const bm = glyphSheet();
+  const box = (x0: number, x1: number) => ({ x0, x1, y0: 5, y1: 24 });
+  it('recognises plain, dotted and slashed zeros but not 6 or 8', () => {
+    expect(zeroLike(bm, box(10, 21))).toBe(true);
+    expect(zeroLike(bm, box(40, 51))).toBe(true);
+    expect(zeroLike(bm, box(130, 141))).toBe(true);
+    expect(zeroLike(bm, box(70, 81))).toBe(false);
+    expect(zeroLike(bm, box(100, 111))).toBe(false);
+  });
+  it('fixes misread zeros in tokens, leaves other digits alone', () => {
+    expect(fixZeros(bm, box(40, 51), '9')).toBe('0');
+    expect(fixZeros(bm, box(40, 51), '')).toBe('0');
+    expect(fixZeros(bm, box(160, 181), '16')).toBe('10');
+    expect(fixZeros(bm, box(70, 81), '8')).toBe('8');
+    expect(fixZeros(bm, box(100, 111), '6')).toBe('6');
   });
 });

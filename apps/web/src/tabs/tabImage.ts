@@ -138,22 +138,30 @@ export function horizontalProfile(bm: Bitmap, vr: Uint16Array, thin: number, min
 }
 
 /** Centres of the peaks of a profile (regions above `frac` of the maximum). */
-function peaks(prof: Float64Array, frac: number): number[] {
-  let max = 0;
-  for (const v of prof) max = Math.max(max, v);
-  if (!max) return [];
-  const thr = max * frac;
+/**
+ * Centres of the peaks of a profile. The threshold is local (a fraction of the strongest row within
+ * `window` rows), so a small ASCII tab on the same page as a big drawn one is still found; `floor`
+ * keeps weak noise (text, underlines) out.
+ */
+function peaks(prof: Float64Array, frac: number, window: number, floor: number): number[] {
+  const n = prof.length;
+  const thr = new Float64Array(n);
+  for (let y = 0; y < n; y++) {
+    let m = 0;
+    for (let k = Math.max(0, y - window); k <= Math.min(n - 1, y + window); k++) if (prof[k] > m) m = prof[k];
+    thr[y] = Math.max(floor, m * frac);
+  }
   const out: number[] = [];
   let y = 0;
-  while (y < prof.length) {
-    if (prof[y] < thr) {
+  while (y < n) {
+    if (prof[y] < thr[y] || prof[y] <= 0) {
       y++;
       continue;
     }
     let e = y;
     let m = 0;
     let s = 0;
-    while (e < prof.length && prof[e] >= thr) {
+    while (e < n && prof[e] >= thr[e] && prof[e] > 0) {
       m += prof[e] * e;
       s += prof[e];
       e++;
@@ -165,9 +173,13 @@ function peaks(prof: Float64Array, frac: number): number[] {
   return out.reduce<number[]>((a, p) => (a.length && p - a[a.length - 1] < 3 ? (a[a.length - 1] = (a[a.length - 1] + p) / 2, a) : (a.push(p), a)), []);
 }
 
-/** String-line candidates from the thin-ink profile. */
-export function rowCandidates(prof: Float64Array): number[] {
-  return peaks(prof, 0.3);
+/** String-line candidates from the thin-ink profile of an image `width` px wide. */
+export function rowCandidates(prof: Float64Array, width = 0): number[] {
+  let max = 0;
+  for (const v of prof) max = Math.max(max, v);
+  if (!max) return [];
+  const window = Math.max(80, Math.round(prof.length / 10));
+  return peaks(prof, 0.3, window, Math.max(max * 0.06, width * 0.1));
 }
 
 /** Groups row candidates into systems of six evenly spaced lines. */
@@ -272,7 +284,7 @@ export function analyzeTabImage(src: Bitmap): { systems: TabSystemLayout[]; clea
   let systems: { rows: number[]; spacing: number }[] = [];
   for (const f of [1, 1.6, 2.5]) {
     const t = Math.round(thinLimit(bm) * f);
-    systems = groupSystems(rowCandidates(horizontalProfile(lm, vr, t, Math.max(4, Math.round(w / 300)))));
+    systems = groupSystems(rowCandidates(horizontalProfile(lm, vr, t, Math.max(4, Math.round(w / 300))), w));
     if (systems.length) {
       thin = t;
       break;
@@ -491,4 +503,107 @@ export function layoutToAscii(systems: TabSystemLayout[], texts: string[]): stri
     blocks.push(lines.join('\n'));
   }
   return blocks.join('\n\n');
+}
+
+/* ---------- zero check by shape ---------- */
+
+/** Column runs of ink inside a box: the separate glyphs of a token ("16" → 2 boxes). */
+export function splitGlyphs(bm: Bitmap, b: Box): Box[] {
+  const out: Box[] = [];
+  let start = -1;
+  for (let x = b.x0; x <= b.x1 + 1; x++) {
+    let ink = false;
+    if (x <= b.x1) for (let y = b.y0; y <= b.y1 && !ink; y++) ink = !!bm.data[y * bm.width + x];
+    if (ink && start < 0) start = x;
+    if (!ink && start >= 0) {
+      let y0 = b.y1;
+      let y1 = b.y0;
+      for (let y = b.y0; y <= b.y1; y++) {
+        for (let xx = start; xx < x; xx++) {
+          if (bm.data[y * bm.width + xx]) {
+            y0 = Math.min(y0, y);
+            y1 = Math.max(y1, y);
+          }
+        }
+      }
+      out.push({ x0: start, x1: x - 1, y0, y1 });
+      start = -1;
+    }
+  }
+  return out;
+}
+
+/** Enclosed background regions (holes) of a glyph, as boxes relative to the glyph (0..1). */
+export function glyphHoles(bm: Bitmap, g: Box): { cx: number; cy: number; w: number; h: number; area: number }[] {
+  const w = g.x1 - g.x0 + 1;
+  const h = g.y1 - g.y0 + 1;
+  if (w < 3 || h < 3) return [];
+  const seen = new Uint8Array(w * h);
+  const ink = (x: number, y: number) => !!bm.data[(g.y0 + y) * bm.width + g.x0 + x];
+  const fill = (sx: number, sy: number) => {
+    const st = [sx, sy];
+    seen[sy * w + sx] = 1;
+    let x0 = sx;
+    let x1 = sx;
+    let y0 = sy;
+    let y1 = sy;
+    let area = 0;
+    let border = false;
+    while (st.length) {
+      const y = st.pop()!;
+      const x = st.pop()!;
+      area++;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen[ny * w + nx] || ink(nx, ny)) continue;
+        seen[ny * w + nx] = 1;
+        st.push(nx, ny);
+      }
+    }
+    return { border, area, x0, x1, y0, y1 };
+  };
+  const holes: { cx: number; cy: number; w: number; h: number; area: number }[] = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (seen[y * w + x] || ink(x, y)) continue;
+      const r = fill(x, y);
+      if (r.border || r.area < Math.max(2, w * h * 0.01)) continue;
+      holes.push({ cx: (r.x0 + r.x1 + 1) / 2 / w, cy: (r.y0 + r.y1 + 1) / 2 / h, w: (r.x1 - r.x0 + 1) / w, h: (r.y1 - r.y0 + 1) / h, area: r.area / (w * h) });
+    }
+  }
+  return holes;
+}
+
+/**
+ * True when a glyph is shaped like a zero: one tall, centred hole (plain or dotted zero), or two
+ * side-by-side halves (slashed zero). A 6 / 9 has its hole low / high, an 8 two stacked holes.
+ */
+export function zeroLike(bm: Bitmap, g: Box): boolean {
+  const holes = glyphHoles(bm, g).filter((o) => o.h > 0.15);
+  if (!holes.length || holes.length > 2) return false;
+  const top = Math.min(...holes.map((o) => o.cy - o.h / 2));
+  const bottom = Math.max(...holes.map((o) => o.cy + o.h / 2));
+  const tall = bottom - top >= 0.5;
+  const centred = Math.abs((top + bottom) / 2 - 0.5) <= 0.12;
+  const sideBySide = holes.length === 1 || Math.abs(holes[0].cy - holes[1].cy) < 0.2;
+  return tall && centred && sideBySide;
+}
+
+/**
+ * Corrects zeros OCR gets wrong (a dotted / slashed zero read as 6, 8, 9, or nothing): when the
+ * token's glyphs and characters line up one to one, every zero-shaped glyph becomes '0'.
+ */
+export function fixZeros(bm: Bitmap, token: Box, text: string): string {
+  const glyphs = splitGlyphs(bm, token);
+  const chars = [...cleanToken(text)];
+  if (!glyphs.length) return text;
+  if (!chars.length) return glyphs.length === 1 && zeroLike(bm, glyphs[0]) ? '0' : text;
+  if (chars.length !== glyphs.length) return chars.join('');
+  return chars.map((c, i) => (/[0-9]/.test(c) && c !== '0' && zeroLike(bm, glyphs[i]) ? '0' : c)).join('');
 }
