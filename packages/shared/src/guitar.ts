@@ -15,7 +15,13 @@
  *  - v2.1 (feat/guitar-pipeline): `body.bounds`, `body.lengthCm`, `body.bouts`, `builtIn`,
  *    `createdAt`/`updatedAt`, `GuitarSummary`, `AppSettings`, `GUITAR_SIZE_PRESETS`,
  *    `GuitarTextureName`, `BUILTIN_GUITAR_ID`. The `bodyTop` mapping is now pinned to `body.bounds`.
+ *  - v2.2 (feat/guitar-templates): `kind`, `strings`, `inlay`, `electric`, `body.cutaway`,
+ *    `body.bridgeStyle`, `headstock.slotted`, finish wood types and `finish.sunburstEdge`.
+ *    A soundhole with `radiusCm: 0` means no soundhole (solid bodies).
  */
+
+export type GuitarKind = 'acoustic' | 'classical' | 'electric';
+export type WoodType = 'spruce' | 'cedar' | 'mahogany' | 'rosewood' | 'maple' | 'ebony' | 'walnut' | 'alder' | 'solid';
 
 export type Point2 = [number, number];
 
@@ -30,7 +36,12 @@ export interface GuitarTextures {
    */
   bodyTop?: string;
   /** Rectified fretboard photo: left edge = nut, right edge = toFret, top row = low E edge. */
-  fretboard?: { url: string; toFret: number };
+  fretboard?: {
+    url: string;
+    toFret: number;
+    /** Optional greyscale mask (same mapping) of the pearl inlay: drives a mother-of-pearl sheen. */
+    inlayMask?: string;
+  };
   /** Straightened headstock face photo: top row = tip, bottom row = nut, left column = low E side. */
   headstock?: string;
   /** Back photo of the body (optional), same mapping as bodyTop but mirrored across y. */
@@ -56,11 +67,34 @@ export interface GuitarFinish {
   hardware: 'chrome' | 'gold' | 'black';
   /** 0 = satin/matte, 1 = high gloss. */
   gloss: number;
+  /** Wood grain drawn procedurally over the colours above ('solid' or missing = plain paint). */
+  topWood?: WoodType;
+  backWood?: WoodType;
+  neckWood?: WoodType;
+  fretboardWood?: WoodType;
+  /** Edge colour of a sunburst top (the centre is `top`). */
+  sunburstEdge?: string;
+}
+
+/** Solid-body electric parts (all optional, sensible defaults). */
+export interface ElectricSpec {
+  /** Number of pickups (1–3), spread between the neck end and the bridge. */
+  pickups: number;
+  pickupStyle?: 'single' | 'humbucker';
+  /** Control knobs on the treble side of the lower bout. */
+  knobs?: number;
 }
 
 export interface GuitarProfile {
   id: string;
   name: string;
+  /** Instrument family (missing = 'acoustic'). */
+  kind?: GuitarKind;
+  /** String set (missing = 'steel'; classical guitars use 'nylon'). */
+  strings?: 'steel' | 'nylon';
+  /** Fretboard position markers when there is no fretboard photo (missing = 'dots'). */
+  inlay?: 'dots' | 'none' | 'blocks';
+  electric?: ElectricSpec;
   /** Overall length tip of headstock → end of body, e.g. 106.7 for a 42" guitar. */
   totalLengthCm: number;
   scaleLengthCm: number;
@@ -83,6 +117,10 @@ export interface GuitarProfile {
     lengthCm?: number;
     /** Widths of the upper bout, waist and lower bout (full widths across y). */
     bouts?: { upperCm: number; waistCm: number; lowerCm: number; upperX?: number; waistX?: number; lowerX?: number };
+    /** Cutaway on the treble (-y) side, already part of `outline`; informative for the UI. */
+    cutaway?: 'none' | 'venetian' | 'double';
+    /** 'pin' (steel acoustic, default), 'tieblock' (classical) or 'electric' (metal bridge, no pins). */
+    bridgeStyle?: 'pin' | 'tieblock' | 'electric';
     /** Optional pickguard outline in the guitar frame. */
     pickguard?: Point2[];
     bridge: { x: number; widthCm: number; lengthCm: number };
@@ -96,6 +134,8 @@ export interface GuitarProfile {
     tunersHighE: number[];
     /** Back-angle in degrees (typical acoustic ~14). */
     angleDeg: number;
+    /** Classical slotted headstock with rollers instead of posts. */
+    slotted?: boolean;
   };
   finish: GuitarFinish;
   textures: GuitarTextures;

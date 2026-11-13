@@ -18,6 +18,27 @@ export const ROSETTE_INNER = 0.78;
 /** String gauges (diameter, cm) for a 12–53 acoustic set, tab numbering 1 = high e … 6 = low E. */
 export const STRING_GAUGE = [0.030, 0.041, 0.061, 0.081, 0.107, 0.135];
 export const STRING_WOUND = [false, false, true, true, true, true];
+/** Electric 10–46 set (plain G) and a normal-tension nylon set. */
+export const STRING_GAUGE_ELECTRIC = [0.025, 0.033, 0.043, 0.066, 0.091, 0.117];
+export const STRING_GAUGE_NYLON = [0.071, 0.082, 0.103, 0.076, 0.089, 0.111];
+
+/** Diameter (cm) and winding of string `s` (1 = high e) for the profile's string set. */
+export function stringGauge(p: Pick<GuitarProfile, 'kind' | 'strings'>, s: number) {
+  const i = Math.min(5, Math.max(0, s - 1));
+  if (p.strings === 'nylon' || (p.kind === 'classical' && p.strings !== 'steel')) return { diameter: STRING_GAUGE_NYLON[i], wound: i >= 3 };
+  if (p.kind === 'electric') return { diameter: STRING_GAUGE_ELECTRIC[i], wound: i >= 3 };
+  return { diameter: STRING_GAUGE[i], wound: STRING_WOUND[i] };
+}
+
+/**
+ * Where the neck meets the body: the largest x of the outline near the centre line. Equal to the
+ * outline's max x for acoustics; solid bodies with horns reach further towards the headstock.
+ */
+export function neckJoinX(outline: Point2[]) {
+  let best = -Infinity;
+  for (const [x, y] of outline) if (Math.abs(y) <= 3.5) best = Math.max(best, x);
+  return Number.isFinite(best) ? best : outlineXRange(outline)[1];
+}
 
 export function fretX(scale: number, n: number) {
   return -scale * (1 - Math.pow(2, -n / 12));
@@ -84,7 +105,8 @@ export function hitToFret(p: GuitarProfile, x: number, y: number) {
 
 /** Body depth (top to back) at x: dreadnoughts are ~15 % shallower at the neck than at the tail. */
 export function bodyDepthAt(p: GuitarProfile, x: number) {
-  const [x0, x1] = outlineXRange(p.body.outline);
+  const [x0] = outlineXRange(p.body.outline);
+  const x1 = neckJoinX(p.body.outline);
   const t = Math.min(1, Math.max(0, (x1 - x) / (x1 - x0)));
   return p.body.depthCm * (0.86 + 0.14 * t);
 }

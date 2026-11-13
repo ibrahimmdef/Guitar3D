@@ -1,14 +1,16 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Billboard, CameraControls, useTexture } from '@react-three/drei';
+import { CameraControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { CameraMode, FretNote, GuitarProfile, GuitarView } from '@guitar3d/shared';
 import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry } from './build';
 import {
-  bodyDepthAt, FB_TOP, fitDistance, followTarget, fretX, guitarXRange, hitToFret, noteX, speakingFraction, stringY, stringZ,
+  bodyDepthAt, followTarget, guitarXRange, hitToFret, speakingFraction,
 } from './geometry';
-import { ACCENT, createMaterials, labelTexture, NEXT_OUTLINE, woundTexture } from './materials';
+import { ACCENT, createMaterials, decorateMaterials, fretboardWoodMap, rosetteTexture, woundTexture } from './materials';
+import { FretNumbers, NoteMarkers } from './NoteMarkers';
+import { CAMERA_FOV, cameraFraming, clampZoom } from './camera';
 
 export interface Guitar3DProps {
   profile: GuitarProfile;
@@ -16,6 +18,15 @@ export interface Guitar3DProps {
   beatId: number;
   /** 0..1: how far we are towards the next note (drives the approach arc of 'next' markers). */
   beatProgress?: number;
+  /**
+   * Beats after the current one, nearest first (up to 3 are drawn, fading with distance in time).
+   * Without it the notes with state 'next' form the only upcoming beat.
+   */
+  upcoming?: FretNote[][];
+  /** Camera zoom factor for the framed modes (1 = default framing, clamped 0.5–2.5). */
+  zoom?: number;
+  /** Fret numbers along the bass-side edge and an open-string mark at the nut (default true). */
+  showFretNumbers?: boolean;
   view: GuitarView;
   cameraMode: CameraMode;
   onCameraModeChange?: (m: CameraMode) => void;
@@ -25,7 +36,7 @@ export interface Guitar3DProps {
   className?: string;
 }
 
-const FOV = 30;
+const FOV = CAMERA_FOV;
 const DEG = Math.PI / 180;
 
 /** Guitar frame → world: the view rotates (never mirrors) the guitar about z and centres it. */
@@ -93,7 +104,9 @@ function Studio({ depth, rot }: { depth: number; rot: number }) {
 /* ------------------------------------------------------------------ guitar */
 
 interface Textures {
+  bodyTop?: THREE.Texture;
   fretboard?: THREE.Texture;
+  inlayMask?: THREE.Texture;
   headstock?: THREE.Texture;
   rosette?: THREE.Texture;
 }
@@ -105,14 +118,16 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
     if (profile.textures.fretboard?.url) u.fretboard = profile.textures.fretboard.url;
     if (profile.textures.headstock) u.headstock = profile.textures.headstock;
     if (profile.textures.rosette) u.rosette = profile.textures.rosette;
+    if (profile.textures.bodyTop) u.bodyTop = profile.textures.bodyTop;
+    if (profile.textures.fretboard?.inlayMask) u.inlayMask = profile.textures.fretboard.inlayMask;
     return u;
   }, [profile]);
   // useTexture suspends: the guitar appears only once every texture is decoded.
   const tex = useTexture(urls) as unknown as Textures;
   useLayoutEffect(() => {
     const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    for (const t of Object.values(tex) as THREE.Texture[]) {
-      t.colorSpace = THREE.SRGBColorSpace;
+    for (const [k, t] of Object.entries(tex) as [string, THREE.Texture][]) {
+      t.colorSpace = k === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
       t.anisotropy = aniso;
       t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
       t.needsUpdate = true;
@@ -122,11 +137,13 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
 }
 
 function Guitar({
-  profile, geo, notes, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick,
+  profile, geo, notes, upcoming, showFretNumbers, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick,
 }: {
   profile: GuitarProfile;
   geo: GuitarGeometry;
   notes: FretNote[];
+  upcoming?: FretNote[][];
+  showFretNumbers: boolean;
   beatId: number;
   beatProgress: number;
   onFretboardClick: (e: ThreeEvent<MouseEvent>) => void;
@@ -134,19 +151,43 @@ function Guitar({
 }) {
   const tex = useGuitarTextures(profile);
   const wound = useMemo(() => woundTexture(), []);
-  const mats = useMemo(() => createMaterials(profile.finish, wound), [profile.finish, wound]);
-  const fbMat = useMemo(
-    () => new THREE.MeshPhysicalMaterial({ map: tex.fretboard ?? null, color: tex.fretboard ? '#ffffff' : profile.finish.fretboard, roughness: 0.62, clearcoat: 0.08 }),
-    [tex.fretboard, profile.finish.fretboard],
-  );
+  const { mats, made } = useMemo(() => {
+    const m = createMaterials(profile.finish, wound);
+    return { mats: m, made: decorateMaterials(m, profile, tex.bodyTop) };
+  }, [profile, wound, tex.bodyTop]);
+  useEffect(() => () => made.forEach((t) => t.dispose()), [made]);
+  const fbMat = useMemo(() => {
+    const map = tex.fretboard ?? fretboardWoodMap(profile);
+    const m = new THREE.MeshPhysicalMaterial({ map, color: '#ffffff', roughness: 0.62, clearcoat: 0.08 });
+    if (tex.inlayMask) {
+      // mother-of-pearl: thin-film iridescence and a glossy coat only where the inlay is
+      m.iridescence = 1;
+      m.iridescenceMap = tex.inlayMask;
+      m.iridescenceIOR = 1.6;
+      m.iridescenceThicknessRange = [240, 620];
+      m.clearcoat = 0.9;
+      m.clearcoatMap = tex.inlayMask;
+      m.clearcoatRoughness = 0.12;
+    }
+    return m;
+  }, [tex.fretboard, tex.inlayMask, profile]);
+  useEffect(() => () => {
+    if (fbMat.map !== tex.fretboard) fbMat.map?.dispose();
+    fbMat.dispose();
+  }, [fbMat, tex.fretboard]);
   const faceMat = useMemo(
     () => new THREE.MeshPhysicalMaterial({ map: tex.headstock ?? null, color: tex.headstock ? '#ffffff' : profile.finish.headstock, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5, specularIntensity: 0.7, envMapIntensity: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }),
     [tex.headstock, profile.finish.headstock],
   );
-  const roseMat = useMemo(
-    () => (tex.rosette ? new THREE.MeshPhysicalMaterial({ map: tex.rosette, transparent: true, roughness: 0.3, clearcoat: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }) : null),
-    [tex.rosette],
-  );
+  const roseMat = useMemo(() => {
+    if (profile.body.soundhole.radiusCm <= 0.5) return null;
+    const map = tex.rosette ?? rosetteTexture(profile.finish.topWood);
+    return new THREE.MeshPhysicalMaterial({ map, transparent: true, roughness: 0.3, clearcoat: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  }, [tex.rosette, profile]);
+  useEffect(() => () => {
+    if (roseMat && roseMat.map !== tex.rosette) roseMat.map?.dispose();
+    roseMat?.dispose();
+  }, [roseMat, tex.rosette]);
   const staticStrings = useMemo(() => buildStaticStrings(geo.strings), [geo]);
   useEffect(() => () => {
     staticStrings.plain.dispose();
@@ -173,6 +214,7 @@ function Guitar({
       {solid('chrome', mats.chrome)}
       {solid('fret', mats.fret)}
       {solid('dot', mats.dot, false)}
+      {solid('inlay', mats.inlay, false)}
       {parts.interior && <mesh geometry={parts.interior} material={mats.interior} material-side={THREE.DoubleSide} />}
       {parts.hole && <mesh geometry={parts.hole} material={mats.hole} />}
       <mesh geometry={geo.fretboard} material={fbMat} receiveShadow onClick={onFretboardClick} onDoubleClick={onFretboardDoubleClick} />
@@ -185,7 +227,8 @@ function Guitar({
       <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
       <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
       <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} plain={mats.plainString} woundMat={mats.woundString} />
-      <Markers profile={profile} notes={notes} beatProgress={beatProgress} />
+      <NoteMarkers profile={profile} notes={notes} upcoming={upcoming} beatId={beatId} beatProgress={beatProgress} />
+      {showFretNumbers && <FretNumbers profile={profile} />}
     </group>
   );
 }
@@ -266,142 +309,6 @@ function SpeakingStrings({ geo, profile, notes, beatId, plain, woundMat }: {
   );
 }
 
-/* ------------------------------------------------------------------ note markers */
-
-const markerVertex = /* glsl */ `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-
-const markerFragment = /* glsl */ `
-uniform sampler2D uLabel;
-uniform int uKind;          // 0 now, 1 next, 2 muted-now, 3 muted-next, 4 technique chip
-uniform float uProgress;
-uniform vec3 uAccent;
-uniform vec3 uLine;
-uniform float uOpacity;
-varying vec2 vUv;
-float fill(float d) { return clamp(0.5 - d / max(fwidth(d), 1e-4), 0.0, 1.0); }
-void main() {
-  vec2 p = vUv * 2.0 - 1.0;
-  float r = length(p);
-  float glyph = texture2D(uLabel, vUv).a;
-  vec4 c = vec4(0.0);
-  if (uKind == 0) {
-    float shadow = (1.0 - smoothstep(0.78, 1.0, r)) * 0.45;
-    c = vec4(0.0, 0.0, 0.0, shadow);
-    vec3 face = mix(uAccent * 1.08, uAccent * 0.82, smoothstep(-0.9, 0.9, -p.y));
-    c = mix(c, vec4(face, 1.0), fill(r - 0.84));
-    c.rgb = mix(c.rgb, vec3(1.0, 0.96, 0.86), fill(abs(r - 0.81) - 0.035) * 0.75);
-    c.rgb = mix(c.rgb, vec3(0.07, 0.055, 0.03), glyph);
-  } else if (uKind == 1) {
-    c = vec4(0.04, 0.04, 0.05, fill(r - 0.74) * 0.62);
-    c = mix(c, vec4(uLine, 1.0), fill(abs(r - 0.72) - 0.06));
-    float a = atan(p.x, p.y);
-    float a01 = (a < 0.0 ? a + 6.2831853 : a) / 6.2831853;
-    float arc = fill(abs(r - 0.9) - 0.065) * step(a01, uProgress);
-    c = mix(c, vec4(uAccent, 1.0), arc);
-    c = mix(c, vec4(uLine, 1.0), glyph);
-  } else if (uKind == 2 || uKind == 3) {
-    vec3 col = uKind == 2 ? uAccent : uLine;
-    c = vec4(0.04, 0.04, 0.05, fill(r - 0.8) * 0.7);
-    c = mix(c, vec4(col, 1.0), fill(abs(r - 0.78) - 0.045));
-    float d = min(abs(p.x - p.y), abs(p.x + p.y)) * 0.7071 - 0.075;
-    c = mix(c, vec4(col, 1.0), fill(d) * fill(r - 0.5));
-  } else {
-    c = vec4(0.09, 0.09, 0.1, fill(r - 0.92) * 0.92);
-    c = mix(c, vec4(uLine, 1.0), fill(abs(r - 0.9) - 0.05) * 0.6);
-    c = mix(c, vec4(1.0), glyph);
-  }
-  c.a *= uOpacity;
-  if (c.a < 0.004) discard;
-  gl_FragColor = c;
-  #include <colorspace_fragment>
-}`;
-
-const TECH_GLYPH: Record<NonNullable<FretNote['technique']>, string> = {
-  hammer: 'h', pull: 'p', slide: '/', bend: '↑', harmonic: '◇',
-};
-
-function markerMaterial(kind: number, label: string, progress: number) {
-  return new THREE.ShaderMaterial({
-    vertexShader: markerVertex,
-    fragmentShader: markerFragment,
-    uniforms: {
-      uLabel: { value: labelTexture(label) },
-      uKind: { value: kind },
-      uProgress: { value: progress },
-      uAccent: { value: new THREE.Color(ACCENT) },
-      uLine: { value: new THREE.Color(NEXT_OUTLINE) },
-      uOpacity: { value: 1 },
-    },
-    transparent: true,
-    depthWrite: false,
-    toneMapped: false,
-  });
-}
-
-const planeGeo = new THREE.PlaneGeometry(1, 1);
-const tmpV = new THREE.Vector3();
-const footGeo = new THREE.CircleGeometry(0.5, 32);
-const footMat = new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0.38, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
-
-function Marker({ profile, note, progress }: { profile: GuitarProfile; note: FretNote; progress: number }) {
-  const L = profile.scaleLengthCm;
-  const fret = Math.min(Math.max(0, note.fret), profile.fretCount);
-  const x = noteX(L, fret);
-  const y = stringY(profile, note.string, Math.min(0, x));
-  const z = stringZ(profile, Math.min(0, x)) + 0.62;
-  const now = note.state === 'now';
-  const label = note.finger !== undefined && note.finger !== null ? String(note.finger === 0 ? 'T' : note.finger) : String(fret);
-  const kind = note.muted ? (now ? 2 : 3) : now ? 0 : 1;
-  const mat = useMemo(() => markerMaterial(kind, label, progress), [kind, label]); // eslint-disable-line react-hooks/exhaustive-deps
-  const chip = useMemo(() => (note.technique ? markerMaterial(4, TECH_GLYPH[note.technique], 0) : null), [note.technique]);
-  useEffect(() => () => {
-    mat.dispose();
-    chip?.dispose();
-  }, [mat, chip]);
-  mat.uniforms.uProgress.value = progress;
-  const size = now ? 1.0 : 0.92;
-  // keep the bubble legible when the camera pulls back (bounded so chords do not smear together)
-  const scaler = useRef<THREE.Group>(null);
-  useFrame(({ camera }) => {
-    const g = scaler.current;
-    if (!g) return;
-    const d = g.getWorldPosition(tmpV).distanceTo(camera.position);
-    g.scale.setScalar(Math.min(1.5, Math.max(1.15, d * 0.04)));
-  });
-  return (
-    <>
-      {now && fret > 0 && !note.muted && (
-        <mesh geometry={footGeo} material={footMat} position={[x, y, FB_TOP + 0.02]} scale={0.9} renderOrder={2} />
-      )}
-      <Billboard position={[x, y, z]}>
-        <group ref={scaler}>
-          <mesh geometry={planeGeo} material={mat} scale={size} renderOrder={now ? 11 : 10} />
-          {chip && <mesh geometry={planeGeo} material={chip} scale={0.46} position={[0.42, 0.42, 0.01]} renderOrder={12} />}
-        </group>
-      </Billboard>
-    </>
-  );
-}
-
-function Markers({ profile, notes, beatProgress }: { profile: GuitarProfile; notes: FretNote[]; beatProgress: number }) {
-  const shown = useMemo(() => {
-    const nowKeys = new Set(notes.filter((n) => n.state === 'now').map((n) => `${n.string}:${n.fret}`));
-    return notes.filter((n) => n.string >= 1 && n.string <= 6 && (n.state === 'now' || !nowKeys.has(`${n.string}:${n.fret}`)));
-  }, [notes]);
-  return (
-    <>
-      {shown.map((n) => (
-        <Marker key={`${n.state}-${n.string}-${n.fret}-${n.muted ? 'x' : ''}`} profile={profile} note={n} progress={beatProgress} />
-      ))}
-    </>
-  );
-}
-
 /** Mounted inside the Suspense boundary: fires after the first frame that contains the textured guitar. */
 function ReadySignal({ onReady }: { onReady: () => void }) {
   const frames = useRef(0);
@@ -415,9 +322,10 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
 /* ------------------------------------------------------------------ camera */
 
 function CameraRig({
-  profile, view, mode, notes, onUserMove, focusRef,
+  profile, view, mode, notes, zoom, onUserMove, focusRef,
 }: {
   profile: GuitarProfile;
+  zoom: number;
   view: GuitarView;
   mode: CameraMode;
   notes: FretNote[];
@@ -443,18 +351,8 @@ function CameraRig({
 
   const apply = (m: CameraMode, smooth: boolean) => {
     if (m === 'free') return;
-    if (m === 'overview') {
-      const d = fitDistance(frame.length * 1.08, 52, FOV, aspect);
-      look(new THREE.Vector3(0, 0, -3), new THREE.Vector3(0.05, -0.32, 1), d, smooth);
-    } else if (m === 'neck') {
-      const x20 = fretX(L, profile.fretCount);
-      const d = fitDistance(-x20 + 8, 14, FOV, aspect);
-      look(frame.toWorld(x20 / 2 + 1, 0, FB_TOP), new THREE.Vector3(-0.04, -0.4, 1), d, smooth);
-    } else {
-      const x = followX.current ?? fretX(L, 5);
-      const d = Math.max(24, fitDistance(22, 10, FOV, aspect));
-      look(frame.toWorld(x, 0, FB_TOP), new THREE.Vector3(-0.14, -0.5, 1), d, smooth);
-    }
+    const f = cameraFraming(profile, m, aspect, followX.current, zoom);
+    look(frame.toWorld(...f.target), new THREE.Vector3(...f.dir), f.distance, smooth);
   };
 
   // dev hook for headless screenshots: window.__g3dCamera.apply('neck')
@@ -470,11 +368,15 @@ function CameraRig({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, view, profile]);
 
-  // aspect changes re-fit framed modes without animation
+  // aspect changes re-fit framed modes without animation, zoom changes ease
   useEffect(() => {
-    if (!userMoved.current && (mode === 'overview' || mode === 'neck')) apply(mode, false);
+    if (!userMoved.current) apply(mode, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aspect]);
+  useEffect(() => {
+    if (!userMoved.current) apply(mode, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
 
   // follow the played position
   useEffect(() => {
@@ -522,7 +424,7 @@ function CameraRig({
       smoothTime={0.45}
       draggingSmoothTime={0.12}
       minDistance={10}
-      maxDistance={320}
+      maxDistance={900}
       minPolarAngle={18 * DEG}
       maxPolarAngle={162 * DEG}
       minAzimuthAngle={-80 * DEG}
@@ -534,7 +436,8 @@ function CameraRig({
 
 /* ------------------------------------------------------------------ public component */
 
-export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, cameraMode, onCameraModeChange, onFretClick, onReady, className }: Guitar3DProps) {
+export function Guitar3D({
+  profile, notes, upcoming, beatId, beatProgress = 0, zoom = 1, showFretNumbers = true, view, cameraMode, onCameraModeChange, onFretClick, onReady, className }: Guitar3DProps) {
   const readyCb = useRef(onReady);
   readyCb.current = onReady;
   const readySent = useRef(false);
@@ -574,7 +477,7 @@ export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, camer
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: FOV, near: 1, far: 2000, position: [0, -60, 260] }}
+        camera={{ fov: FOV, near: 1, far: 3000, position: [0, -60, 260] }}
         gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
       >
         <Studio depth={maxDepth} rot={frame.rot} />
@@ -585,6 +488,8 @@ export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, camer
                 profile={profile}
                 geo={geo}
                 notes={notes}
+                upcoming={upcoming}
+                showFretNumbers={showFretNumbers}
                 beatId={beatId}
                 beatProgress={beatProgress}
                 onFretboardClick={onFretboardClick}
@@ -594,7 +499,7 @@ export function Guitar3D({ profile, notes, beatId, beatProgress = 0, view, camer
           </group>
           <ReadySignal onReady={signalReady} />
         </Suspense>
-        <CameraRig profile={profile} view={view} mode={cameraMode} notes={notes} onUserMove={onUserMove} focusRef={focusRef} />
+        <CameraRig profile={profile} view={view} mode={cameraMode} notes={notes} zoom={clampZoom(zoom)} onUserMove={onUserMove} focusRef={focusRef} />
       </Canvas>
     </div>
   );
