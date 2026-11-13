@@ -8,7 +8,7 @@ import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeomet
 import {
   bodyDepthAt, followTarget, guitarXRange, hitToFret, speakingFraction,
 } from './geometry';
-import { ACCENT, createMaterials, woundTexture } from './materials';
+import { ACCENT, createMaterials, decorateMaterials, fretboardWoodMap, rosetteTexture, woundTexture } from './materials';
 import { FretNumbers, NoteMarkers } from './NoteMarkers';
 import { CAMERA_FOV, cameraFraming, clampZoom } from './camera';
 
@@ -104,6 +104,7 @@ function Studio({ depth, rot }: { depth: number; rot: number }) {
 /* ------------------------------------------------------------------ guitar */
 
 interface Textures {
+  bodyTop?: THREE.Texture;
   fretboard?: THREE.Texture;
   headstock?: THREE.Texture;
   rosette?: THREE.Texture;
@@ -116,6 +117,7 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
     if (profile.textures.fretboard?.url) u.fretboard = profile.textures.fretboard.url;
     if (profile.textures.headstock) u.headstock = profile.textures.headstock;
     if (profile.textures.rosette) u.rosette = profile.textures.rosette;
+    if (profile.textures.bodyTop) u.bodyTop = profile.textures.bodyTop;
     return u;
   }, [profile]);
   // useTexture suspends: the guitar appears only once every texture is decoded.
@@ -147,19 +149,32 @@ function Guitar({
 }) {
   const tex = useGuitarTextures(profile);
   const wound = useMemo(() => woundTexture(), []);
-  const mats = useMemo(() => createMaterials(profile.finish, wound), [profile.finish, wound]);
-  const fbMat = useMemo(
-    () => new THREE.MeshPhysicalMaterial({ map: tex.fretboard ?? null, color: tex.fretboard ? '#ffffff' : profile.finish.fretboard, roughness: 0.62, clearcoat: 0.08 }),
-    [tex.fretboard, profile.finish.fretboard],
-  );
+  const { mats, made } = useMemo(() => {
+    const m = createMaterials(profile.finish, wound);
+    return { mats: m, made: decorateMaterials(m, profile, tex.bodyTop) };
+  }, [profile, wound, tex.bodyTop]);
+  useEffect(() => () => made.forEach((t) => t.dispose()), [made]);
+  const fbMat = useMemo(() => {
+    const map = tex.fretboard ?? fretboardWoodMap(profile);
+    return new THREE.MeshPhysicalMaterial({ map, color: '#ffffff', roughness: 0.62, clearcoat: 0.08 });
+  }, [tex.fretboard, profile]);
+  useEffect(() => () => {
+    if (fbMat.map !== tex.fretboard) fbMat.map?.dispose();
+    fbMat.dispose();
+  }, [fbMat, tex.fretboard]);
   const faceMat = useMemo(
     () => new THREE.MeshPhysicalMaterial({ map: tex.headstock ?? null, color: tex.headstock ? '#ffffff' : profile.finish.headstock, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5, specularIntensity: 0.7, envMapIntensity: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }),
     [tex.headstock, profile.finish.headstock],
   );
-  const roseMat = useMemo(
-    () => (tex.rosette ? new THREE.MeshPhysicalMaterial({ map: tex.rosette, transparent: true, roughness: 0.3, clearcoat: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }) : null),
-    [tex.rosette],
-  );
+  const roseMat = useMemo(() => {
+    if (profile.body.soundhole.radiusCm <= 0.5) return null;
+    const map = tex.rosette ?? rosetteTexture(profile.finish.topWood);
+    return new THREE.MeshPhysicalMaterial({ map, transparent: true, roughness: 0.3, clearcoat: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  }, [tex.rosette, profile]);
+  useEffect(() => () => {
+    if (roseMat && roseMat.map !== tex.rosette) roseMat.map?.dispose();
+    roseMat?.dispose();
+  }, [roseMat, tex.rosette]);
   const staticStrings = useMemo(() => buildStaticStrings(geo.strings), [geo]);
   useEffect(() => () => {
     staticStrings.plain.dispose();
@@ -186,6 +201,7 @@ function Guitar({
       {solid('chrome', mats.chrome)}
       {solid('fret', mats.fret)}
       {solid('dot', mats.dot, false)}
+      {solid('inlay', mats.inlay, false)}
       {parts.interior && <mesh geometry={parts.interior} material={mats.interior} material-side={THREE.DoubleSide} />}
       {parts.hole && <mesh geometry={parts.hole} material={mats.hole} />}
       <mesh geometry={geo.fretboard} material={fbMat} receiveShadow onClick={onFretboardClick} onDoubleClick={onFretboardDoubleClick} />
