@@ -37,6 +37,7 @@ import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
 import { VideoLinkField, VideoPanel } from './VideoPanel';
 import { RecordPanel } from './RecordPanel';
+import { NotesPanel, useBarNotes } from '../teacher/NotesPanel';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
@@ -74,6 +75,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
 
   const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
   const video = setup.video ?? share?.video ?? null;
+  const tabKey = source.kind === 'lesson' ? `lesson:${source.id}` : source.id;
+  const barNotes = useBarNotes(tabKey);
   // Shared view: show the sender's guitar when this server has it (built-in templates always), else ours.
   const [sharedGuitar, setSharedGuitar] = useState<GuitarProfile | null>(null);
   useEffect(() => {
@@ -535,6 +538,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
               {share && <span className="hud-chip">Paylaşılan görünüm</span>}
+              {barNotes.notes.filter((n) => n.bar === state.currentBar).slice(0, 1).map((n) => (
+                <span key={n.id} className="hud-chip hud-note" title={n.text}>Not: {n.text}</span>
+              ))}
               {listening && <span className="hud-chip hud-accent">Dinliyorum: notayı çal</span>}
               {loop && (
                 <span className="hud-chip hud-accent num">
@@ -630,7 +636,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
             onPlay={playLoop}
           />
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
-          {hasScore && <RecordPanel tabKey={source.kind === 'lesson' ? `lesson:${source.id}` : source.id} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
+          {hasScore && <NotesPanel tabKey={tabKey} notes={barNotes.notes} refresh={barNotes.refresh} currentBar={state.currentBar} onSeekBar={seekBar} />}
+          {hasScore && <RecordPanel tabKey={tabKey} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
           {hasScore && <VideoLinkField link={video} onChange={(v) => setSetup({ video: v })} />}
         </Drawer>
       </div>
