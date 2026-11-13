@@ -1,13 +1,10 @@
 import { memo } from 'react';
 import { Check, Gauge, Lightbulb, Play, Repeat, RotateCcw, Target } from 'lucide-react';
-import type { Report } from '../tips/analyze';
+import { ISSUE_LABELS, type Report } from '../tips/analyze';
 import { Button } from './kit';
 import { PRACTICE_STEPS, practiceStep } from './practiceFlow';
 
-const KIND_LABEL: Record<string, string> = {
-  shift: 'Pozisyon kayması', stretch: 'Açılım', barre: 'Barre', speed: 'Hız', hammer: 'Hammer-on',
-  slide: 'Slide', bend: 'Bend', palmMute: 'Palm mute', chordChange: 'Akor geçişi',
-};
+const KIND_LABEL: Record<string, string> = ISSUE_LABELS;
 
 export interface Ladder {
   speed: number;
@@ -37,7 +34,6 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
   if (!report) {
     return <p className="muted small">Tab yüklenince ölçü haritası ve ipuçları burada görünecek.</p>;
   }
-  const max = Math.max(1, ...report.bars.map((b) => b.difficulty));
   const focusBar = loop ? loop[0] : currentBar;
   const bar = report.bars[focusBar];
   const range = loop ? (loop[0] === loop[1] ? `Ölçü ${loop[0] + 1}` : `Ölçü ${loop[0] + 1}–${loop[1] + 1}`) : null;
@@ -110,7 +106,8 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
         <div className="heatmap" role="group" aria-label="Ölçüler, zorluğa göre">
           {report.bars.map((b) => {
             const inLoop = !!loop && b.bar >= loop[0] && b.bar <= loop[1];
-            const level = b.difficulty / max;
+            // Difficulty is 1 (easy) … 5 (hard); an all-easy song stays cool.
+            const level = Math.min(1, Math.max(0, (b.difficulty - 1) / 4));
             const label = `Ölçü ${b.bar + 1}${b.issues.length ? `: ${b.issues.map((i) => KIND_LABEL[i.kind]).join(', ')}` : ', kolay'}`;
             return (
               <button
