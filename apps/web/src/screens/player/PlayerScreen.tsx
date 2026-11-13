@@ -33,6 +33,7 @@ import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
 import { VideoLinkField, VideoPanel } from './VideoPanel';
+import { RecordPanel } from './RecordPanel';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
@@ -279,6 +280,16 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     api.current?.playPause();
   }, [api, listening]);
   const stop = useCallback(() => api.current?.stop(), [api]);
+  /** Recording / take overlay: same position and speed, start now. */
+  const playFrom = useCallback((tick: number, spd: number) => {
+    const a = api.current;
+    if (!a) return;
+    setListening(false);
+    setSpeed(spd);
+    a.playbackSpeed = spd;
+    seekTick(tick);
+    a.play();
+  }, [api, seekTick]);
   const stepBar = useCallback((d: number) => seekBar(state.currentBar + d), [seekBar, state.currentBar]);
 
   const toggleLoopCurrent = useCallback(() => {
@@ -584,6 +595,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
             onPlay={playLoop}
           />
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
+          {hasScore && <RecordPanel tabKey={source.kind === 'lesson' ? `lesson:${source.id}` : source.id} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
           {hasScore && <VideoLinkField link={setup.video ?? null} onChange={(v) => setSetup({ video: v })} />}
         </Drawer>
       </div>
