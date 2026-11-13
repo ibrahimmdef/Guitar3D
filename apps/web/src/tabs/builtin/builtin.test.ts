@@ -250,4 +250,49 @@ describe('Eserler melodies', () => {
     expect(melody).toEqual(['B4', 'B4', 'B4', 'B4', 'A4', 'G4', 'G4', 'F#4', 'E4', 'E4', 'G4', 'B4']);
     expect(beatsOf(score)[0][0].tupletNumerator).toBe(3);
   });
+  it('Mountain King: B C# D E F# D F#, F C# F, E C E', () => {
+    expect(t('eser-dag-kralinin-salonu', 0, 2)).toEqual(['B2', 'C#3', 'D3', 'E3', 'F#3', 'D3', 'F#3', 'F3', 'C#3', 'F3', 'E3', 'C3', 'E3']);
+  });
+
+  it('Habanera: chromatic descent D C# C C C B Bb A A A G# G over the D-A-F-A bass', () => {
+    const melody = t('eser-habanera', 2, 6).filter((p) => Number(p.at(-1)) >= 4);
+    expect(melody).toEqual(['D5', 'C#5', 'C5', 'C5', 'C5', 'B4', 'A#4', 'A4', 'A4', 'A4', 'G#4', 'G4', 'F4', 'G4', 'F4', 'E4', 'F4', 'G4', 'F4']);
+    expect(t('eser-habanera', 0, 1)).toEqual(['D3', 'A2', 'F3', 'A2']);
+  });
+
+  it('Lágrima: G# A B over the open B string, then F#', () => {
+    expect(t('eser-lagrima', 0, 2)).toEqual(['G#4', 'B3', 'A4', 'B3', 'B4', 'B3', 'F#4', 'B3', 'A3', 'B3', 'B2', 'B3']);
+    expect(t('eser-lagrima', 4, 5)).toEqual(['E5', 'D#5', 'C#5']);
+  });
+
+  it('Adelita: E D# C, D C F#, C B D# G', () => {
+    expect(t('eser-adelita', 0, 3)).toEqual(['E5', 'D#5', 'C5', 'D5', 'C5', 'F#4', 'C5', 'B4', 'D#4', 'G4']);
+  });
+
+  it('Bourrée BWV 996: E F# | G F# E D# E F# | B C# D# E D C', () => {
+    expect(t('eser-bourree-mi-minor', 0, 3)).toEqual(['E4', 'F#4', 'G4', 'F#4', 'E4', 'D#4', 'E4', 'F#4', 'B3', 'C#4', 'D#4', 'E4', 'D4', 'C4']);
+  });
+
+  it('Moonlight (in D minor): A D F triplets, melody enters on A', () => {
+    const score = load('eser-ay-isigi-sonati');
+    expect(top(score, 0, 1)).toEqual(['A3', 'D4', 'F4', 'A3', 'D4', 'F4', 'A3', 'D4', 'F4', 'A3', 'D4', 'F4']);
+    expect(beatsOf(score)[0].every((b) => b.tupletNumerator === 3)).toBe(true);
+    expect(top(score, 4, 5).slice(-3)).toEqual(['A4', 'D4', 'A4']);
+  });
+
+  it('Eine kleine Nachtmusik: G D G D G D G B D', () => {
+    expect(t('eser-eine-kleine-nachtmusik', 0, 2)).toEqual(['G4', 'D4', 'G4', 'D4', 'G4', 'D4', 'G4', 'B4', 'D5']);
+  });
+
+  it('Rondo alla Turca: B A G# A C, D C B C E, F E D# E', () => {
+    expect(t('eser-rondo-alla-turca', 0, 3)).toEqual(['B3', 'A3', 'G#3', 'A3', 'C4', 'D4', 'C4', 'B3', 'C4', 'E4', 'F4', 'E4', 'D#4', 'E4']);
+  });
+
+  it('Toccata BWV 565: A G F E D C# D, then A E F C# D an octave lower', () => {
+    expect(t('eser-toccata-re-minor', 0, 2)).toEqual(['A4', 'G4', 'F4', 'E4', 'D4', 'C#4', 'D4', 'A3', 'E3', 'F3', 'C#3', 'D3']);
+  });
+
+  it('Gymnopédie No. 1: F# A G F# C# B C# D A F#', () => {
+    expect(t('eser-gymnopedie-1', 4, 9).slice(1)).toEqual(['F#4', 'A4', 'G4', 'F#4', 'C#4', 'B3', 'C#4', 'D4', 'A3', 'F#3', 'F#3', 'B3']);
+  });
 });
