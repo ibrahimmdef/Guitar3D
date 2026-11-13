@@ -81,23 +81,32 @@ export function woundTexture() {
 
 const labelCache = new Map<string, THREE.CanvasTexture>();
 
-/** White glyph on transparent, drawn with the system font (no font downloads). */
+/**
+ * Glyph texture for markers and fret numbers: white fill (red channel) inside a dark round stroke
+ * (alpha), so shaders can draw a crisp number with a halo: fill = tex.r, outline = tex.a.
+ * Drawn with the system font (no font downloads), 256 px with mipmaps for crisp minification.
+ */
 export function labelTexture(text: string) {
   const hit = labelCache.get(text);
   if (hit) return hit;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = 256;
   const g = c.getContext('2d')!;
-  const size = text.length > 1 ? 66 : 80;
+  const size = text.length > 1 ? 128 : 150;
   g.font = `700 ${size}px system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
   g.textAlign = 'center';
   g.textBaseline = 'alphabetic';
-  g.fillStyle = '#fff';
   const m = g.measureText(text);
   const dy = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
-  g.fillText(text, 64, 64 + dy);
+  g.lineJoin = 'round';
+  g.lineWidth = 30;
+  g.strokeStyle = '#000';
+  g.strokeText(text, 128, 128 + dy);
+  g.fillStyle = '#fff';
+  g.fillText(text, 128, 128 + dy);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
+  t.premultiplyAlpha = false;
   labelCache.set(text, t);
   return t;
 }
