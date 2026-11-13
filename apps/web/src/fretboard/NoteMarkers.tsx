@@ -13,7 +13,7 @@ import type { FretNote, GuitarProfile } from '@guitar3d/shared';
 import { FB_TOP, fretboardWidth, fretX, noteX, stringY, stringZ } from './geometry';
 import { ACCENT, labelTexture, NEXT_OUTLINE } from './materials';
 import {
-  currentNotes, ghostOpacity, GHOST_TIME, markerDiameter, markerLabel, moveArrows, arcPoint, arrowOpacity, noteKey, popRing, popScale,
+  currentNotes, ghostOpacity, GHOST_TIME, markerDiameter, markerLabel, moveArrows, hopHeight, hopPoint, hopT, arrowOpacity, noteKey, popRing, popScale,
   screenConstantSize, upcomingFade, upcomingMarkers, type UpcomingMarker,
 } from './markers';
 
@@ -279,112 +279,100 @@ function Ribbon({ pts, width, color, opacity, dash = 0 }: { pts: [number, number
   return <mesh geometry={geometry} material={mat} renderOrder={8} />;
 }
 
-/* ------------------------------------------------------------------ move arrows */
+/* ------------------------------------------------------------------ hops between notes */
 
 type V3 = [number, number, number];
 
-/** Curved shaft plus a flat arrowhead, trimmed so both ends stay clear of the bubbles. */
-function arrowGeometry(a: V3, b: V3, bulge: number, width: number, clear: number) {
-  const chord = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  const t0 = Math.min(0.4, clear / Math.max(chord, 1e-3));
-  const t1 = 1 - Math.min(0.4, clear / Math.max(chord, 1e-3));
-  const head = Math.min(1.0, chord * 0.3);
-  const headT = Math.max(t0 + 0.02, t1 - head / Math.max(chord, 1e-3));
-  const shaft: V3[] = [];
-  for (let i = 0; i <= 16; i++) shaft.push(arcPoint(a, b, t0 + ((headT - t0) * i) / 16, bulge));
-  const { geometry, length } = ribbonGeometry(shaft, width);
-  // Arrowhead: a triangle from the shaft end to the tip, along the curve's direction.
-  const base = shaft[shaft.length - 1];
-  const tip = arcPoint(a, b, t1, bulge);
-  const dx = tip[0] - base[0];
-  const dy = tip[1] - base[1];
-  const l = Math.hypot(dx, dy) || 1;
-  const hw = Math.max(width * 2.6, 0.48);
-  const nx = (-dy / l) * hw;
-  const ny = (dx / l) * hw;
-  const pos = Array.from(geometry.getAttribute('position').array as Float32Array);
-  const sAttr = Array.from(geometry.getAttribute('aS').array as Float32Array);
-  const idx = Array.from(geometry.getIndex()!.array as ArrayLike<number>);
-  const k = pos.length / 3;
-  pos.push(base[0] + nx, base[1] + ny, base[2], base[0] - nx, base[1] - ny, base[2], tip[0], tip[1], tip[2]);
-  sAttr.push(length, length, length + l);
-  idx.push(k, k + 1, k + 2);
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('aS', new THREE.Float32BufferAttribute(sAttr, 1));
-  g.setIndex(idx);
-  geometry.dispose();
-  return g;
+const tmpUp = new THREE.Vector3();
+const tmpQ = new THREE.Quaternion();
+/**
+ * "Up" for a hop, in the local frame of `obj`'s parent (the guitar is rotated in the scene): the
+ * camera's screen-up, tilted a little off the fretboard.
+ */
+function hopUp(camera: THREE.Camera, obj: THREE.Object3D | null | undefined, out: V3): V3 {
+  tmpUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+  if (obj?.parent) tmpUp.applyQuaternion(obj.parent.getWorldQuaternion(tmpQ).invert());
+  tmpUp.z += 0.45;
+  tmpUp.normalize();
+  out[0] = tmpUp.x;
+  out[1] = tmpUp.y;
+  out[2] = tmpUp.z;
+  return out;
 }
 
-const arrowFragment = /* glsl */ `
+const dotVertex = /* glsl */ `
+attribute float aT;
+uniform float uPx;
+varying float vT;
+void main() {
+  vT = aT;
+  gl_PointSize = uPx;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const dotFragment = /* glsl */ `
 uniform vec3 uColor;
 uniform float uOpacity;
-uniform float uLen;
-uniform float uHead;
-uniform float uTime;
-uniform float uFlow;
-varying float vS;
+uniform float uBall;   // t of the hopping bubble, < 0 when it has not left yet
+varying float vT;
 void main() {
-  float a = uOpacity;
-  // fade in from the note it leaves, so the arrow reads as "from here → to there"
-  a *= 0.25 + 0.75 * smoothstep(0.0, max(0.6, uHead * 0.6), vS);
-  if (uFlow > 0.0 && vS < uHead) {
-    // dashes streaming towards the head
-    float f = fract((vS - uTime * 2.4) / 0.85);
-    a *= mix(0.45, 1.0, smoothstep(0.0, 0.12, f) * (1.0 - smoothstep(0.5, 0.62, f)));
-  }
-  if (a < 0.004) discard;
-  gl_FragColor = vec4(uColor, a);
+  vec2 c = gl_PointCoord - 0.5;
+  float r = length(c);
+  float disc = 1.0 - smoothstep(0.36, 0.5, r);
+  if (disc < 0.01) discard;
+  // dark rim keeps the dots readable over pearl inlays
+  vec3 col = mix(vec3(0.03), uColor, 1.0 - smoothstep(0.2, 0.32, r));
+  float a = uOpacity * disc * (0.45 + 0.55 * vT);
+  if (uBall >= 0.0) a *= vT < uBall ? 0.28 : 1.0;   // path already travelled fades
+  gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }`;
 
-const arrowMat = (color: string, flow: boolean, head: number) => new THREE.ShaderMaterial({
-  vertexShader: lineVertex,
-  fragmentShader: arrowFragment,
-  uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 1 }, uLen: { value: 1 }, uHead: { value: head }, uTime: { value: 0 }, uFlow: { value: flow ? 1 : 0 } },
-  transparent: true,
-  depthWrite: false,
-  depthTest: false,
-  toneMapped: false,
-  side: THREE.DoubleSide,
-});
-
-const bulgeFor = (a: V3, b: V3) => Math.min(0.9, Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.14);
-/** World-space gap kept between an arrow end and the bubble centre. */
-const CLEAR = 0.95;
-
-/** Curved arrow from one note to the next; the nearest one streams towards its target. */
-function MoveArrow({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progress: number }) {
-  const sig = [...a, ...b].map((v) => v.toFixed(2)).join(',');
-  const width = rank === 0 ? 0.2 : 0.13;
-  const built = useMemo(() => {
-    const bulge = bulgeFor(a, b);
-    const main = arrowGeometry(a, b, bulge, width, CLEAR);
-    const shadow = arrowGeometry(a, b, bulge, width * 2.3, CLEAR - 0.06);
-    const head = (main.getAttribute('aS').array as Float32Array).at(-3) ?? 0;
-    return { main, shadow, head };
-  }, [sig, width]); // eslint-disable-line react-hooks/exhaustive-deps
-  const mat = useMemo(() => arrowMat(rank === 0 ? ACCENT : NEXT_OUTLINE, rank === 0, built.head), [rank, built.head]);
-  const shadowMat = useMemo(() => arrowMat('#050506', false, built.head), [built.head]);
-  const op = arrowOpacity(rank, progress);
-  mat.uniforms.uOpacity.value = op;
-  shadowMat.uniforms.uOpacity.value = op * 0.45;
-  useFrame(({ clock }) => {
-    mat.uniforms.uTime.value = clock.elapsedTime;
-  });
-  useEffect(() => () => {
-    built.main.dispose();
-    built.shadow.dispose();
-  }, [built]);
+/** Dotted arc showing where the hand hops next (screen-up, so it always reads as a jump). */
+function HopPath({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progress: number }) {
+  const n = Math.round(Math.min(34, Math.max(12, Math.hypot(b[0] - a[0], b[1] - a[1]) * 1.6)));
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('aT', new THREE.Float32BufferAttribute(new Float32Array(n), 1));
+    return g;
+  }, [n]);
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    vertexShader: dotVertex,
+    fragmentShader: dotFragment,
+    uniforms: { uColor: { value: new THREE.Color(rank === 0 ? ACCENT : NEXT_OUTLINE) }, uOpacity: { value: 1 }, uPx: { value: 8 }, uBall: { value: -1 } },
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: false,
+  }), [rank]);
+  useEffect(() => () => geo.dispose(), [geo]);
   useEffect(() => () => mat.dispose(), [mat]);
-  useEffect(() => () => shadowMat.dispose(), [shadowMat]);
-  return (
-    <>
-      <mesh geometry={built.shadow} material={shadowMat} renderOrder={7 - rank} />
-      <mesh geometry={built.main} material={mat} renderOrder={8 - rank} />
-    </>
-  );
+  const sm = useSmoothProgress(progress);
+  const up = useRef<V3>([0, 0, 1]);
+  const pts = useRef<THREE.Points>(null);
+  const h = hopHeight(a, b);
+  useFrame(({ camera, gl }) => {
+    hopUp(camera, pts.current, up.current);
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const ts = geo.getAttribute('aT') as THREE.BufferAttribute;
+    // keep clear of both bubbles: skip the ends of the arc
+    const t0 = 0.12;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + ((1 - 2 * t0) * i) / (n - 1);
+      const q = hopPoint(a, b, t, up.current, h);
+      pos.setXYZ(i, q[0], q[1], q[2]);
+      ts.setX(i, t);
+    }
+    pos.needsUpdate = true;
+    ts.needsUpdate = true;
+    geo.computeBoundingSphere();
+    const dpr = gl.getPixelRatio();
+    mat.uniforms.uPx.value = (rank === 0 ? 10 : 6.5) * dpr;
+    mat.uniforms.uOpacity.value = arrowOpacity(rank, sm.current);
+    mat.uniforms.uBall.value = rank === 0 && sm.current > 0.42 ? hopT(sm.current) : -1;
+  });
+  return <points ref={pts} geometry={geo} material={mat} renderOrder={8 - rank} frustumCulled={false} />;
 }
 
 /** beatProgress arrives every ~50 ms; smooth it per frame and restart cleanly when a new beat begins. */
@@ -399,51 +387,72 @@ function useSmoothProgress(progress: number) {
   return shown;
 }
 
-const ease = (x: number) => x * x * (3 - 2 * x);
+const shadowGeo = new THREE.CircleGeometry(0.5, 32);
 
 /**
- * The hand's path: in the second half of the beat a ghost of the next bubble glides from the current
- * note along the arrow and lands on the next note exactly when it is due, so the bubble never just jumps.
+ * The next bubble hopping over: it waits on the current note, jumps along the dotted arc and lands
+ * on the next note just as it is due (the next marker then pops). A soft shadow on the fretboard
+ * shows how high it is.
  */
-function GlideMarker({ a, b, label, progress }: { a: V3; b: V3; label: string; progress: number }) {
-  const mat = useMarkerMaterial(KIND.ring, label, ACCENT);
-  const p = useSmoothProgress(progress);
+function HopBubble({ a, b, label, progress }: { a: V3; b: V3; label: string; progress: number }) {
+  const mat = useMarkerMaterial(KIND.now, label, ACCENT);
+  const shadowMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, depthWrite: false, toneMapped: false }), []);
+  useEffect(() => () => shadowMat.dispose(), [shadowMat]);
+  const sm = useSmoothProgress(progress);
   const g = useRef<THREE.Group>(null);
-  const bulge = bulgeFor(a, b);
+  const sh = useRef<THREE.Mesh>(null);
+  const up = useRef<V3>([0, 0, 1]);
+  const h = hopHeight(a, b);
   useFrame(({ camera, size }) => {
-    if (!g.current) return;
-    const k = Math.min(1, Math.max(0, (p.current - 0.4) / 0.6));
-    const t = ease(k);
-    const pos = arcPoint(a, b, t, bulge);
-    g.current.position.set(pos[0], pos[1], pos[2] + 0.05);
-    g.current.visible = k > 0;
-    mat.uniforms.uOpacity.value = Math.min(1, k * 3) * (0.55 + 0.35 * t);
-    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * (0.72 + 0.22 * t));
+    if (!g.current || !sh.current) return;
+    const t = hopT(sm.current);
+    const flying = sm.current > 0.42;
+    hopUp(camera, g.current, up.current);
+    const q = hopPoint(a, b, t, up.current, h);
+    g.current.position.set(q[0], q[1], q[2] + 0.05);
+    g.current.visible = flying;
+    sh.current.visible = flying;
+    const lift = 4 * t * (1 - t); // 0 on the notes, 1 at the top
+    // squash a little at take-off and landing, stretch in flight
+    const d = diameterAt(g.current, camera, size.height);
+    g.current.scale.set(d * (0.86 + 0.06 * lift), d * (0.8 + 0.14 * lift), 1);
+    mat.uniforms.uOpacity.value = Math.min(1, (sm.current - 0.42) * 8) * 0.92;
+    sh.current.position.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, Math.min(a[2], b[2]) - 0.35);
+    sh.current.scale.setScalar(d * (0.75 - 0.3 * lift));
+    shadowMat.opacity = 0.38 * (1 - 0.6 * lift);
   });
   return (
-    <group ref={g} visible={false}>
-      <Billboard>
-        <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={11} />
-      </Billboard>
-    </group>
+    <>
+      <mesh ref={sh} geometry={shadowGeo} material={shadowMat} renderOrder={7} visible={false} />
+      <group ref={g} visible={false}>
+        <Billboard>
+          <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={11} />
+        </Billboard>
+      </group>
+    </>
   );
 }
 
-/** Small "+4" / "−3" chip on the arrow: how many frets the hand moves. */
+/** Small "+4" / "−3" chip floating above the top of the hop: how many frets the hand moves. */
 function FretJumpChip({ a, b, delta }: { a: V3; b: V3; delta: number }) {
   const label = delta > 0 ? `+${delta}` : `−${-delta}`;
   const mat = useMarkerMaterial(KIND.chip, label, ACCENT);
   const g = useRef<THREE.Group>(null);
-  const pos = arcPoint(a, b, 0.5, bulgeFor(a, b));
+  const up = useRef<V3>([0, 0, 1]);
+  const h = hopHeight(a, b);
   useFrame(({ camera, size }) => {
-    if (g.current) g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * 0.62);
+    if (!g.current) return;
+    hopUp(camera, g.current, up.current);
+    const q = hopPoint(a, b, 0.5, up.current, h + 1.1);
+    g.current.position.set(q[0], q[1], q[2]);
+    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * 0.6);
   });
   return (
-    <Billboard position={[pos[0], pos[1], pos[2] + 0.1]}>
-      <group ref={g}>
+    <group ref={g}>
+      <Billboard>
         <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={10} />
-      </group>
-    </Billboard>
+      </Billboard>
+    </group>
   );
 }
 
@@ -463,7 +472,7 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
     return moveArrows(current, beats).map((m) => {
       const a = markerPosition(profile, m.from.string, m.from.fret);
       const b = markerPosition(profile, m.to.string, m.to.fret);
-      const z = Math.max(a[2], b[2]) - 0.25;
+      const z = Math.max(a[2], b[2]);
       return { ...m, a: [a[0], a[1], z] as V3, b: [b[0], b[1], z] as V3, key: `${m.rank}:${m.from.string}.${m.from.fret}>${m.to.string}.${m.to.fret}` };
     });
   }, [current, upcoming, notes, profile]);
@@ -498,12 +507,12 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
     <>
       {ghosts.map((g) => <GhostMarker key={g.key} ghost={g} />)}
       {chord && <Ribbon pts={chord} width={0.1} color={ACCENT} opacity={0.32} />}
-      {arrows.map((ar) => <MoveArrow key={ar.key} a={ar.a} b={ar.b} rank={ar.rank} progress={p} />)}
+      {arrows.map((ar) => <HopPath key={ar.key} a={ar.a} b={ar.b} rank={ar.rank} progress={p} />)}
       {arrows.filter((ar) => ar.rank === 0 && ar.from.string === ar.to.string && Math.abs(ar.to.fret - ar.from.fret) >= 2).map((ar) => (
         <FretJumpChip key={`j${ar.key}`} a={ar.a} b={ar.b} delta={ar.to.fret - ar.from.fret} />
       ))}
       {arrows.filter((ar) => ar.rank === 0).map((ar) => (
-        <GlideMarker key={`gl${beatId}-${ar.key}`} a={ar.a} b={ar.b} label={String(ar.to.fret)} progress={p} />
+        <HopBubble key={`h${beatId}-${ar.key}`} a={ar.a} b={ar.b} label={String(ar.to.fret)} progress={p} />
       ))}
       {next.map((m) => <NextMarker key={`n${m.rank}-${m.key}`} profile={profile} m={m} progress={p} />)}
       {current.map((n) => <CurrentMarker key={`c${beatId}-${noteKey(n)}`} profile={profile} note={n} />)}

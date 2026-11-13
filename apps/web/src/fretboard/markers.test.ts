@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { FretNote, GuitarProfile } from '@guitar3d/shared';
 import {
-  currentNotes, ghostOpacity, markerDiameter, markerLabel, moveArrows, moveGuides, arcPoint, arrowOpacity, popScale, upcomingFade, upcomingMarkers,
+  currentNotes, ghostOpacity, markerDiameter, markerLabel, moveArrows, moveGuides, hopHeight, hopPoint, hopT, arrowOpacity, popScale, upcomingFade, upcomingMarkers,
 } from './markers';
 import { cameraFraming, clampZoom, followWindow } from './camera';
 import { fretX, guitarXRange } from './geometry';
@@ -126,12 +126,20 @@ describe('moveArrows', () => {
     expect(moveArrows([], [[n(1, 5)]])).toEqual([]);
     expect(moveArrows([n(1, 5)], [[n(1, 7, { muted: true })]])).toEqual([]);
   });
-  it('arc starts and ends on the notes and bulges in between', () => {
+  it('hop starts and ends on the notes and peaks halfway along up', () => {
     const a: [number, number, number] = [0, 0, 1];
     const b: [number, number, number] = [-10, 0, 1];
-    expect(arcPoint(a, b, 0, 1)).toEqual(a);
-    expect(arcPoint(a, b, 1, 1)).toEqual(b);
-    expect(arcPoint(a, b, 0.5, 1)[2]).toBeGreaterThan(1);
+    const up: [number, number, number] = [0, 0, 1];
+    const h = hopHeight(a, b);
+    expect(hopPoint(a, b, 0, up, h)).toEqual(a);
+    expect(hopPoint(a, b, 1, up, h)).toEqual(b);
+    expect(hopPoint(a, b, 0.5, up, h)[2]).toBeCloseTo(1 + h);
+    expect(hopHeight(a, [-30, 0, 1])).toBeGreaterThan(h);
+  });
+  it('the bubble waits, jumps and lands exactly at the next beat', () => {
+    expect(hopT(0.2)).toBe(0);
+    expect(hopT(1)).toBe(1);
+    expect(hopT(0.71)).toBeCloseTo(0.5, 1);
   });
   it('nearest arrow is the most visible', () => {
     expect(arrowOpacity(0, 0)).toBeGreaterThan(arrowOpacity(1, 0));
