@@ -6,6 +6,7 @@ import { ScalesScreen } from './screens/scales/ScalesScreen';
 import { TunerScreen } from './screens/tuner/TunerScreen';
 import { ProgressScreen } from './screens/progress/ProgressScreen';
 import { ChordTrainerScreen } from './screens/games/ChordTrainerScreen';
+import { CourseScreen } from './screens/course/CourseScreen';
 import { EarScreen } from './screens/games/EarScreen';
 import { FretGameScreen } from './screens/games/FretGameScreen';
 import { RhythmScreen } from './screens/rhythm/RhythmScreen';
@@ -41,6 +42,7 @@ export function App() {
             {route.name === 'fretboard-game' && <FretGameScreen />}
             {route.name === 'chord-trainer' && <ChordTrainerScreen />}
             {route.name === 'ear' && <EarScreen />}
+            {route.name === 'course' && <CourseScreen />}
           </AppShell>
         )}
         <RoutineBar route={route} />
