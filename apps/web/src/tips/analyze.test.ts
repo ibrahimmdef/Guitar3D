@@ -437,7 +437,9 @@ describe('built-in lessons through the analysis', () => {
   });
 
   it('never rates a beginner lesson above 3 and keeps the start speed high', () => {
-    for (const [id, r] of Object.entries(reports)) {
+    // The "Eserler" pack is meant to reach level 5 (hard), so it is left out here.
+    const easy = new Set(listBuiltinLessons().filter((l) => l.group !== 'eserler').map((l) => l.id));
+    for (const [id, r] of Object.entries(reports).filter(([id]) => easy.has(id))) {
       expect(Math.max(...r.bars.map((b) => b.difficulty)), id).toBeLessThanOrEqual(3);
       expect(r.suggestedStartSpeed, id).toBeGreaterThanOrEqual(0.8);
     }

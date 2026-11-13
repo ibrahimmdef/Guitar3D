@@ -25,8 +25,22 @@ export interface LessonMeta {
   level: LessonLevel;
   description?: string;
   tempo?: number;
-  /** 'turkuler' = the Turkish folk-style pack (own library section). */
+  /** 'turkuler' = the Turkish folk-style pack, 'eserler' = the classical pieces pack (own library sections). */
   group?: string;
+  /** Raw 1–5 level of built-in lessons; the "Eserler" section uses it to tell 4 (orta üstü) from 5 (zor). */
+  rank?: number;
+}
+
+/** Sub-levels of the "Eserler" pack (built-in levels 3–5). */
+export const ESER_LEVELS: { rank: number; label: string }[] = [
+  { rank: 3, label: 'Orta' },
+  { rank: 4, label: 'Orta üstü' },
+  { rank: 5, label: 'Zor' },
+];
+
+/** Groups pack pieces by their raw 1–5 level, in the order of `ESER_LEVELS`; empty groups are dropped. */
+export function groupByRank<T extends { rank?: number }>(items: T[]): { rank: number; label: string; items: T[] }[] {
+  return ESER_LEVELS.map((l) => ({ ...l, items: items.filter((i) => i.rank === l.rank) })).filter((g) => g.items.length > 0);
 }
 
 export type LessonContent = { kind: 'tex'; tex: string } | { kind: 'buffer'; data: ArrayBuffer };
@@ -94,6 +108,7 @@ export function toLessonMeta(x: unknown): LessonMeta | null {
     description: typeof o.description === 'string' ? o.description : undefined,
     tempo: typeof o.tempo === 'number' ? o.tempo : typeof o.bpm === 'number' ? o.bpm : undefined,
     ...(typeof o.group === 'string' ? { group: o.group } : {}),
+    ...(typeof o.level === 'number' ? { rank: o.level } : {}),
   };
 }
 
