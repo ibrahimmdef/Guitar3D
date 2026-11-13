@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatPercent, formatTime, relativeTime } from './format';
 import { ladderAfter, practiceStep } from './practiceFlow';
 import { parseRoute, playLesson, playTab, routeHref } from './router';
-import { hotkeyName } from './shortcuts';
+import { hotkeyName, zoomDelta } from './shortcuts';
 
 describe('router', () => {
   it('parses screens and falls back to the library', () => {
@@ -91,5 +91,17 @@ describe('shortcut sheet', () => {
     const keys = SHORTCUTS.flatMap((g) => g.items.flatMap((i) => i.keys));
     for (const k of ['Space', '←', '→', 'L', 'M', '-', '+', '1', '2', '3', '4', 'V', 'T', 'P', '?']) expect(keys).toContain(k);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('zoomDelta', () => {
+  it('maps Shift + -/+ to zoom and leaves plain keys to speed', () => {
+    expect(zoomDelta({ key: '_', code: 'Minus', shiftKey: true })).toBe(-1);
+    expect(zoomDelta({ key: '+', code: 'Equal', shiftKey: true })).toBe(1);
+    expect(zoomDelta({ key: '+', code: 'NumpadAdd', shiftKey: true })).toBe(1);
+    expect(zoomDelta({ key: '-', code: 'NumpadSubtract', shiftKey: true })).toBe(-1);
+    expect(zoomDelta({ key: '-', code: 'Minus', shiftKey: false })).toBe(0);
+    // Turkish Q: "+" is Shift+4 and stays a speed key.
+    expect(zoomDelta({ key: '+', code: 'Digit4', shiftKey: true })).toBe(0);
   });
 });
