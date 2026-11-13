@@ -5,6 +5,7 @@ import { LibraryScreen } from './screens/library/LibraryScreen';
 import { ScalesScreen } from './screens/scales/ScalesScreen';
 import { TunerScreen } from './screens/tuner/TunerScreen';
 import { ProgressScreen } from './screens/progress/ProgressScreen';
+import { RhythmScreen } from './screens/rhythm/RhythmScreen';
 import { RoutineBar } from './screens/routines/RoutineBar';
 import { RoutinesScreen } from './screens/routines/RoutinesScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
@@ -33,6 +34,7 @@ export function App() {
             {route.name === 'tuner' && <TunerScreen />}
             {route.name === 'routines' && <RoutinesScreen />}
             {route.name === 'progress' && <ProgressScreen />}
+            {route.name === 'rhythm' && <RhythmScreen />}
           </AppShell>
         )}
         <RoutineBar route={route} />

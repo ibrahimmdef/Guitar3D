@@ -1,0 +1,148 @@
+/* ---------- P2 screens: rhythm, games, trainers, course, editor ---------- */
+
+.section-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+.p2-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.p2-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Rhythm */
+.rhythm-lane-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  background: var(--surface-1);
+  margin-bottom: var(--sp-4);
+}
+.rhythm-lane {
+  --hit: 22%;
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--stage);
+}
+.rhythm-hitline {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: var(--hit);
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-line);
+  z-index: 1;
+}
+.rhythm-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--hit) - 28px);
+  display: flex;
+  will-change: transform;
+}
+.rhythm-cell {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--text-2);
+  border-left: 1px solid transparent;
+}
+.rhythm-cell.is-pulse {
+  border-left-color: var(--border);
+}
+.rhythm-cell.is-bar {
+  border-left-color: var(--border-strong);
+}
+.rhythm-count {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.rhythm-static {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+.rhythm-static-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+  padding: var(--sp-1);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+}
+.rhythm-static-cell.is-now {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.rhythm-static-cell small {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.stroke {
+  position: relative;
+  display: inline-flex;
+  color: var(--text);
+}
+.stroke.is-accent {
+  color: var(--accent);
+}
+.stroke.is-muted {
+  color: var(--text-2);
+}
+.stroke-x {
+  position: absolute;
+  right: -8px;
+  top: -6px;
+  font-size: 14px;
+  font-weight: var(--fw-semibold);
+}
+.stroke-rest {
+  color: var(--text-3);
+  font-size: 22px;
+  line-height: 26px;
+}
+.rhythm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.timing-last {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-2);
+}
+.timing-last.tone-ok {
+  color: var(--success);
+}
+.timing-last.tone-early,
+.timing-last.tone-late {
+  color: var(--accent);
+}
+
+@media (max-width: 860px) {
+  .rhythm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.rhythm-cell.is-now .stroke {
+  transform: scale(1.18);
+}
