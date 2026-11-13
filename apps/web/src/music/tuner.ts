@@ -31,9 +31,9 @@ export interface TunerReading {
 
 /**
  * Turns a detected frequency into a tuner reading against `tuning` (+ capo). The string is the one
- * whose open pitch is nearest in cents; ties go to the lower string.
+ * whose open pitch is nearest in cents (ties go to the lower string), unless `fixedString` pins it.
  */
-export function readTuner(freq: number, tuning: Tuning = STANDARD, capo = 0, a4 = 440): TunerReading | null {
+export function readTuner(freq: number, tuning: Tuning = STANDARD, capo = 0, a4 = 440, fixedString?: number): TunerReading | null {
   if (!(freq > 0) || !Number.isFinite(freq)) return null;
   const exact = freqToMidi(freq, a4);
   const midi = Math.round(exact);
@@ -46,6 +46,7 @@ export function readTuner(freq: number, tuning: Tuning = STANDARD, capo = 0, a4 
       bestDist = d;
     }
   }
+  if (fixedString && fixedString >= 1 && fixedString <= tuning.midi.length) best = fixedString;
   const targetMidi = tuning.midi[best - 1] + capo;
   const stringCents = Math.max(-1200, Math.min(1200, cents(freq, targetMidi, a4)));
   return {
