@@ -10,7 +10,7 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 2. **Sap üzerinde gamlar** — ton + gam (majör, minör, pentatonik, blues, modlar) seçilir; notalar, kök ve pozisyon kutuları sapta yanar — doğaçlama ve sap ezberi için temel — M
 3. **Akort aleti** — mikrofonla kromatik akort; 3D'de ilgili tel ve burgu vurgulanır, yön oku gösterilir — akortsuz gitarla çalışma boşa gider; mikrofon altyapısı hazır — S
 4. **Kapo ve alternatif akortlar** — kapo 3D modelde görünür; Drop D, DADGAD, yarım ton pes vb. seçilir, tab ve ses buna göre kayar — şarkıların çoğu bunları ister; yoksa tab yanlış görünür — M
-5. **Solak modu** — modeli, tel sırasını ve kamera açılarını aynalar — solakların ~%10'u için uygulama aksi halde kullanılamaz — S
+5. ~~Solak modu~~ — sahibinin kararıyla kapsam dışı.
 6. **İlerleme ve seri (streak)** — günlük dakika, şarkı başına ulaşılan tempo ve doğruluk, haftalık grafik, gün serisi — görünür ilerleme alışkanlığı sürdürür — M
 7. **Otomatik hızlanma (tempo merdiveni)** — döngüyü %60'tan başlatır, temiz geçilince %5 artırır, hata olursa düşürür — zor pasajı çalışmanın kanıtlanmış yolu; elle hız ayarını kaldırır — S
 8. **Pratik rutinleri** — 10/20/30 dk hazır seans: ısınma → teknik → şarkı → serbest; sayaçlı ve adım adım — "bugün ne çalışsam" sorusunu çözer — M
@@ -44,3 +44,9 @@ Biçim: ad — ne yapar — öğrenene faydası — boyut (S ≈ 1 gün, M ≈ 2
 - İkinci dalga: 1, 2, 4 — "sap referansı" üçlüsü ortak bir nota/akor veri katmanını paylaşır; birlikte tasarlanmalı.
 - Üçüncü dalga: 6, 8, 9 — ortak bir pratik-oturumu kaydı gerektirir; 26 ve 21 bunun üstüne kurulur.
 - 11 (dersler) en büyük farklılaştırıcı ama 1, 2, 9 ve 10'a bağımlı; onlardan sonra.
+
+## Sahibinin kararı (13 Kasım)
+- Solak modu dışındaki tüm maddeler yapılacak.
+- Öncelikli: sıradaki notalar daha belirgin görünsün (yalnızca bir sonraki değil, 2–3 nota ileriye doğru sönükleşen işaretler), nota baloncuklarının görünümü ve okunabilirliği düzeltilsin.
+- Türkçe şarkı paketi yalnızca anonim türkülerin melodileri ya da özgün parçalarla yapılır; şarkı sözü eklenmez.
+- Sıra: gitar ekleme → 3D/şablonlar + baloncuk düzeltmeleri → çalışma ekranı (sıradaki nota şeridi vb.) → P1 → P2 → P3. Aynı anda tek ajan (Opus, medium).
