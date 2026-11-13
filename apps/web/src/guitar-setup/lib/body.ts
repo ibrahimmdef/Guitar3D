@@ -149,6 +149,16 @@ export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number
   return { outline: out, bounds, lengthCm: r2(bounds.maxX - bounds.minX), bouts: measureBouts(out), neckWidthCm: r2(neckWidthCm), bodyMask: body };
 }
 
+/**
+ * Where to look for the soundhole once the body outline is known: its centre sits 15–50 % of the body
+ * length below the neck joint. Searching by body rather than by scale length matters when the scale is
+ * only estimated (quick mode): the fretboard end at the joint otherwise looks like a ringed dark hole.
+ */
+export function soundholeRange(b: Bounds): [number, number] {
+  const len = b.maxX - b.minX;
+  return [b.maxX - 0.5 * len, b.maxX - 0.15 * len];
+}
+
 export interface SoundholeGuess {
   x: number;
   y: number;
@@ -160,10 +170,15 @@ export interface SoundholeGuess {
 
 /**
  * Looks for a dark circle on the centre line around the 19th–20th fret position (where acoustic
- * soundholes sit). `gray` and `frame` share pixel space.
+ * soundholes sit), or inside `opts.body` when given. `gray` and `frame` share pixel space.
  */
-export function detectSoundhole(gray: GrayImage, frame: PhotoFrame, scaleLengthCm: number, opts: { xRange?: [number, number]; rRange?: [number, number] } = {}): SoundholeGuess {
-  const [x0, x1] = opts.xRange ?? [-scaleLengthCm * 0.8, -scaleLengthCm * 0.56];
+export function detectSoundhole(
+  gray: GrayImage,
+  frame: PhotoFrame,
+  scaleLengthCm: number,
+  opts: { xRange?: [number, number]; rRange?: [number, number]; body?: Bounds } = {},
+): SoundholeGuess {
+  const [x0, x1] = opts.xRange ?? (opts.body ? soundholeRange(opts.body) : [-scaleLengthCm * 0.8, -scaleLengthCm * 0.56]);
   const [rmin, rmax] = opts.rRange ?? [3.5, 6.5];
   const step = Math.max(0.2, 1.5 / pxPerCmAt(frame, (x0 + x1) / 2));
   const A = 36;

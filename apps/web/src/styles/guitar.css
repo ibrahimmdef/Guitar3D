@@ -43,8 +43,7 @@
   line-height: var(--lh-tight);
 }
 .gg-h {
-  margin-top: var(--sp-6);
-  margin-bottom: var(--sp-3);
+  margin-top: var(--sp-2);
   font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
 }
@@ -260,7 +259,7 @@
   flex: none;
 }
 .gs-input-wrap .gs-input {
-  padding-right: 34px;
+  padding: 0 32px 0 var(--sp-2);
 }
 .gs-unit {
   position: absolute;
