@@ -5,6 +5,7 @@ import { nearestExpected, offsetLabel, summarizeTiming, verdict, type TimingHit 
 import { MIC_STATUS_LABEL, useMicOnsets } from '../../audio/useMicOnsets';
 import { countLabels, getPattern, METERS, parseSteps, PATTERNS, stepSeconds, type Meter, type Step } from '../../music/rhythm';
 import { ChipGroup } from '../../ui/ChipGroup';
+import { takeHandoff } from '../../ui/handoff';
 import { Button, SegmentedControl, Slider, Toggle } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
 import { ScreenHeader } from '../AppShell';
@@ -29,8 +30,9 @@ export function strokeName(s: Step) {
 
 export function RhythmScreen() {
   const [settings] = useSettings();
-  const [meter, setMeter] = useState<Meter>('4/4');
-  const [patternId, setPatternId] = useState('eighths');
+  const [initial] = useState(() => getPattern(takeHandoff<string>('rhythm') ?? 'eighths'));
+  const [meter, setMeter] = useState<Meter>(initial.meter);
+  const [patternId, setPatternId] = useState(initial.id);
   const pattern = getPattern(patternId);
   const steps = useMemo(() => parseSteps(pattern.steps), [pattern]);
   const counts = useMemo(() => countLabels(pattern), [pattern]);

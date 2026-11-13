@@ -7,6 +7,7 @@ import { groupVoicings, searchChords, voicingNotes, type ChordVoicing } from '..
 import { chordTex } from '../../music/tex';
 import { useTexPlayer } from '../../player/useTexPlayer';
 import { ChordDiagram } from '../../ui/ChordDiagram';
+import { takeHandoff } from '../../ui/handoff';
 import { Button, useToast } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
 import { ScreenHeader } from '../AppShell';
@@ -34,8 +35,9 @@ export function ChordTrainerScreen() {
   const [settings] = useSettings();
   const toast = useToast();
   const list = useChordList();
-  const [aName, setA] = useState('C');
-  const [bName, setB] = useState('G');
+  const [initial] = useState(() => takeHandoff<[string, string]>('chord-trainer') ?? ['C', 'G']);
+  const [aName, setA] = useState(initial[0]);
+  const [bName, setB] = useState(initial[1]);
   const a = list.find((v) => v.name === aName) ?? list[0];
   const b = list.find((v) => v.name === bName) ?? list[1];
   const [running, setRunning] = useState(false);
