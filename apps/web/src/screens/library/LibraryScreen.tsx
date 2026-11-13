@@ -7,7 +7,7 @@ import { getRecent } from '../../ui/settings';
 import { relativeTime } from '../../ui/format';
 import { ScreenHeader } from '../AppShell';
 import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
-import { groupByLevel, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
+import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
 import { ImageImportDialog, TextImportDialog } from './TextImport';
 
@@ -58,6 +58,7 @@ export function LibraryScreen() {
   const visibleLessons = useMemo(() => (lessons ?? []).filter((l) => !q || norm(`${l.title} ${l.description ?? ''}`).includes(q)), [lessons, q]);
   const regularLessons = visibleLessons.filter((l) => !l.group);
   const turkuler = visibleLessons.filter((l) => l.group === 'turkuler');
+  const eserler = visibleLessons.filter((l) => l.group === 'eserler');
 
   const firstRun = tabs !== null && tabs.length === 0;
   const firstLesson = lessons?.find((l) => l.level === 'beginner' && !l.group) ?? lessons?.[0];
@@ -212,6 +213,21 @@ export function LibraryScreen() {
           </div>
           <p className="subtle small">Türkü havasında, Hicaz, Kürdi ve Nihavend renklerinde, halay, horon ve aksak ritimlerde özgün etütler. Kolaydan zora.</p>
           <LessonGrid label="Türküler" items={turkuler} recent={recent} showLevel />
+        </section>
+      )}
+
+      {eserler.length > 0 && (
+        <section className="lib-sec" aria-labelledby="sec-eserler">
+          <div className="sec-head">
+            <h2 id="sec-eserler">Eserler</h2>
+          </div>
+          <p className="subtle small">Bach, Mozart, Beethoven, Tárrega ve anonim ezgilerden ünlü temalar; gitar için kısa düzenlemeler. Ortadan zora.</p>
+          {groupByRank(eserler).map((g) => (
+            <div key={g.rank} className="lesson-group">
+              <h3 className="eyebrow">{g.label}</h3>
+              <LessonGrid label={`Eserler, ${g.label}`} items={g.items} recent={recent} />
+            </div>
+          ))}
         </section>
       )}
 
