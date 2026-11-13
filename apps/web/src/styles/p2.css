@@ -171,3 +171,79 @@
 .game-feedback.is-bad {
   color: var(--danger);
 }
+
+/* Chord trainer */
+.plain-list {
+  margin: var(--sp-2) 0;
+  padding-left: var(--sp-5);
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.check input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.trainer-diagrams {
+  display: flex;
+  gap: var(--sp-3);
+}
+.trainer-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.trainer-diagram.is-on {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+.trainer-tap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 120px;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.trainer-tap:not(:disabled):active {
+  background: var(--accent-soft);
+}
+.trainer-tap:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.trainer-count {
+  font-size: 48px;
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+}
+.trainer-lower {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-6);
+  margin-top: var(--sp-6);
+}

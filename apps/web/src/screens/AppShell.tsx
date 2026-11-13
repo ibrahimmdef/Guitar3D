@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Activity, Drum, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, Settings, Target } from 'lucide-react';
+import { Activity, Drum, Gauge, Grid3x3, Guitar, Library, ListChecks, Music2, Repeat, Settings, Target } from 'lucide-react';
 import { routeHref, type Route, type SimpleRouteName } from '../ui/router';
 
 export interface NavEntry { route: SimpleRouteName; label: string; icon: ReactNode }
@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { route: 'chords', label: 'Akorlar', icon: <Grid3x3 size={18} /> },
       { route: 'scales', label: 'Gamlar', icon: <Music2 size={18} /> },
       { route: 'fretboard-game', label: 'Sap oyunu', icon: <Target size={18} /> },
+      { route: 'chord-trainer', label: 'Akor geçişi', icon: <Repeat size={18} /> },
     ],
   },
   {
