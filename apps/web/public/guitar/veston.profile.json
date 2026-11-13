@@ -1214,7 +1214,8 @@
  "textures": {
   "fretboard": {
    "url": "/guitar/fretboard.jpg",
-   "toFret": 20
+   "toFret": 20,
+   "inlayMask": "/guitar/fretboard-inlay.png"
   },
   "headstock": "/guitar/headstock-face.jpg",
   "rosette": "/guitar/rosette.png"

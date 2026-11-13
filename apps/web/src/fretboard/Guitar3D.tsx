@@ -106,6 +106,7 @@ function Studio({ depth, rot }: { depth: number; rot: number }) {
 interface Textures {
   bodyTop?: THREE.Texture;
   fretboard?: THREE.Texture;
+  inlayMask?: THREE.Texture;
   headstock?: THREE.Texture;
   rosette?: THREE.Texture;
 }
@@ -118,14 +119,15 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
     if (profile.textures.headstock) u.headstock = profile.textures.headstock;
     if (profile.textures.rosette) u.rosette = profile.textures.rosette;
     if (profile.textures.bodyTop) u.bodyTop = profile.textures.bodyTop;
+    if (profile.textures.fretboard?.inlayMask) u.inlayMask = profile.textures.fretboard.inlayMask;
     return u;
   }, [profile]);
   // useTexture suspends: the guitar appears only once every texture is decoded.
   const tex = useTexture(urls) as unknown as Textures;
   useLayoutEffect(() => {
     const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    for (const t of Object.values(tex) as THREE.Texture[]) {
-      t.colorSpace = THREE.SRGBColorSpace;
+    for (const [k, t] of Object.entries(tex) as [string, THREE.Texture][]) {
+      t.colorSpace = k === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
       t.anisotropy = aniso;
       t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
       t.needsUpdate = true;
@@ -156,8 +158,19 @@ function Guitar({
   useEffect(() => () => made.forEach((t) => t.dispose()), [made]);
   const fbMat = useMemo(() => {
     const map = tex.fretboard ?? fretboardWoodMap(profile);
-    return new THREE.MeshPhysicalMaterial({ map, color: '#ffffff', roughness: 0.62, clearcoat: 0.08 });
-  }, [tex.fretboard, profile]);
+    const m = new THREE.MeshPhysicalMaterial({ map, color: '#ffffff', roughness: 0.62, clearcoat: 0.08 });
+    if (tex.inlayMask) {
+      // mother-of-pearl: thin-film iridescence and a glossy coat only where the inlay is
+      m.iridescence = 1;
+      m.iridescenceMap = tex.inlayMask;
+      m.iridescenceIOR = 1.6;
+      m.iridescenceThicknessRange = [240, 620];
+      m.clearcoat = 0.9;
+      m.clearcoatMap = tex.inlayMask;
+      m.clearcoatRoughness = 0.12;
+    }
+    return m;
+  }, [tex.fretboard, tex.inlayMask, profile]);
   useEffect(() => () => {
     if (fbMat.map !== tex.fretboard) fbMat.map?.dispose();
     fbMat.dispose();

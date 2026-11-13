@@ -36,7 +36,12 @@ export interface GuitarTextures {
    */
   bodyTop?: string;
   /** Rectified fretboard photo: left edge = nut, right edge = toFret, top row = low E edge. */
-  fretboard?: { url: string; toFret: number };
+  fretboard?: {
+    url: string;
+    toFret: number;
+    /** Optional greyscale mask (same mapping) of the pearl inlay: drives a mother-of-pearl sheen. */
+    inlayMask?: string;
+  };
   /** Straightened headstock face photo: top row = tip, bottom row = nut, left column = low E side. */
   headstock?: string;
   /** Back photo of the body (optional), same mapping as bodyTop but mirrored across y. */
