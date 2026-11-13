@@ -45,8 +45,14 @@ export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCou
   }, [beat, stringCount, letters]);
 
   const fb = listen?.feedback;
+  // Screen readers hear the bar and its first cue when the bar changes, not every beat.
+  const nowLabel = cues[0]?.label;
+  const barAnnouncement = useMemo(() => (beat ? `${currentBar + 1}. ölçü${nowLabel ? `, şimdi ${nowLabel}` : ''}` : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentBar, !!beat]);
   return (
     <div className="cue" role="region" aria-label="Sıradaki notalar">
+      <span className="sr-only" role="status" aria-live="polite">{barAnnouncement}</span>
       <div className={`cue-notes${fb ? ` is-${fb}` : ''}`}>
         <span className="cue-eyebrow">Sıradaki</span>
         {cues.length === 0 ? (
