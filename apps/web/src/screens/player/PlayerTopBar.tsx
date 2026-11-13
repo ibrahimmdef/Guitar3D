@@ -1,6 +1,6 @@
-import { ArrowLeft, Crosshair, GraduationCap, Hand, Keyboard, Maximize2, Ruler } from 'lucide-react';
+import { ArrowLeft, Crosshair, Hand, Keyboard, Maximize2, Ruler } from 'lucide-react';
 import type { CameraMode, GuitarView } from '@guitar3d/shared';
-import { Button, IconButton, SegmentedControl, type SegmentOption } from '../../ui/kit';
+import { IconButton, SegmentedControl, type SegmentOption } from '../../ui/kit';
 
 export const CAMERA_MODES: SegmentOption<CameraMode>[] = [
   { value: 'follow', label: 'Takip', hint: 'Takip: kamera çalınan pozisyonu izler', icon: <Crosshair size={16} />, shortcut: '1', iconOnly: true },
@@ -21,8 +21,6 @@ interface Props {
   onView: (v: GuitarView) => void;
   cameraMode: CameraMode;
   onCameraMode: (m: CameraMode) => void;
-  practiceOpen: boolean;
-  onTogglePractice: () => void;
   onShowShortcuts: () => void;
   onBack: () => void;
 }
@@ -42,18 +40,7 @@ export function PlayerTopBar(p: Props) {
         <SegmentedControl aria-label="Kamera" value={p.cameraMode} onChange={p.onCameraMode} options={CAMERA_MODES} />
       </div>
       <div className="pt-right">
-        <IconButton label="Klavye kısayolları" shortcut="?" icon={<Keyboard size={18} />} onClick={p.onShowShortcuts} className="pt-hide-sm" />
-        <Button
-          variant="ghost"
-          icon={<GraduationCap size={17} />}
-          pressed={p.practiceOpen}
-          onClick={p.onTogglePractice}
-          aria-keyshortcuts="P"
-          aria-label="Pratik paneli"
-          title="Pratik paneli (P)"
-        >
-          <span className="pt-hide-sm">Pratik</span>
-        </Button>
+        <IconButton label="Klavye kısayolları" shortcut="?" icon={<Keyboard size={18} />} onClick={p.onShowShortcuts} />
       </div>
     </header>
   );

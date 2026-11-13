@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Box, FileMusic, GraduationCap } from 'lucide-react';
 import type { CameraMode, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import { api as server } from '../../api';
+import type { Mix } from '../../audio/sounds';
+import { barDensity, normalize } from '../../player/beats';
+import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
 import { barRange, hasRepeats, useAlphaTab } from '../../player/useAlphaTab';
+import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
 import { Coach, type Ladder } from '../../ui/Coach';
@@ -11,12 +15,14 @@ import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/
 import { ladderAfter } from '../../ui/practiceFlow';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
 import { markPlayed, useSettings } from '../../ui/settings';
-import { useHotkeys } from '../../ui/shortcuts';
+import { useHotkeys, zoomDelta } from '../../ui/shortcuts';
 import { ShortcutList } from '../../ui/ShortcutList';
 import { fetchTabFile, listTabs } from '../data';
 import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
+import { CueStrip } from './CueStrip';
 import { StageGuitar } from './StageGuitar';
+import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
@@ -25,7 +31,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const tabId = source.kind === 'tab' ? source.id : null;
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const { api, state, loadBuffer, loadTex, seekTick, seekBar } = useAlphaTab(host, scroller);
+  const root = useRef<HTMLDivElement>(null);
+  const { api, state, loadBuffer, loadTex, seekTick, seekBar, seekBeat, setProgram, setTabScale } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
@@ -43,8 +50,11 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const [loop, setLoop] = useState<[number, number] | null>(null);
   const [abPending, setAbPending] = useState<number | null>(null);
   const [ladder, setLadder] = useState<Ladder>({ speed: 1, clean: 0, target: 1 });
+  const [listening, setListening] = useState(false);
+  const [countValue, setCountValue] = useState<number | null>(null);
 
-  const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol } = settings;
+  const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus } = settings;
+  const fs = useFullscreen(useCallback(() => root.current, []));
 
   /* ---------- Loading ---------- */
   useEffect(() => {
@@ -96,25 +106,31 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   /* ---------- Push state into alphaTab ---------- */
   useEffect(() => {
     if (api.current) api.current.playbackSpeed = speed;
-  }, [speed, api, state.ready]);
+  }, [speed, api, state.ready, state.midiGen]);
   useEffect(() => {
     if (api.current) api.current.metronomeVolume = metronome ? metroVol : 0;
-  }, [metronome, metroVol, api, state.ready]);
+  }, [metronome, metroVol, api, state.ready, state.midiGen]);
   useEffect(() => {
     if (api.current) api.current.countInVolume = countIn ? 1 : 0;
-  }, [countIn, api, state.ready]);
+  }, [countIn, api, state.ready, state.midiGen]);
   useEffect(() => {
     const a = api.current;
     if (!a || !state.track) return;
     a.changeTrackMute([state.track], muted || guitarVol === 0);
     a.changeTrackVolume([state.track], guitarVol);
-  }, [guitarVol, muted, api, state.track, state.ready]);
+  }, [guitarVol, muted, api, state.track, state.ready, state.midiGen]);
+  useEffect(() => {
+    if (state.ready && state.track) setProgram(program);
+  }, [program, state.ready, state.track, setProgram]);
+  useEffect(() => {
+    setTabScale(focus === 'tab' ? 1.6 : 0.95);
+  }, [focus, setTabScale, state.score]);
   useEffect(() => {
     const a = api.current;
     if (!a || !state.score) return;
     a.playbackRange = loop ? barRange(state.score, loop[0], loop[1]) : null;
     a.isLooping = !!loop;
-  }, [loop, api, state.score]);
+  }, [loop, api, state.score, state.midiGen]);
 
   /* ---------- Derived ---------- */
   const barCount = state.score?.masterBars.length ?? 0;
@@ -126,8 +142,71 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     return [r.startTick, r.endTick];
   }, [loop, state.score, linearTicks]);
 
+  const sections = useMemo(() => (state.score ? computeSections(state.score.masterBars) : []), [state.score]);
+  const activeSection = sectionAt(sections, state.currentBar);
+  const density = useMemo(() => {
+    const bars = state.track?.staves[0]?.bars;
+    return bars && barTicks && bars.length === barTicks.length ? normalize(barDensity(bars)) : null;
+  }, [state.track, barTicks]);
+
+  /* ---------- Count-in (visual) ---------- */
+  const wasPlaying = useRef(false);
+  const countStart = useRef(0);
+  useEffect(() => {
+    const was = wasPlaying.current;
+    wasPlaying.current = state.playing;
+    if (!state.playing) {
+      setCountValue(null);
+      return;
+    }
+    if (was || !countIn || listening || !state.score) return;
+    const mb = state.score.masterBars[state.currentBar] ?? state.score.masterBars[0];
+    const beats = mb?.timeSignatureNumerator || 4;
+    const unitMs = (60000 / ((state.score.tempo || 120) * speed)) * (4 / (mb?.timeSignatureDenominator || 4));
+    countStart.current = state.tick;
+    let left = beats;
+    setCountValue(left);
+    const id = window.setInterval(() => {
+      left -= 1;
+      setCountValue(left > 0 ? left : null);
+      if (left <= 0) clearInterval(id);
+    }, unitMs);
+    return () => clearInterval(id);
+    // Rising edge of `playing` only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.playing]);
+  // Hide as soon as the song itself moves.
+  useEffect(() => {
+    if (countValue != null && state.tick > countStart.current + 30) setCountValue(null);
+  }, [state.tick, countValue]);
+
+  /* ---------- Listen and wait ---------- */
+  const onPass = useCallback((p: PassSummary) => {
+    if (p.hits === 0) return;
+    toast({
+      tone: p.accuracy >= 90 ? 'success' : 'info',
+      title: `Tur bitti: %${p.accuracy} ilk denemede`,
+      description: `${p.hits} notanın ${p.firstTry} tanesi ilk seferde doğruydu.`,
+    });
+  }, [toast]);
+  const pause = useCallback(() => api.current?.pause(), [api]);
+  const listen = useListenMode({ enabled: listening, beat: state.beat, track: state.track, loop, seekBeat, pause, onPass });
+  useEffect(() => {
+    if (listen.status === 'denied' || listen.status === 'unsupported' || listen.status === 'error') {
+      setListening(false);
+      toast({
+        tone: 'danger',
+        title: listen.status === 'unsupported' ? 'Mikrofon desteklenmiyor' : 'Mikrofona erişilemedi',
+        description: listen.status === 'denied' ? 'Tarayıcı ayarlarından mikrofon izni verip tekrar dene.' : 'Bu tarayıcıda dinleme modu kullanılamıyor.',
+      });
+    }
+  }, [listen.status, toast]);
+
   /* ---------- Actions ---------- */
-  const playPause = useCallback(() => api.current?.playPause(), [api]);
+  const playPause = useCallback(() => {
+    if (listening) setListening(false);
+    api.current?.playPause();
+  }, [api, listening]);
   const stop = useCallback(() => api.current?.stop(), [api]);
   const stepBar = useCallback((d: number) => seekBar(state.currentBar + d), [seekBar, state.currentBar]);
 
@@ -199,6 +278,29 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     if (!state.playing) api.current?.play();
   }, [loop, seekBar, state.playing, api]);
 
+  const goSection = useCallback((i: number, loopIt: boolean) => {
+    const sec = sections[i];
+    if (!sec) return;
+    setAbPending(null);
+    if (loopIt) setLoop([sec.startBar, sec.endBar]);
+    else if (loop && (sec.startBar < loop[0] || sec.startBar > loop[1])) setLoop(null);
+    seekBar(sec.startBar);
+  }, [sections, loop, seekBar]);
+  const nextSection = () => goSection(nextSectionIndex(sections, state.currentBar), false);
+
+  const onMix = (m: Mix) => {
+    setMuted(m === 'metronome');
+    if (m !== 'metronome' && guitarVol === 0) setGuitarVol(1);
+    setMetronome(m !== 'guitar');
+  };
+  const zoomBy = (d: number) => setSettings({ stageZoom: clampZoom(stageZoom + d * 0.15) });
+  const setFocus = (f: 'neck' | 'tab') => setSettings(f === 'tab' ? { focus: f, showTabStrip: true } : { focus: f });
+  const speedKey = (d: number) => (e: KeyboardEvent) => {
+    const z = zoomDelta(e);
+    if (z) zoomBy(z);
+    else setSpeed((s) => clampSpeed(s + d * 0.05));
+  };
+
   const setView = (v: GuitarView) => setSettings({ view: v });
   const setCamera = (m: CameraMode) => setSettings({ cameraMode: m });
   const toggleTab = () => setSettings({ showTabStrip: !showTab });
@@ -211,8 +313,12 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
     Home: stop,
     l: toggleLoopCurrent,
     m: () => setMetronome((v) => !v),
-    '-': () => setSpeed((s) => clampSpeed(s - 0.05)),
-    '+': () => setSpeed((s) => clampSpeed(s + 0.05)),
+    '-': speedKey(-1),
+    '+': speedKey(1),
+    _: () => zoomBy(-1),
+    s: nextSection,
+    f: fs.toggle,
+    n: () => setFocus(focus === 'tab' ? 'neck' : 'tab'),
     '=': () => setSpeed((s) => clampSpeed(s + 0.05)),
     '1': () => setCamera(CAMERA_MODES[0].value),
     '2': () => setCamera(CAMERA_MODES[1].value),
@@ -238,7 +344,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const loadingLabel = failed ? null : busy || !state.score ? 'Tab yükleniyor…' : !guitarReady ? 'Gitar hazırlanıyor…' : !state.ready ? 'Ses hazırlanıyor…' : null;
 
   return (
-    <div className={`player${showPractice ? ' practice-open' : ''}`}>
+    <div ref={root} className={`player${showPractice ? ' practice-open' : ''}${focus === 'tab' && showTab ? ' focus-tab' : ''}`}>
       <PlayerTopBar
         title={title}
         subtitle={subtitle}
@@ -246,10 +352,21 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         onView={setView}
         cameraMode={cameraMode}
         onCameraMode={setCamera}
-        practiceOpen={showPractice}
-        onTogglePractice={togglePractice}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onBack={() => navigate({ name: 'library' })}
+      />
+
+      <CueStrip
+        beat={hasScore ? state.beat : null}
+        track={state.track}
+        currentBar={state.currentBar}
+        barCount={barCount}
+        sections={sections}
+        activeSection={activeSection}
+        loop={loop}
+        onSection={goSection}
+        pulse={state.playing && countValue == null ? { n: state.pulse, beat: state.beatInBar } : null}
+        listen={listening ? { feedback: listen.feedback, hits: listen.pass.hits, firstTry: listen.pass.firstTry, status: listen.status === 'asking' ? 'Mikrofon izni…' : '' } : null}
       />
 
       <div className="player-body">
@@ -275,6 +392,9 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
               notes={state.notes}
               beatId={state.beatId}
               beatProgress={state.beatProgress}
+              upcoming={state.upcoming}
+              zoom={stageZoom}
+              showFretNumbers={showFretNumbers}
               view={view}
               cameraMode={cameraMode}
               onCameraModeChange={setCamera}
@@ -284,7 +404,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
 
           {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
-              <span className="hud-chip num">Ölçü <b>{state.currentBar + 1}</b><span className="subtle"> / {barCount}</span></span>
+              {listening && <span className="hud-chip hud-accent">Dinliyorum: notayı çal</span>}
               {loop && (
                 <span className="hud-chip hud-accent num">
                   Döngü {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''}
@@ -293,6 +413,19 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
               {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
               {!state.playing && state.timeMs > 500 && <span className="hud-chip">Duraklatıldı</span>}
             </div>
+          )}
+
+          {hasScore && !loadingLabel && <CountIn value={countValue} />}
+          {hasScore && (
+            <StageTools
+              zoom={stageZoom}
+              onZoom={(z) => setSettings({ stageZoom: clampZoom(z) })}
+              focus={focus}
+              onFocus={setFocus}
+              fullscreen={fs.on}
+              fullscreenSupported={fs.supported}
+              onFullscreen={fs.toggle}
+            />
           )}
 
           {loadingLabel && (
@@ -321,7 +454,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           )}
         </main>
 
-        <Drawer open={showPractice} onClose={togglePractice} title="Pratik" shortcut="P" className="practice-drawer">
+        <Drawer open={showPractice} onClose={togglePractice} title="Çalış" shortcut="P" className="practice-drawer">
           <Coach
             report={report}
             currentBar={state.currentBar}
@@ -355,6 +488,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         endTick={state.endTick}
         barTicks={barTicks}
         loopTicks={loopTicks}
+        density={density}
         currentBar={state.currentBar}
         barCount={barCount}
         onPlayPause={playPause}
@@ -363,6 +497,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         onStepBar={stepBar}
         speed={speed}
         onSpeed={(v) => setSpeed(clampSpeed(v))}
+        bpm={state.score ? state.score.tempo : null}
         metronome={metronome}
         onMetronome={setMetronome}
         metroVol={metroVol}
@@ -379,6 +514,14 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         onClearLoop={() => setLoop(null)}
         showTab={showTab}
         onToggleTab={toggleTab}
+        program={program}
+        onProgram={(v) => setSettings({ program: v })}
+        onMix={onMix}
+        listening={listening}
+        listenDisabled={!hasScore}
+        onListen={setListening}
+        practiceOpen={showPractice}
+        onPractice={togglePractice}
       />
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Klavye kısayolları" description="Her şeyi klavyeden de yapabilirsin.">
