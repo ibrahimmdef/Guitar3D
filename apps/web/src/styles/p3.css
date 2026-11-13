@@ -234,3 +234,95 @@
 .badge.is-on svg {
   color: var(--accent);
 }
+
+/* Teacher mode */
+.note-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.note-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-1);
+  border-radius: var(--r-sm);
+}
+.note-list li.is-now {
+  background: var(--accent-soft);
+}
+.note-bar {
+  min-width: 28px;
+  height: 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.note-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+.hud-note {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asg-form {
+  display: grid;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.asg-list {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.asg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+}
+.asg-done {
+  border-color: var(--accent-line);
+}
+.asg-late .asg-progress .small {
+  color: var(--danger);
+}
+.asg-main,
+.asg-progress {
+  display: grid;
+  gap: 2px;
+}
+.asg-title {
+  font-weight: var(--fw-medium);
+}
+.asg-actions {
+  display: flex;
+  gap: var(--sp-1);
+}
+.asg .meter-track {
+  display: block;
+  width: 96px;
+}
+@media (max-width: 720px) {
+  .asg {
+    grid-template-columns: 1fr;
+    gap: var(--sp-2);
+  }
+}

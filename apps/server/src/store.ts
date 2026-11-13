@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AppSettings, Assignment, BarNote, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -9,6 +9,8 @@ interface DbShape {
   guitars: Record<string, GuitarProfile>;
   settings: AppSettings;
   sessions: PracticeSession[];
+  notes: BarNote[];
+  assignments: Assignment[];
 }
 
 /** Oldest sessions are dropped beyond this many. */
@@ -34,6 +36,8 @@ export class Store {
       guitars: loaded.guitars ?? {},
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...loaded.settings },
       sessions: loaded.sessions ?? [],
+      notes: loaded.notes ?? [],
+      assignments: loaded.assignments ?? [],
     };
   }
 
@@ -100,6 +104,44 @@ export class Store {
     if (this.db.sessions.length > MAX_SESSIONS) this.db.sessions.splice(0, this.db.sessions.length - MAX_SESSIONS);
     this.save();
     return s;
+  }
+
+  // ---- teacher mode: bar notes and assignments ------------------------------------------
+
+  listNotes(tabKey?: string) {
+    return this.db.notes.filter((n) => !tabKey || n.tabKey === tabKey).sort((a, b) => a.bar - b.bar || a.createdAt.localeCompare(b.createdAt));
+  }
+
+  addNote(n: BarNote) {
+    this.db.notes.push(n);
+    this.save();
+    return n;
+  }
+
+  deleteNote(id: string) {
+    const before = this.db.notes.length;
+    this.db.notes = this.db.notes.filter((n) => n.id !== id);
+    if (this.db.notes.length === before) return false;
+    this.save();
+    return true;
+  }
+
+  listAssignments() {
+    return [...this.db.assignments].sort((a, b) => a.due.localeCompare(b.due));
+  }
+
+  addAssignment(a: Assignment) {
+    this.db.assignments.push(a);
+    this.save();
+    return a;
+  }
+
+  deleteAssignment(id: string) {
+    const before = this.db.assignments.length;
+    this.db.assignments = this.db.assignments.filter((a) => a.id !== id);
+    if (this.db.assignments.length === before) return false;
+    this.save();
+    return true;
   }
 
   // ---- guitars ----------------------------------------------------------------------------

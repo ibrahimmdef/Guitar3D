@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Activity, AudioLines, Drum, Ear, GraduationCap, Gauge, Grid3x3, Guitar, Library, ListChecks, Menu, Music2, PencilLine, Repeat, Settings, Target } from 'lucide-react';
+import { Activity, AudioLines, ClipboardList, Drum, Ear, GraduationCap, Gauge, Grid3x3, Guitar, Library, ListChecks, Menu, Music2, PencilLine, Repeat, Settings, Target } from 'lucide-react';
 import { Sheet } from '../ui/kit';
 import { routeHref, type Route, type SimpleRouteName } from '../ui/router';
 
@@ -16,6 +16,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { route: 'backing', label: 'Eşlik', icon: <AudioLines size={18} /> },
       { route: 'routines', label: 'Rutinler', icon: <ListChecks size={18} /> },
       { route: 'progress', label: 'İlerleme', icon: <Activity size={18} /> },
+      { route: 'assignments', label: 'Ödevler', icon: <ClipboardList size={18} /> },
     ],
   },
   {
