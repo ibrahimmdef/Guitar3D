@@ -9,7 +9,7 @@
  *
  * tesseract.js is loaded on first use; its worker, core and English model come from its CDN.
  */
-import { analyzeTabImage, binarize, layoutToAscii, type Bitmap, type TabToken } from './tabImage';
+import { analyzeTabImage, binarize, fixZeros, layoutToAscii, type Bitmap, type TabToken } from './tabImage';
 
 /** Characters that may appear in an ASCII tab. */
 const WHITELIST = '0123456789-|hpbrsx/\\~()<>EADGBe:=*. ';
@@ -162,6 +162,8 @@ export async function ocrImage(image: Blob, onProgress?: (p: number) => void): P
         if ((!out || digits(out) > t.pieces) && t.pieces === 1) out = (await worker.recognize(tokenCanvas(clean, t, sheet.scale, true))).data.text.trim();
         texts[i] = out;
       }
+      // OCR often misreads dotted / slashed zeros; check them by shape.
+      texts.forEach((t, i) => (texts[i] = fixZeros(clean, tokens[i], t)));
       const text = layoutToAscii(systems, texts);
       if (text.trim()) return { text, mode: 'layout', systems: systems.length };
     }
