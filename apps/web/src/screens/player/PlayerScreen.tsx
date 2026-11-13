@@ -26,6 +26,7 @@ import { fetchTabFile, listTabs } from '../data';
 import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
 import { CapoControl } from './CapoControl';
+import { FeedbackSheet } from './FeedbackSheet';
 import { CueStrip } from './CueStrip';
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
@@ -61,6 +62,8 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   ladderRef.current = ladder;
   const applyPassRef = useRef<(r: 'clean' | 'miss') => void>(() => {});
   const [listening, setListening] = useState(false);
+  const [lastPass, setLastPass] = useState<PassSummary | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [countValue, setCountValue] = useState<number | null>(null);
 
   const [setup, setSetup] = useTabSetup(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
@@ -239,16 +242,14 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
   const onPass = useCallback((p: PassSummary) => {
     if (p.hits === 0) return;
     recorder.noteAccuracy(p.accuracy);
+    setLastPass(p);
     if (autoRef.current) {
+      // The ladder drives the loop; the summary stays one click away in the practice drawer.
       applyPassRef.current(passResult(p.accuracy, settingsRef.current.ladderCleanAccuracy));
       return;
     }
-    toast({
-      tone: p.accuracy >= 90 ? 'success' : 'info',
-      title: `Tur bitti: %${p.accuracy} ilk denemede`,
-      description: `${p.hits} notanın ${p.firstTry} tanesi ilk seferde doğruydu.`,
-    });
-  }, [toast, recorder]);
+    setFeedbackOpen(true);
+  }, [recorder]);
   const pause = useCallback(() => api.current?.pause(), [api]);
   const listen = useListenMode({ enabled: listening, beat: state.beat, track: state.track, loop, seekBeat, pause, onPass });
   useEffect(() => {
@@ -539,6 +540,11 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         </main>
 
         <Drawer open={showPractice} onClose={togglePractice} title="Çalış" shortcut="P" className="practice-drawer">
+          {lastPass && (
+            <Button size="sm" variant="ghost" className="fb-open" onClick={() => setFeedbackOpen(true)}>
+              Son tur özeti · %{lastPass.accuracy}
+            </Button>
+          )}
           {report && (
             <LadderPanel
               auto={autoLadder}
@@ -616,6 +622,20 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
         onListen={setListening}
         practiceOpen={showPractice}
         onPractice={togglePractice}
+      />
+
+      <FeedbackSheet
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        pass={lastPass}
+        onRetry={() => setFeedbackOpen(false)}
+        onLoop={(r) => {
+          setFeedbackOpen(false);
+          setAbPending(null);
+          setLoop(r);
+          setSpeed(ladderRef.current.speed);
+          seekBar(r[0]);
+        }}
       />
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Klavye kısayolları" description="Her şeyi klavyeden de yapabilirsin.">
