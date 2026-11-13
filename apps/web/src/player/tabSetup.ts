@@ -11,8 +11,6 @@ export interface TabSetup {
   capo?: number;
   /** music/tunings.ts id; empty = the tab's own tuning. */
   tuningId?: string;
-  /** Linked YouTube video and its alignment (null clears). */
-  video?: { id: string; offset: number } | null;
 }
 
 const KEY = TAB_SETUP_KEY;
@@ -22,7 +20,8 @@ export function mergeSetup(all: Record<string, TabSetup>, key: string, patch: Ta
   if (next.capo != null) next.capo = clampCapo(next.capo);
   if (!next.tuningId) delete next.tuningId;
   if (next.capo == null) delete next.capo;
-  if (!next.video) delete next.video;
+  // Drop the video links stored by the removed YouTube feature.
+  delete (next as { video?: unknown }).video;
   const out = { ...all };
   if (Object.keys(next).length) out[key] = next;
   else delete out[key];
@@ -35,15 +34,6 @@ function readAll(): Record<string, TabSetup> {
     return v && typeof v === 'object' ? v : {};
   } catch {
     return {};
-  }
-}
-
-/** Writes one tab's setup outside the player (e.g. linking a video from the library). */
-export function writeTabSetup(key: string, patch: TabSetup) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(mergeSetup(readAll(), key, patch)));
-  } catch {
-    /* storage unavailable */
   }
 }
 
