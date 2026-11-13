@@ -1,0 +1,24 @@
+# Guitar3D for Arch Linux: packages the Electron build in ../release/linux-unpacked.
+# Build:   cd apps/desktop && npm run dist:arch      (or: electron-builder --linux dir, then makepkg -f here)
+# Install: sudo pacman -U guitar3d-*.pkg.tar.zst
+pkgname=guitar3d
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Guitar Pro / MusicXML / PDF tablarını kendi gitarının 3D modelinde çal"
+arch=('x86_64')
+url="https://github.com/ibrahimmdef/Guitar3D"
+license=('custom')
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss' 'libxtst' 'xdg-utils')
+options=('!strip' '!debug')
+
+package() {
+  local app="$startdir/../release/linux-unpacked"
+  [ -x "$app/guitar3d" ] || { echo "Önce Electron derlemesi gerekli: electron-builder --linux dir"; return 1; }
+  install -dm755 "$pkgdir/opt/guitar3d"
+  cp -a "$app/." "$pkgdir/opt/guitar3d/"
+  chmod 4755 "$pkgdir/opt/guitar3d/chrome-sandbox"
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s /opt/guitar3d/guitar3d "$pkgdir/usr/bin/guitar3d"
+  install -Dm644 "$startdir/guitar3d.desktop" "$pkgdir/usr/share/applications/guitar3d.desktop"
+  install -Dm644 "$startdir/../build/icon.png" "$pkgdir/usr/share/icons/hicolor/512x512/apps/guitar3d.png"
+}

@@ -1,0 +1,96 @@
+# Builds the desktop app and publishes a GitHub Release when a version tag (v1.2.3) is pushed:
+#   Windows installer (NSIS Setup.exe), Linux AppImage and an Arch Linux package (pacman -U).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w apps/web
+      - run: npm run build:main -w apps/desktop
+      - name: Windows installer
+        working-directory: apps/desktop
+        run: npx electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: apps/desktop/release/*.exe
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w apps/web
+      - run: npm run build:main -w apps/desktop
+      - name: AppImage + unpacked app
+        working-directory: apps/desktop
+        run: npx electron-builder --linux AppImage dir --x64 --publish never
+      - name: Keep the unpacked app (with file modes) for the Arch package
+        run: tar -C apps/desktop/release -czf linux-unpacked.tar.gz linux-unpacked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: apps/desktop/release/*.AppImage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-unpacked
+          path: linux-unpacked.tar.gz
+
+  arch:
+    needs: linux
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-unpacked
+      - name: makepkg
+        run: |
+          mkdir -p apps/desktop/release
+          tar -C apps/desktop/release -xzf linux-unpacked.tar.gz
+          version=$(grep -m1 '"version"' apps/desktop/package.json | sed -E 's/.*"([0-9][^"]*)".*/\1/')
+          sed -i "s/^pkgver=.*/pkgver=${version}/" apps/desktop/arch/PKGBUILD
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE"
+          su builder -c "cd '$GITHUB_WORKSPACE/apps/desktop/arch' && makepkg -f --nodeps"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch
+          path: apps/desktop/arch/*.pkg.tar.zst
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux, arch]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          pattern: '{windows,appimage,arch}'
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la out
+          gh release create "${GITHUB_REF_NAME}" out/* --repo "${GITHUB_REPOSITORY}" --title "Guitar3D ${GITHUB_REF_NAME}" --notes "Windows: Guitar3D-Setup-*.exe çalıştır ve kur. Arch/CachyOS: sudo pacman -U guitar3d-*.pkg.tar.zst. Diğer Linux: AppImage dosyasını çalıştırılabilir yap ve aç."

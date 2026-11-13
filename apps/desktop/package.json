@@ -1,0 +1,98 @@
+{
+  "name": "@guitar3d/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Guitar3D desktop app",
+  "author": {
+    "name": "Guitar3D",
+    "email": "guitar3d@users.noreply.github.com"
+  },
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node20 --external:electron --outfile=dist/main.cjs",
+    "build": "npm run build -w apps/web --prefix ../.. && npm run build:main",
+    "start": "npm run build:main && electron .",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:linux": "npm run build && electron-builder --linux --x64",
+    "dist": "npm run build && electron-builder --win --linux --x64",
+    "dist:arch": "npm run build && electron-builder --linux dir --x64 && cd arch && makepkg -f"
+  },
+  "build": {
+    "appId": "app.guitar3d.desktop",
+    "productName": "Guitar3D",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      },
+      {
+        "from": "seed",
+        "to": "seed"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Guitar3D-Setup-${version}.${ext}",
+      "executableName": "Guitar3D"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "dir"
+      ],
+      "category": "Education",
+      "icon": "build/icon.png",
+      "artifactName": "Guitar3D-${version}.${ext}",
+      "executableName": "guitar3d",
+      "syncDesktopName": true,
+      "maintainer": "Guitar3D",
+      "synopsis": "3D gitar üzerinde tab pratiği",
+      "description": "Guitar Pro / MusicXML / PDF tablarını kendi gitarının 3D modelinde çal: sıradaki notalar, tempo, döngü, metronom, akort, dersler."
+    },
+    "icon": "build/icon.png",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Guitar3D",
+      "installerLanguages": [
+        "tr_TR",
+        "en_US"
+      ],
+      "language": "1055",
+      "uninstallDisplayName": "Guitar3D",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "electronVersion": "45.3.2"
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2"
+  },
+  "desktopName": "guitar3d.desktop",
+  "productName": "Guitar3D",
+  "homepage": "https://github.com/ibrahimmdef/Guitar3D"
+}
