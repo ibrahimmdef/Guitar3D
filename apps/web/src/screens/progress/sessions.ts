@@ -1,4 +1,5 @@
 import type { NewPracticeSession, PracticeSession } from '@guitar3d/shared';
+import { SESSION_SAVED_EVENT } from './badges';
 
 /** Client for `GET/POST /api/sessions`. */
 export async function listSessions(since?: Date): Promise<PracticeSession[]> {
@@ -16,6 +17,8 @@ export function saveSession(s: NewPracticeSession, beacon = false): Promise<void
     return Promise.resolve();
   }
   return fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })
-    .then(() => undefined)
+    .then(() => {
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_SAVED_EVENT));
+    })
     .catch(() => undefined);
 }

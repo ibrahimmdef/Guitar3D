@@ -14,6 +14,7 @@ import { FretGameScreen } from './screens/games/FretGameScreen';
 import { RhythmScreen } from './screens/rhythm/RhythmScreen';
 import { OfflineIndicator } from './pwa/OfflineIndicator';
 import { RoutineBar } from './screens/routines/RoutineBar';
+import { BadgeWatcher } from './screens/progress/BadgeWatcher';
 import { RoutinesScreen } from './screens/routines/RoutinesScreen';
 import { PlayerScreen } from './screens/player/PlayerScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
@@ -53,6 +54,7 @@ export function App() {
         )}
         <RoutineBar route={route} />
         <OfflineIndicator />
+        <BadgeWatcher />
       </ToastProvider>
     </TooltipProvider>
   );
