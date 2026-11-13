@@ -30,6 +30,14 @@ export interface Settings {
   ladderPasses: number;
   /** Listen-mode accuracy (%) that counts as a clean pass. */
   ladderCleanAccuracy: number;
+  /** Accessibility: stronger text and borders. */
+  highContrast: boolean;
+  /** Accessibility: right/wrong colours safe for red-green colour blindness (Okabe–Ito blue / vermillion). */
+  colorBlind: boolean;
+  /** Accessibility: larger note labels in the cue strip, chord diagrams, rhythm arrows and the editor. */
+  largeMarkers: boolean;
+  /** Accessibility: 'system' follows prefers-reduced-motion, 'reduce' always cuts animations. */
+  motion: 'system' | 'reduce';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,6 +59,10 @@ export const DEFAULT_SETTINGS: Settings = {
   ladderTarget: 1,
   ladderPasses: 3,
   ladderCleanAccuracy: 90,
+  highContrast: false,
+  colorBlind: false,
+  largeMarkers: false,
+  motion: 'system',
 };
 
 const KEY = 'guitar3d.settings.v1';
@@ -101,6 +113,34 @@ export function useThemeEffect(theme: Settings['theme']) {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [theme]);
+}
+
+/** Pure: the <html> data attributes for the accessibility settings. */
+export function a11yAttributes(s: Pick<Settings, 'highContrast' | 'colorBlind' | 'largeMarkers' | 'motion'>): Record<string, string | undefined> {
+  return {
+    contrast: s.highContrast ? 'high' : undefined,
+    palette: s.colorBlind ? 'cb' : undefined,
+    markers: s.largeMarkers ? 'large' : undefined,
+    motion: s.motion === 'reduce' ? 'reduce' : undefined,
+  };
+}
+
+/** Applies the accessibility settings as data attributes on <html> (styles/a11y in p2.css). */
+export function useA11yEffect(s: Settings) {
+  const { highContrast, colorBlind, largeMarkers, motion } = s;
+  useEffect(() => {
+    const ds = document.documentElement.dataset;
+    for (const [k, v] of Object.entries(a11yAttributes({ highContrast, colorBlind, largeMarkers, motion }))) {
+      if (v) ds[k] = v;
+      else delete ds[k];
+    }
+  }, [highContrast, colorBlind, largeMarkers, motion]);
+}
+
+/** True when animations should be cut (setting or OS preference). */
+export function prefersReducedMotion(s: Pick<Settings, 'motion'>): boolean {
+  if (s.motion === 'reduce') return true;
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
 /* ---------- Recently played (per tab) ---------- */

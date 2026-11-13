@@ -106,6 +106,34 @@ export function SettingsScreen() {
         <button type="button" className="link-btn" onClick={() => set(DEFAULT_SETTINGS)}>Varsayılanlara dön</button>
       </section>
 
+      <section className="settings-sec" aria-labelledby="set-a11y">
+        <h2 id="set-a11y" className="eyebrow">Erişilebilirlik</h2>
+        <Card className="settings-card">
+          <Toggle label="Yüksek kontrast" description="Yazılar ve çizgiler daha belirgin." checked={s.highContrast} onChange={(v) => set({ highContrast: v })} />
+          <hr />
+          <Toggle label="Renk körü dostu renkler" description="Doğru/yanlış için kırmızı-yeşil yerine mavi ve turuncu." checked={s.colorBlind} onChange={(v) => set({ colorBlind: v })} />
+          <hr />
+          <Toggle label="Büyük işaretler" description="Nota şeridi, akor şemaları, ritim okları ve tab ızgarası büyür." checked={s.largeMarkers} onChange={(v) => set({ largeMarkers: v })} />
+          <hr />
+          <div className="setting">
+            <div className="setting-text">
+              <div className="setting-label">Hareket</div>
+              <p className="setting-desc">Azaltılınca geçiş animasyonları kapanır.</p>
+            </div>
+            <SegmentedControl<Settings['motion']>
+              aria-label="Hareket"
+              size="sm"
+              value={s.motion}
+              onChange={(v) => set({ motion: v })}
+              options={[
+                { value: 'system', label: 'Sistem' },
+                { value: 'reduce', label: 'Azalt' },
+              ]}
+            />
+          </div>
+        </Card>
+      </section>
+
       <section className="settings-sec" aria-labelledby="set-keys">
         <h2 id="set-keys" className="eyebrow">Klavye kısayolları</h2>
         <Card className="settings-card">
