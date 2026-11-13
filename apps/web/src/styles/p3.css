@@ -160,3 +160,31 @@
 .bk-slider {
   width: min(240px, 100%);
 }
+
+/* Recordings */
+.rec-dot {
+  color: var(--danger);
+}
+.rec-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-1);
+  border-radius: var(--r-sm);
+}
+.rec-list li.is-now {
+  background: var(--accent-soft);
+}
+.rec-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+}
