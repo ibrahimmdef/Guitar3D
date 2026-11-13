@@ -142,7 +142,29 @@ export async function listLessons(): Promise<LessonMeta[]> {
   return FALLBACK.map(({ tex: _tex, ...m }) => m);
 }
 
+/** Unsaved alphaTex opened in the player from an import preview (kept in sessionStorage). */
+export const PREVIEW_LESSON_ID = 'onizleme';
+const PREVIEW_KEY = 'guitar3d.preview.v1';
+
+export function setPreviewLesson(tex: string, title: string) {
+  try {
+    sessionStorage.setItem(PREVIEW_KEY, JSON.stringify({ tex, title }));
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function loadLesson(id: string): Promise<{ meta: LessonMeta | null; content: LessonContent }> {
+  if (id === PREVIEW_LESSON_ID) {
+    let p: { tex?: string; title?: string } | null = null;
+    try {
+      p = JSON.parse(sessionStorage.getItem(PREVIEW_KEY) ?? 'null');
+    } catch {
+      /* ignore */
+    }
+    if (!p?.tex) throw new Error('Önizleme bulunamadı. Tabı yeniden içe aktar.');
+    return { meta: { id, title: p.title || 'Önizleme', level: 'beginner' }, content: { kind: 'tex', tex: p.tex } };
+  }
   const mod = await builtinModule();
   if (mod?.loadBuiltinLesson) {
     try {
