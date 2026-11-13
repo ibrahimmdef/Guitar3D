@@ -32,6 +32,7 @@ import { EasierPositionPanel, ghostNotes, useEasierPosition } from './EasierPosi
 import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
+import { VideoLinkField, VideoPanel } from './VideoPanel';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
@@ -502,6 +503,9 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
           )}
 
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
+          {hasScore && setup.video && (
+            <VideoPanel link={setup.video} onChange={(v) => setSetup({ video: v })} playing={state.playing} timeMs={state.timeMs} speed={speed} />
+          )}
           {hasScore && (
             <StageTools
               zoom={stageZoom}
@@ -580,6 +584,7 @@ export function PlayerScreen({ source }: { source: PlaySource }) {
             onPlay={playLoop}
           />
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
+          {hasScore && <VideoLinkField link={setup.video ?? null} onChange={(v) => setSetup({ video: v })} />}
         </Drawer>
       </div>
 
