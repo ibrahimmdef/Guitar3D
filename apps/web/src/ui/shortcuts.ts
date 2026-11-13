@@ -16,6 +16,7 @@ export const SHORTCUTS: { group: string; items: Shortcut[] }[] = [
       { keys: ['L'], label: 'Bu ölçüyü döngüye al / döngüyü kapat' },
       { keys: ['M'], label: 'Metronom aç / kapat' },
       { keys: ['-', '+'], label: 'Hızı %5 azalt / artır' },
+      { keys: ['S'], label: 'Sonraki bölüm' },
     ],
   },
   {
@@ -27,11 +28,26 @@ export const SHORTCUTS: { group: string; items: Shortcut[] }[] = [
       { keys: ['4'], label: 'Kamera: serbest' },
       { keys: ['V'], label: 'Oyuncu / seyirci görünümü' },
       { keys: ['T'], label: 'Tab şeridini göster / gizle' },
+      { keys: ['N'], label: 'Odak: sap / tab' },
+      { keys: ['Shift -', 'Shift +'], label: 'Uzaklaştır / yakınlaştır' },
+      { keys: ['F'], label: 'Tam ekran' },
       { keys: ['P'], label: 'Pratik panelini aç / kapat' },
       { keys: ['?'], label: 'Kısayolları göster' },
     ],
   },
 ];
+
+/**
+ * Zoom step for Shift + "-" / Shift + "+" (layout independent enough: on US keyboards these
+ * arrive as "_" and "+" on the Minus/Equal keys; numpad keys work too). 0 when not a zoom key.
+ * Plain "+" typed with Shift on other layouts (e.g. Turkish Shift+4) stays a speed key.
+ */
+export function zoomDelta(e: Pick<KeyboardEvent, 'key' | 'code' | 'shiftKey'>): -1 | 0 | 1 {
+  if (!e.shiftKey) return 0;
+  if (e.key === '_' || e.code === 'NumpadSubtract') return -1;
+  if (e.code === 'NumpadAdd' || (e.code === 'Equal' && e.key === '+')) return 1;
+  return 0;
+}
 
 /**
  * Name of a key event as used in hotkey maps: "Space", lower-case letters, or KeyboardEvent.key

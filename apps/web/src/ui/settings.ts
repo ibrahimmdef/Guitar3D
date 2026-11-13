@@ -15,6 +15,13 @@ export interface Settings {
   cameraMode: CameraMode;
   showTabStrip: boolean;
   showPractice: boolean;
+  /** General MIDI program of the guitar sound (see audio/sounds.ts). */
+  program: number;
+  showFretNumbers: boolean;
+  /** 3D camera zoom (0.5–2.5). */
+  stageZoom: number;
+  /** Player layout: guitar neck large, or tab strip large. */
+  focus: 'neck' | 'tab';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +34,10 @@ export const DEFAULT_SETTINGS: Settings = {
   cameraMode: 'follow',
   showTabStrip: true,
   showPractice: false,
+  program: 25,
+  showFretNumbers: true,
+  stageZoom: 1,
+  focus: 'neck',
 };
 
 const KEY = 'guitar3d.settings.v1';
