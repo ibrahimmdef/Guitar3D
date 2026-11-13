@@ -2,8 +2,8 @@
 import type { Point2 } from '@guitar3d/shared';
 import { createImage, median, sampleBilinear, sampleGray, type GrayImage, type Mask, type Pt, type RGBAImage } from './image';
 import { crossingsAtX, polygonArea, rasterizePolygon, resampleClosed, smoothClosed, traceContour } from './contour';
-import { floodFill, largestComponent, maskArea, openDisk } from './segment';
-import { fretDistance, toGuitar, toImage, type PhotoFrame } from './geometry';
+import { closeDiskFilled, floodFill, largestComponent, maskArea, openDisk } from './segment';
+import { fretDistance, pxPerCmAt, toGuitar, toImage, type PhotoFrame } from './geometry';
 
 export interface Bounds {
   minX: number;
@@ -25,7 +25,7 @@ export interface BodyMeasurements {
 
 /** Full width (cm) of the mask across the guitar at position x, scanning ±halfSpan cm. */
 export function maskWidthAt(mask: Mask, frame: PhotoFrame, x: number, halfSpan = 30): number {
-  const step = 1 / frame.pxPerCm;
+  const step = 1 / pxPerCmAt(frame, x);
   let count = 0;
   for (let y = -halfSpan; y <= halfSpan; y += step) {
     const [px, py] = toImage(frame, [x, y]);
@@ -73,15 +73,49 @@ export function measureBouts(outline: Point2[]) {
 }
 
 /**
+ * Mirror-symmetric version of an outline about the centre line (y = 0): at every x the half width is
+ * the smaller of the two sides. A photo taken slightly from the side shows the guitar's rim (and
+ * shadows or clutter stick to one side only), which only ever adds to the silhouette.
+ */
+export function symmetrizeOutline(outline: Point2[], points = outline.length): Point2[] {
+  const b = outlineBounds(outline);
+  const cx = (b.minX + b.maxX) / 2, hw = (b.maxX - b.minX) / 2;
+  const M = 200;
+  const top: Pt[] = [];
+  for (let i = 0; i <= M; i++) {
+    const x = cx - hw * Math.cos((i / M) * Math.PI); // dense at both ends
+    const ys = crossingsAtX(outline as Pt[], Math.min(b.maxX - 1e-6, Math.max(b.minX + 1e-6, x)));
+    const half = ys.length >= 2 ? Math.max(0, Math.min(ys[ys.length - 1], -ys[0])) : 0;
+    top.push([x, i === 0 || i === M ? Math.min(half, 0.01) : half]);
+  }
+  // clockwise in the x-right / y-up frame: along +y from the tail to the neck, back along -y
+  const loop: Pt[] = [...top, ...top.slice(1, -1).reverse().map(([x, y]) => [x, -y] as Pt)];
+  return resampleClosed(loop, points) as Point2[];
+}
+
+export interface ExtractBodyOptions {
+  points?: number;
+  /** Mirror the outline about the centre line (default true; turn off for cutaway bodies). */
+  symmetric?: boolean;
+}
+
+/**
  * Separates the body from neck + headstock with a morphological opening wider than the neck, traces
  * the outline and converts it to the guitar frame. `frame` must be in the mask's pixel space.
  */
-export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number, points = 240): BodyMeasurements {
+export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number, options: ExtractBodyOptions | number = {}): BodyMeasurements {
+  const opts: ExtractBodyOptions = typeof options === 'number' ? { points: options } : options;
+  const points = opts.points ?? 240;
   const neckSamples: number[] = [];
   for (let n = 3; n <= 9; n++) neckSamples.push(maskWidthAt(mask, frame, -fretDistance(scaleLengthCm, n), 10));
-  const neckWidthCm = median(neckSamples.filter((w) => w > 0)) || 5.5;
-  const r = Math.max(1, Math.round(0.7 * neckWidthCm * frame.pxPerCm));
-  const opened = openDisk(mask, r);
+  const measured = median(neckSamples.filter((w) => w > 0));
+  // On busy photos the neck may be missing from the mask or fused with clutter: fall back to a typical width.
+  const neckWidthCm = measured >= 3.5 && measured <= 8 ? measured : 5.5;
+  const ppc = pxPerCmAt(frame, -scaleLengthCm * 0.8);
+  const r = Math.max(1, Math.round(0.7 * neckWidthCm * ppc));
+  // Seal the fretboard channel / soundhole first so the opening sees a solid body.
+  const solid = closeDiskFilled(mask, Math.max(1, Math.round(0.45 * neckWidthCm * ppc)));
+  const opened = openDisk(solid, r);
   // Seed between soundhole and bridge: certainly body.
   const seed = toImage(frame, [-scaleLengthCm * 0.88, 0]);
   let body = floodFill(opened, seed);
@@ -90,6 +124,7 @@ export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number
   const contour = traceContour(body);
   let outline = smoothClosed(contour.map((p) => toGuitar(frame, p)), 2);
   outline = resampleClosed(outline, points);
+  if (opts.symmetric !== false) outline = symmetrizeOutline(outline as Point2[], points) as Pt[];
   if (polygonArea(outline) > 0) outline.reverse(); // clockwise in the x-right / y-up guitar frame
   const out = outline.map(([x, y]) => [r2(x), r2(y)] as Point2);
   const bounds = outlineBounds(out);
@@ -112,7 +147,7 @@ export interface SoundholeGuess {
 export function detectSoundhole(gray: GrayImage, frame: PhotoFrame, scaleLengthCm: number, opts: { xRange?: [number, number]; rRange?: [number, number] } = {}): SoundholeGuess {
   const [x0, x1] = opts.xRange ?? [-scaleLengthCm * 0.8, -scaleLengthCm * 0.56];
   const [rmin, rmax] = opts.rRange ?? [3.5, 6.5];
-  const step = Math.max(0.2, 1.5 / frame.pxPerCm);
+  const step = Math.max(0.2, 1.5 / pxPerCmAt(frame, (x0 + x1) / 2));
   const A = 36;
   const cos = Array.from({ length: A }, (_, i) => Math.cos((i / A) * 2 * Math.PI));
   const sin = Array.from({ length: A }, (_, i) => Math.sin((i / A) * 2 * Math.PI));
