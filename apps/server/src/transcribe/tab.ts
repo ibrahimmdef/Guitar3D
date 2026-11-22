@@ -176,7 +176,7 @@ export function buildAlphaTex(input: TexInput): { tex: string; info: AutoTabInfo
       `\\track "${esc(part.name)}"`,
       '\\staff {score tabs}',
       `\\instrument ${input.program ?? 25}`,
-      `\\tuning ${input.tuning.map(texPitch).join(' ')}`,
+      `\\tuning (${input.tuning.map(texPitch).join(' ')})`,
       input.capo ? `\\capo ${input.capo}` : '',
       `${r.bars.join(' |\n')} |`,
     ].filter(Boolean).join('\n'),

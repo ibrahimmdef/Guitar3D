@@ -35,7 +35,7 @@ echo "==> transcription: Basic Pitch (ONNX) + librosa"
 # what the ONNX path needs. Pin the installed numpy/torch so Demucs keeps working.
 PINS="$TMPDIR/g3d-venv-pins.txt"
 uv pip freeze --python "$PY" | grep -i -E '^(numpy|torch|torchaudio)==' > "$PINS" || true
-uv pip install --python "$PY" -c "$PINS" librosa onnxruntime pretty_midi resampy
+uv pip install --python "$PY" -c "$PINS" librosa onnxruntime pretty_midi resampy mir_eval
 uv pip install --python "$PY" --no-deps basic-pitch
 "$PY" -c "from basic_pitch import build_icassp_2022_model_path, FilenameSuffix; import onnxruntime, librosa; print('basic-pitch ok:', build_icassp_2022_model_path(FilenameSuffix.onnx))"
 

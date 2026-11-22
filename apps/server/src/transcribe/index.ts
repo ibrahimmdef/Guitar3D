@@ -1,5 +1,6 @@
 import type { AutoTabInfo, TranscriptionSummary } from '@guitar3d/shared';
 import { chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, type RawTranscription } from './grid.js';
+import { cleanNotes } from './clean.js';
 import { buildAlphaTex, groupEvents, LEAD_NAME, placeEvents, RHYTHM_NAME, splitLeadRhythm, type TrackPart } from './tab.js';
 import { detectTuning, suggestCapo, tuningLabel } from './tuning.js';
 
@@ -27,7 +28,7 @@ export interface AutoTab {
  * lead/rhythm split, string/fret assignment and alphaTex with low-confidence notes listed.
  */
 export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab {
-  const notes = raw.notes.filter((n) => n.conf >= (opts.minConf ?? 0.12) && n.end > n.start && n.pitch >= 24 && n.pitch <= 100);
+  const notes = cleanNotes(raw.notes).filter((n) => n.conf >= (opts.minConf ?? 0.12) && n.end > n.start && n.pitch >= 24 && n.pitch <= 100);
   if (!notes.length) throw new Error('No guitar notes were detected.');
   const grid = opts.bpm ? fixedGrid(opts.bpm, opts.offset ?? 0) : trackedGrid(raw.beats, raw.tempo);
   const q = quantize(notes, grid);

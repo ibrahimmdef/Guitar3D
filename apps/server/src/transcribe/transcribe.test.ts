@@ -4,6 +4,7 @@ import { chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, type QNote, t
 import { detectTuning, lowestPlayed, suggestCapo, TUNING_DEFS, tuningLabel } from './tuning.js';
 import { alignedValue, buildAlphaTex, groupEvents, placeEvents, renderTrack, restTokens, splitLeadRhythm, texPitch } from './tab.js';
 import { buildAutoTab } from './index.js';
+import { cleanNotes } from './clean.js';
 
 const STD = TUNING_DEFS[0].midi;
 const note = (start: number, pitch: number, len = 0.2, conf = 0.8): RawNote => ({ start, end: start + len, pitch, conf });
@@ -44,6 +45,22 @@ describe('beat grid and quantisation', () => {
   it('with a count-in keeps beat 0 as the downbeat and drops what came before', () => {
     const barred = toBars([q(-8, 60), q(-1, 62), q(3, 64), q(20, 65)], 0, true);
     expect(barred.map((n) => [n.slot, n.pitch])).toEqual([[0, 62], [3, 64], [20, 65]]);
+  });
+});
+
+describe('cleanNotes', () => {
+  it('drops the overtone ghost of a single note but keeps octaves inside chords', () => {
+    const ghost = cleanNotes([note(0, 40, 0.4, 0.7), note(0.01, 52, 0.3, 0.5), note(1, 45, 0.4, 0.7)]);
+    expect(ghost.map((n) => n.pitch)).toEqual([40, 45]);
+    // a real octave double stop played louder on top stays
+    expect(cleanNotes([note(0, 40, 0.4, 0.5), note(0, 52, 0.4, 0.8)])).toHaveLength(2);
+    // E5 power chord: E2 B2 E3 all stay
+    expect(cleanNotes([note(0, 40, 0.4, 0.8), note(0.01, 47, 0.4, 0.6), note(0.02, 52, 0.4, 0.5)])).toHaveLength(3);
+  });
+
+  it('drops short weak blips under a strong ringing note', () => {
+    const out = cleanNotes([note(0, 45, 1, 0.8), note(0.03, 75, 0.08, 0.3), note(0.5, 76, 0.08, 0.3)]);
+    expect(out.map((n) => n.pitch)).toEqual([45, 76]);
   });
 });
 
@@ -154,7 +171,7 @@ describe('alphaTex output', () => {
     expect(tex).toContain('\\track "Lead / riff"');
     expect(tex).toContain('\\track "Rhythm"');
     expect(tex).toContain('\\staff {score tabs}');
-    expect(tex).toContain('\\tuning e4 b3 g3 d3 a2 e2');
+    expect(tex).toContain('\\tuning (e4 b3 g3 d3 a2 e2)');
     expect(tex).toContain('\\capo 2');
     expect(readAutoTabInfo('\\title "x"')).toBeNull();
   });
@@ -176,7 +193,7 @@ describe('buildAutoTab', () => {
     };
     const auto = buildAutoTab(raw, { title: 'Riff (auto)', bpm: 100, offset: t0 });
     expect(auto.summary).toMatchObject({ tuningId: 'half-down', detected: 'Eb standard (½ step down)', capo: 0, tempo: 100, bars: 2, notes: 7, lowConfidence: 1, tracks: ['Lead / riff', 'Rhythm'] });
-    expect(auto.tex).toContain('\\tuning d#4 a#3 f#3 c#3 g#2 d#2');
+    expect(auto.tex).toContain('\\tuning (d#4 a#3 f#3 c#3 g#2 d#2)');
     // in Eb tuning the riff is played like in E: open low string twice, then the power-chord shape
     expect(auto.tex).toContain('0.6.8 r.8 0.6.8 r.8 2.5.8 r.8 2.4.8 r.8 |');
     expect(auto.tex).toContain('(2.4 2.5 0.6).2 r.2 |');

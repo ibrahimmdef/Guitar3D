@@ -572,7 +572,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           )}
 
           {hasScore && !loadingLabel && auto && !autoHidden && tabId && (
-            <AutoBanner info={auto} tabId={tabId} track={state.track ? state.score?.tracks.indexOf(state.track) ?? 0 : 0} onClose={() => setAutoHidden(true)} />
+            <AutoBanner info={auto} tabId={tabId} track={api.current?.tracks[0]?.index ?? state.track?.index ?? 0} onClose={() => setAutoHidden(true)} />
           )}
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
           {hasScore && (

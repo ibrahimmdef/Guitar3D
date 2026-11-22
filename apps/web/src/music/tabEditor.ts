@@ -232,7 +232,7 @@ export function parseAlphaTex(text: string): EdDoc {
   body = body.replace(/\\track\b[^\n]*|\\staff\b[^\n]*|\\instrument\b[^\n]*|\\capo\s+\d+/g, ' ');
   const tuning = /\\tuning\s+([^\n\\]+)/.exec(body);
   if (tuning) {
-    const ps = tuning[1].trim().split(/\s+/).map(parseTexPitch);
+    const ps = tuning[1].replace(/[()]/g, ' ').trim().split(/\s+/).map(parseTexPitch);
     if (ps.length >= 4 && ps.every((p) => p != null)) doc.tuning = ps as number[];
     body = body.replace(tuning[0], ' ');
   }

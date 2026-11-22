@@ -102,15 +102,20 @@ export function quantize(notes: RawNote[], grid: BeatGrid): QNote[] {
 }
 
 /**
- * Which beat (0–3) of the grid is the bar's first beat: the one where most notes start, low notes
- * and chords weighing more (bass and chord hits tend to land on the downbeat).
+ * Which beat (0–3) of the grid is the bar's first beat. Every onset on a beat votes for its beat:
+ * low notes (bass) and chords vote more, and the very first note gets a bonus (pieces usually
+ * start on a downbeat). Notes starting together count once.
  */
 export function chooseDownbeat(notes: QNote[]): number {
   const score = [0, 0, 0, 0];
-  for (const n of notes) {
-    if (n.slot % SLOTS_PER_BEAT !== 0) continue;
-    const beat = (((n.slot / SLOTS_PER_BEAT) % 4) + 4) % 4;
-    score[beat] += 1 + Math.max(0, 52 - n.pitch) / 12;
+  const slots = new Map<number, QNote[]>();
+  for (const n of notes) slots.set(n.slot, [...(slots.get(n.slot) ?? []), n]);
+  const first = notes.length ? Math.min(...notes.map((n) => n.slot)) : 0;
+  for (const [slot, ns] of slots) {
+    if (slot % SLOTS_PER_BEAT !== 0) continue;
+    const beat = (((slot / SLOTS_PER_BEAT) % 4) + 4) % 4;
+    const low = Math.min(...ns.map((n) => n.pitch));
+    score[beat] += 1 + Math.max(0, 52 - low) / 12 + (ns.length >= 3 ? 0.5 : 0) + (slot === first ? 1.5 : 0);
   }
   let best = 0;
   for (let i = 1; i < 4; i++) if (score[i] > score[best] + 1e-9) best = i;
