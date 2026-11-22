@@ -1,4 +1,4 @@
-import type { TabMeta, TabProgress } from '@guitar3d/shared';
+import type { SeparatorStatus, Song, StemName, TabMeta, TabProgress } from '@guitar3d/shared';
 
 /**
  * Screen-level data access for tabs and progress. Guitars live in guitar-setup/api.ts
@@ -46,4 +46,28 @@ export const getProgress = (id: string) => fetch(`/api/progress/${encodeURICompo
 export function bestSpeed(p: TabProgress | undefined): number | null {
   if (!p || p.sections.length === 0) return null;
   return Math.max(...p.sections.map((s) => s.bestCleanSpeed));
+}
+
+// ---- audio songs (stem separation) -------------------------------------------------------
+
+export const SONG_ACCEPT = '.mp3,.wav,.flac,.ogg,.oga,.opus,.m4a,.aac,audio/*';
+export const SONG_MAX_MB = 50;
+
+export const listSongs = () => fetch('/api/songs').then((r) => json<Song[]>(r));
+export const getSong = (id: string) => fetch(`/api/songs/${encodeURIComponent(id)}`).then((r) => json<Song>(r));
+export const separatorStatus = () => fetch('/api/songs/separator').then((r) => json<SeparatorStatus>(r));
+export const stemUrl = (id: string, stem: StemName) => `/api/songs/${encodeURIComponent(id)}/stems/${stem}`;
+
+export function uploadSong(file: File): Promise<Song> {
+  if (file.size > SONG_MAX_MB * 1024 * 1024) return Promise.reject(new Error(`File too large (max ${SONG_MAX_MB} MB).`));
+  const fd = new FormData();
+  fd.append('file', file);
+  return fetch('/api/songs', { method: 'POST', body: fd }).then((r) => json<Song>(r));
+}
+
+export const retrySong = (id: string) => fetch(`/api/songs/${encodeURIComponent(id)}/retry`, { method: 'POST' }).then((r) => json<Song>(r));
+
+export async function deleteSong(id: string) {
+  const r = await fetch(`/api/songs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!r.ok && r.status !== 404) throw new Error(`Delete failed (HTTP ${r.status}).`);
 }

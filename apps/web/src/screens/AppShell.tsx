@@ -33,6 +33,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/** Nav entry a route belongs to (a song opened from the library keeps "Kütüphane" highlighted). */
+const navOf = (route: Route) => (route.name === 'song' ? 'library' : route.name);
+
 /** Shell for the non-player screens: sidebar on wide screens, bottom tab bar on phones. */
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {
   return (
@@ -52,7 +55,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             <h2 className="nav-group-label">{g.label}</h2>
             <ul className="nav-list">
               {g.items.map((n) => {
-                const active = n.route === route.name;
+                const active = n.route === navOf(route);
                 return (
                   <li key={n.route}>
                     <a className={`nav-item${active ? ' active' : ''}`} href={routeHref({ name: n.route })} aria-current={active ? 'page' : undefined}>
@@ -79,11 +82,11 @@ function BottomNav({ route }: { route: Route }) {
   const [open, setOpen] = useState(false);
   const all = NAV_GROUPS.flatMap((g) => g.items);
   const primary = PRIMARY.map((r) => all.find((n) => n.route === r)!);
-  const inMenu = !PRIMARY.includes(route.name as SimpleRouteName);
+  const inMenu = !PRIMARY.includes(navOf(route) as SimpleRouteName);
   return (
     <nav className="bottom-nav" aria-label="Alt menü">
       {primary.map((n) => {
-        const active = n.route === route.name;
+        const active = n.route === navOf(route);
         return (
           <a key={n.route} className={`bn-item${active ? ' active' : ''}`} href={routeHref({ name: n.route })} aria-current={active ? 'page' : undefined}>
             <span aria-hidden className="nav-ic">{n.icon}</span>

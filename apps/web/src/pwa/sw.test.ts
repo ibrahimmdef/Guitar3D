@@ -26,6 +26,8 @@ describe('service worker strategies', () => {
     expect(at('/api/tabs')?.kind).toBe('network-first');
     expect(at('/api/tabs', 'cors', 'POST')).toBeNull();
     expect(at('/api/backup')).toBeNull();
+    expect(at('/api/songs')).toBeNull();
+    expect(at('/api/songs/x/stems/guitar')).toBeNull();
     expect(at('/api/backups/x.json')).toBeNull();
     expect(sw.strategyFor('GET', 'https://example.com/x.js', O)).toBeNull();
   });

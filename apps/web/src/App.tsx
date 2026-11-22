@@ -10,6 +10,7 @@ import { OfflineIndicator } from './pwa/OfflineIndicator';
 import { BadgeWatcher } from './screens/progress/BadgeWatcher';
 import { PlayerScreen } from './screens/player/PlayerScreen';
 import { SettingsScreen } from './screens/settings/SettingsScreen';
+import { SongScreen } from './screens/song/SongScreen';
 import { ToastProvider, TooltipProvider } from './ui/kit';
 import { useRoute } from './ui/router';
 import { useA11yEffect, useSettings, useThemeEffect } from './ui/settings';
@@ -35,6 +36,7 @@ export function App() {
             {route.name === 'tuner' && <TunerScreen />}
             {route.name === 'progress' && <ProgressScreen />}
             {route.name === 'editor' && <EditorScreen />}
+            {route.name === 'song' && <SongScreen key={route.id} id={route.id} />}
           </AppShell>
         )}
         <OfflineIndicator />

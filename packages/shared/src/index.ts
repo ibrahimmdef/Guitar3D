@@ -77,3 +77,39 @@ export interface BarNote {
   text: string;
   createdAt: string;
 }
+
+/** Stems produced by the separator (Demucs htdemucs_6s), in mixer order. */
+export const STEM_NAMES = ['guitar', 'vocals', 'bass', 'drums', 'piano', 'other'] as const;
+export type StemName = (typeof STEM_NAMES)[number];
+
+export type SongStatus = 'queued' | 'separating' | 'ready' | 'error';
+
+/** An audio song split into stems (`/api/songs`). Files live in data/songs/<id>/. */
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  /** Original upload inside the song folder. */
+  fileName: string;
+  /** Seconds (from ffprobe). */
+  duration?: number;
+  uploadedAt: string;
+  status: SongStatus;
+  /** Separation progress 0..1 (meaningful while 'separating'). */
+  progress: number;
+  /** Human readable reason when status is 'error'. */
+  error?: string;
+  /** Stems available for playback once 'ready'. */
+  stems: StemName[];
+  /** Wall-clock seconds the last successful separation took. */
+  separationSeconds?: number;
+}
+
+/** `GET /api/songs/separator`: whether stem separation can run on this machine. */
+export interface SeparatorStatus {
+  available: boolean;
+  /** Why not, e.g. Demucs / ffmpeg not installed. */
+  reason?: string;
+  /** Command or steps that fix it. */
+  setupHint?: string;
+}

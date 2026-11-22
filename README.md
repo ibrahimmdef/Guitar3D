@@ -14,6 +14,20 @@ npm run dev
 
 Uygulama açılışta bir demo etüt yükler. "Tab yükle" ile `.gp`, `.gp5`, `.gpx`, `.gp7` veya MusicXML dosyası yükleyebilirsin.
 
+### Şarkıdan kök sesler (çal-eşlik)
+
+Kütüphanede "Ses dosyasından" ile bir mp3/wav/flac/ogg/m4a (en fazla 50 MB) yüklenir; sunucu Demucs
+(`htdemucs_6s`) ile gitar, vokal, bas, davul, piyano ve diğer kanallarına ayırır (sırayla, tek iş).
+Şarkı ekranında kanal başına sessiz/solo/ses, %50–100 hız (perde değişmez), A–B döngüsü ve
+"Play along" (orijinal gitar kapalı) hazır ayarı vardır. Sunucuda bir kez:
+
+```bash
+apps/server/scripts/setup-demucs.sh   # uv + ffmpeg gerekir; CPU-only torch kurar
+```
+
+Ortam değişkenleri: `G3D_DEMUCS_PYTHON` (varsayılan `~/.local/share/guitar3d/demucs-venv/bin/python`),
+`G3D_TMP_DIR` (varsayılan `~/.cache/g3d-tmp`), `DATA_DIR`. Şarkılar `data/songs/<id>/` altında durur ve yedeğe dahil edilmez.
+
 ## Özellikler
 
 - **Tab okuma ve çalma:** alphaTab ile yapılır. Çalarken hız ayarı, metronom, sayarak başlama ve gitar sesini kısma desteklenir.

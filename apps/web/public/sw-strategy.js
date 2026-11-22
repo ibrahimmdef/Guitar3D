@@ -37,6 +37,8 @@
     if (mode === 'navigate') return { kind: 'network-first', cache: CACHES.shell, fallback: '/index.html' };
     // backups are large and must always be fresh: never cached
     if (p.indexOf('/api/backup') === 0) return null;
+    // song audio is large and streamed with Range requests; song status must be live
+    if (p.indexOf('/api/songs') === 0) return null;
     if (p.indexOf('/api/') === 0) {
       // uploads and per-user files change: always try the network, keep the last answer for offline
       return { kind: 'network-first', cache: CACHES.api };

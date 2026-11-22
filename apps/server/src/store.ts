@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, BarNote, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AppSettings, BarNote, GuitarProfile, PracticeSession, Song, TabMeta, TabProgress } from '@guitar3d/shared';
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -10,6 +10,8 @@ interface DbShape {
   settings: AppSettings;
   sessions: PracticeSession[];
   notes: BarNote[];
+  /** Audio songs split into stems. Not part of backups (audio is large); kept across restores. */
+  songs: Song[];
 }
 
 export interface ServerBackup {
@@ -26,15 +28,18 @@ export const MAX_SESSIONS = 20000;
 export class Store {
   readonly tabsDir: string;
   readonly guitarsDir: string;
+  readonly songsDir: string;
   private readonly dbFile: string;
   private db: DbShape;
 
   constructor(readonly dataDir: string) {
     this.tabsDir = path.join(dataDir, 'tabs');
     this.guitarsDir = path.join(dataDir, 'guitars');
+    this.songsDir = path.join(dataDir, 'songs');
     this.dbFile = path.join(dataDir, 'db.json');
     fs.mkdirSync(this.tabsDir, { recursive: true });
     fs.mkdirSync(this.guitarsDir, { recursive: true });
+    fs.mkdirSync(this.songsDir, { recursive: true });
     const loaded = fs.existsSync(this.dbFile) ? (JSON.parse(fs.readFileSync(this.dbFile, 'utf8')) as Partial<DbShape>) : {};
     // Older db.json files only had tabs + progress.
     this.db = {
@@ -44,6 +49,7 @@ export class Store {
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...loaded.settings },
       sessions: loaded.sessions ?? [],
       notes: loaded.notes ?? [],
+      songs: loaded.songs ?? [],
     };
   }
 
@@ -176,7 +182,8 @@ export class Store {
     };
     walk(this.tabsDir, 'tabs');
     walk(this.guitarsDir, 'guitars');
-    return { version: 1, createdAt: new Date().toISOString(), db: structuredClone(this.db), files };
+    const { songs: _songs, ...db } = this.db;
+    return { version: 1, createdAt: new Date().toISOString(), db: structuredClone(db), files };
   }
 
   /** Replaces all data with a backup. Throws on a malformed backup (nothing is changed then). */
@@ -203,8 +210,46 @@ export class Store {
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...d.settings },
       sessions: Array.isArray(d.sessions) ? d.sessions : [],
       notes: Array.isArray(d.notes) ? d.notes : [],
+      songs: this.db.songs,
     };
     this.save();
+  }
+
+  // ---- audio songs ---------------------------------------------------------------------
+
+  listSongs() {
+    return [...this.db.songs].sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+  }
+
+  getSong(id: string) {
+    return this.db.songs.find((s) => s.id === id);
+  }
+
+  addSong(song: Song) {
+    this.db.songs.push(song);
+    this.save();
+    return song;
+  }
+
+  updateSong(id: string, patch: Partial<Omit<Song, 'id'>>) {
+    const song = this.getSong(id);
+    if (!song) return undefined;
+    Object.assign(song, patch);
+    this.save();
+    return song;
+  }
+
+  /** Removes the record and data/songs/<id>/. */
+  deleteSong(id: string) {
+    if (!this.getSong(id)) return false;
+    this.db.songs = this.db.songs.filter((s) => s.id !== id);
+    fs.rmSync(this.songDir(id), { recursive: true, force: true, maxRetries: 3 });
+    this.save();
+    return true;
+  }
+
+  songDir(id: string) {
+    return path.join(this.songsDir, id);
   }
 
   // ---- settings ---------------------------------------------------------------------------

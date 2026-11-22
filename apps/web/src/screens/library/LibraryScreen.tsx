@@ -9,6 +9,7 @@ import { ScreenHeader } from '../AppShell';
 import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
 import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
+import { SongsSection } from './SongsSection';
 import { ImageImportDialog, TextImportDialog } from './TextImport';
 
 type Sort = 'recent' | 'title' | 'added';
@@ -187,6 +188,8 @@ export function LibraryScreen() {
           )}
         </section>
       )}
+
+      <SongsSection />
 
       <section className="lib-sec" aria-labelledby="sec-lessons">
         <div className="sec-head">

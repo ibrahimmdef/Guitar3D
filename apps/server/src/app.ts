@@ -10,6 +10,8 @@ import { sessionsRouter } from './sessions.js';
 import { notesRouter } from './notes.js';
 import { backupRouter } from './backup.js';
 import { extractTabInfo } from './tabInfo.js';
+import { SongQueue, songsRouter } from './songs.js';
+import { DemucsTools, type SongTools } from './separator.js';
 
 /** Upload extension → stored format. Text formats (.atex/.tex) hold alphaTex. */
 export const TAB_FORMATS: Record<string, TabFormat> = {
@@ -24,8 +26,17 @@ const SORTS: Record<string, (a: TabMeta, b: TabMeta) => number> = {
 };
 const fold = (s: string) => s.toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-export function createApp(store: Store) {
+export interface AppOptions {
+  /** Separation / probing backend (tests pass a mock). Defaults to Demucs + ffmpeg. */
+  songTools?: SongTools;
+}
+
+export function createApp(store: Store, opts: AppOptions = {}) {
   const app = express();
+  const songTools = opts.songTools ?? new DemucsTools();
+  const songQueue = new SongQueue(store, songTools);
+  songQueue.resume();
+  app.locals.songQueue = songQueue;
   app.use('/api', backupRouter(store));
   app.use(express.json({ limit: '5mb' }));
 
@@ -165,6 +176,7 @@ export function createApp(store: Store) {
   app.use('/api', guitarsRouter(store));
   app.use('/api', sessionsRouter(store));
   app.use('/api', notesRouter(store));
+  app.use('/api', songsRouter(store, songTools, songQueue));
 
   return app;
 }
