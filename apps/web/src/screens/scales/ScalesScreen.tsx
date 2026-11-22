@@ -8,13 +8,11 @@ import { useTexPlayer } from '../../player/useTexPlayer';
 import { ChipGroup } from '../../ui/ChipGroup';
 import { Button } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
-import { setHandoff } from '../../ui/handoff';
 import { navigate, playLesson } from '../../ui/router';
 import { PREVIEW_LESSON_ID, setPreviewLesson } from '../library/lessons';
 import { withTitle } from '../../tabs/textImport';
 import { useBacking } from '../../audio/backing';
 import { presetChords } from '../../music/backing';
-import { BACKING_HANDOFF } from '../backing/BackingScreen';
 import { ScreenHeader } from '../AppShell';
 import { LearnStage } from '../LearnStage';
 import { TuningSelect } from '../TuningSelect';
@@ -97,9 +95,6 @@ export function ScalesScreen() {
           <div className="learn-row">
             <Button size="sm" icon={backing.playing ? <Square size={14} fill="currentColor" /> : <AudioLines size={14} />} pressed={backing.playing} onClick={backing.toggle}>
               {backing.playing ? 'Eşliği durdur' : 'Eşlikle doğaçla'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { backing.stop(); setHandoff(BACKING_HANDOFF, { key: root, minor: minorScale }); navigate({ name: 'backing' }); }}>
-              Eşlik ayarları
             </Button>
           </div>
           <div className="learn-row">

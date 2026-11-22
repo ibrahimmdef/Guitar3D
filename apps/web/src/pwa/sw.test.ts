@@ -12,7 +12,7 @@ const at = (p: string, mode = 'cors', method = 'GET') => sw.strategyFor(method, 
 
 describe('service worker strategies', () => {
   it('serves pages network-first with the app shell as offline fallback', () => {
-    expect(at('/#/rhythm', 'navigate')).toMatchObject({ kind: 'network-first', fallback: '/index.html' });
+    expect(at('/#/chords', 'navigate')).toMatchObject({ kind: 'network-first', fallback: '/index.html' });
   });
   it('caches bundles, sound font, fonts and guitar textures', () => {
     expect(at('/assets/index-abc123.js')?.kind).toBe('cache-first');

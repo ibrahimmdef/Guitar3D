@@ -8,9 +8,10 @@ describe('router', () => {
   it('parses screens and falls back to the library', () => {
     expect(parseRoute('')).toEqual({ name: 'library' });
     expect(parseRoute('#/nope')).toEqual({ name: 'library' });
+    for (const gone of ['rhythm', 'backing', 'routines', 'assignments', 'course', 'fretboard-game', 'chord-trainer', 'ear']) expect(parseRoute(`#/${gone}`)).toEqual({ name: 'library' });
     expect(parseRoute('#/guitar')).toEqual({ name: 'guitar' });
     expect(parseRoute('#/settings')).toEqual({ name: 'settings' });
-    for (const name of ['chords', 'scales', 'tuner', 'routines', 'progress', 'rhythm', 'fretboard-game', 'chord-trainer', 'ear', 'course', 'editor'] as const) {
+    for (const name of ['chords', 'scales', 'tuner', 'progress', 'editor'] as const) {
       expect(parseRoute(`#/${name}`)).toEqual({ name });
       expect(routeHref({ name })).toBe(`#/${name}`);
     }

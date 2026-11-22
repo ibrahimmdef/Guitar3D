@@ -7,7 +7,6 @@ import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
 import { getTuning, withCapo } from '../../music/tunings';
 import { useSessionRecorder } from '../../player/useSessionRecorder';
-import { useRun } from '../routines/routineStore';
 import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
 import { barRange, hasRepeats, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
@@ -36,7 +35,7 @@ import { StageGuitar } from './StageGuitar';
 import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
 import { RecordPanel } from './RecordPanel';
-import { NotesPanel, useBarNotes } from '../teacher/NotesPanel';
+import { NotesPanel, useBarNotes } from './NotesPanel';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
@@ -268,9 +267,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
 
   /* ---------- Session recording ---------- */
   const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
-  // A running routine records its own time, so the player does not count it twice.
-  const routineRunning = !!useRun();
-  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle, disabled: routineRunning });
+  const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle });
 
   /* ---------- Listen and wait ---------- */
   const onPass = useCallback((p: PassSummary) => {

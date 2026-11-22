@@ -1,4 +1,4 @@
-import { noteName, parseRoot, pc } from './notes';
+import { noteName, pc } from './notes';
 
 /**
  * Backing tracks: a chord progression → one bar per chord of simple drums, bass and an optional
@@ -18,32 +18,8 @@ const SUFFIX: Record<Quality, string> = { maj: '', m: 'm', '7': '7', m7: 'm7', m
 
 export const chordLabel = (c: BackingChord) => `${noteName(c.root)}${SUFFIX[c.quality]}`;
 
-/** "Am F C G", "Am - F | C, G7", "Lam Fa Do Sol" → chords; null when any token is unreadable. */
-export function parseProgression(text: string): BackingChord[] | null {
-  const tokens = text.split(/[\s|,–—-]+/).filter(Boolean);
-  if (!tokens.length) return null;
-  const out: BackingChord[] = [];
-  for (const tok of tokens) {
-    const r = parseRoot(tok);
-    if (!r) return null;
-    const q = parseQuality(tok.slice(r.length));
-    if (!q) return null;
-    out.push({ root: r.pc, quality: q });
-  }
-  return out;
-}
-
-function parseQuality(s: string): Quality | null {
-  const t = s.trim();
-  const table: [RegExp, Quality][] = [
-    [/^(maj7|M7|Δ7?)$/, 'maj7'], [/^(m7|min7|-7)$/, 'm7'], [/^7$/, '7'], [/^(m|min|-)$/, 'm'], [/^(dim|°|o)$/, 'dim'], [/^5$/, '5'], [/^(maj|M)?$/, 'maj'],
-  ];
-  for (const [re, q] of table) if (re.test(t)) return q;
-  return null;
-}
-
 /** Roman numeral presets, relative to the key. */
-export interface Preset {
+interface Preset {
   id: string;
   label: string;
   minor: boolean;
@@ -51,7 +27,7 @@ export interface Preset {
   steps: [number, Quality][];
 }
 
-export const PRESETS: Preset[] = [
+const PRESETS: Preset[] = [
   { id: 'pop', label: 'I–V–vi–IV', minor: false, steps: [[0, 'maj'], [7, 'maj'], [9, 'm'], [5, 'maj']] },
   { id: 'fifties', label: 'I–vi–IV–V', minor: false, steps: [[0, 'maj'], [9, 'm'], [5, 'maj'], [7, 'maj']] },
   { id: 'jazz', label: 'ii–V–I', minor: false, steps: [[2, 'm7'], [7, '7'], [0, 'maj7'], [0, 'maj7']] },
@@ -70,7 +46,6 @@ export function presetChords(presetId: string, key: number): BackingChord[] {
 }
 
 export type BackingStyle = 'rock' | 'ballad' | 'shuffle';
-export const STYLE_LABEL: Record<BackingStyle, string> = { rock: 'Rock', ballad: 'Balad', shuffle: 'Shuffle' };
 
 export type BackingEvent =
   | { step: number; kind: 'kick' | 'snare' | 'hat' }
@@ -114,5 +89,3 @@ export function stepTime(step: number, bpm: number, style: BackingStyle): number
   return (q + within) * beat;
 }
 
-/** Scale suggestion for improvising over a progression in this key. */
-export const improviseHint = (key: number, minor: boolean) => (minor ? `${noteName(key)} minör pentatonik` : `${noteName(pc(key + 9))} minör / ${noteName(key)} majör pentatonik`);

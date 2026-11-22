@@ -11,37 +11,35 @@ interface Args {
   kind: SessionKind;
   refId?: string;
   title: string;
-  /** Do not record (e.g. a routine is recording the time instead). */
-  disabled?: boolean;
 }
 
 /**
  * Records one practice session per screen visit: active time only, plus the best clean speed and
  * listen-mode accuracy reported through the returned callbacks. Saved on unmount or page hide.
  */
-export function useSessionRecorder({ active, kind, refId, title, disabled }: Args) {
+export function useSessionRecorder({ active, kind, refId, title }: Args) {
   const acc = useRef({ ms: 0, since: 0, startedAt: '', best: undefined as number | undefined, accuracy: undefined as number | undefined });
-  const meta = useRef({ kind, refId, title, disabled });
-  meta.current = { kind, refId, title, disabled };
+  const meta = useRef({ kind, refId, title });
+  meta.current = { kind, refId, title };
 
   useEffect(() => {
     const a = acc.current;
     const now = Date.now();
-    if (active && !disabled) {
+    if (active) {
       if (!a.since) a.since = now;
       if (!a.startedAt) a.startedAt = new Date(now).toISOString();
     } else if (a.since) {
       a.ms += now - a.since;
       a.since = 0;
     }
-  }, [active, disabled]);
+  }, [active]);
 
   const flush = useCallback((beacon: boolean) => {
     const a = acc.current;
     const now = Date.now();
     const ms = a.ms + (a.since ? now - a.since : 0);
     const m = meta.current;
-    if (ms >= MIN_SESSION_MS && a.startedAt && !m.disabled) {
+    if (ms >= MIN_SESSION_MS && a.startedAt) {
       saveSession({
         kind: m.kind,
         refId: m.refId,

@@ -1,8 +1,7 @@
 import type { PracticeSession } from '@guitar3d/shared';
-import { LEVEL_TITLES, levelProgress } from '../../music/course';
 import { dayKey, secondsByDay } from './stats';
 
-/** Badges derived from practice sessions and course progress. Nothing is stored server-side. */
+/** Badges derived from practice sessions. Nothing is stored server-side. */
 export interface Badge {
   id: string;
   title: string;
@@ -11,7 +10,6 @@ export interface Badge {
 
 export interface BadgeInput {
   sessions: PracticeSession[];
-  courseDone: ReadonlySet<string>;
   weeklyGoalMinutes: number;
   now?: Date;
 }
@@ -26,7 +24,6 @@ export const ALL_BADGES: Badge[] = [
   { id: 'accuracy-90', title: 'Kulak onayı', description: 'Dinleme modunda %90 doğruluğa ulaştın.' },
   { id: 'week-goal', title: 'Haftalık hedef', description: 'Bir haftada hedef dakikana ulaştın.' },
   ...MINUTE_STEPS.map((m) => ({ id: `minutes-${m}`, title: `${m} dakika`, description: `Toplam ${m} dakika çalıştın.` })),
-  ...Object.entries(LEVEL_TITLES).map(([lvl, t]) => ({ id: `course-${lvl}`, title: `Seviye ${lvl}`, description: `Ders seviyesi “${t}” tamamlandı.` })),
 ];
 
 /** Longest run of consecutive days with at least `minSeconds` of practice. */
@@ -76,7 +73,7 @@ function minutesByWeek(sessions: PracticeSession[]): Map<string, number> {
 }
 
 /** Ids of all badges earned with this data. */
-export function earnedBadges({ sessions, courseDone, weeklyGoalMinutes }: BadgeInput): string[] {
+export function earnedBadges({ sessions, weeklyGoalMinutes }: BadgeInput): string[] {
   const out: string[] = [];
   if (sessions.some((s) => s.kind === 'tab' || s.kind === 'lesson')) out.push('first-song');
   const streak = longestStreak(sessions);
@@ -87,7 +84,6 @@ export function earnedBadges({ sessions, courseDone, weeklyGoalMinutes }: BadgeI
   if (weeklyGoalMinutes > 0 && [...minutesByWeek(sessions).values()].some((m) => m >= weeklyGoalMinutes)) out.push('week-goal');
   const total = sessions.reduce((a, s) => a + s.seconds, 0) / 60;
   for (const m of MINUTE_STEPS) if (total >= m) out.push(`minutes-${m}`);
-  for (const lvl of Object.keys(LEVEL_TITLES)) if (levelProgress(courseDone, Number(lvl)).pct === 100) out.push(`course-${lvl}`);
   return out;
 }
 

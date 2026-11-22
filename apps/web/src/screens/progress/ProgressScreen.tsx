@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, Award, Flame } from 'lucide-react';
-import { loadDone } from '../../music/course';
 import { useSettings } from '../../ui/settings';
 import { ALL_BADGES, earnedBadges, weekMinutes } from './badges';
 import type { PracticeSession } from '@guitar3d/shared';
@@ -35,7 +34,7 @@ export function ProgressScreen() {
   const [settings, setSettings] = useSettings();
   const goal = settings.weeklyGoalMinutes;
   const thisWeek = weekMinutes(sessions ?? [], now);
-  const earned = useMemo(() => new Set(earnedBadges({ sessions: sessions ?? [], courseDone: loadDone(), weeklyGoalMinutes: goal })), [sessions, goal]);
+  const earned = useMemo(() => new Set(earnedBadges({ sessions: sessions ?? [], weeklyGoalMinutes: goal })), [sessions, goal]);
 
   return (
     <div className="screen">

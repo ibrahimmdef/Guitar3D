@@ -4,9 +4,9 @@ import { parseShareQuery, type ShareParams } from './share';
 /**
  * Tiny hash router:
  *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
- *   #/chords · #/scales · #/tuner · #/routines · #/progress
+ *   #/chords · #/scales · #/tuner · #/progress · #/editor
  *   #/share?tab=…|lesson=…&g=&loop=&speed=&v= (read-only shared view, see share.ts)
- *   #/rhythm · #/fretboard-game · #/chord-trainer · #/ear · #/course · #/editor · #/backing · #/assignments
+ * Unknown (or removed) routes fall back to the library.
  * `#/play/demo` is kept as an alias of the warm-up lesson.
  */
 export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
@@ -17,12 +17,8 @@ export type Route =
 
 /** Routes without parameters (the left navigation). */
 export type SimpleRouteName =
-  | 'library' | 'guitar' | 'settings' | 'chords' | 'scales' | 'tuner' | 'routines' | 'progress'
-  | 'rhythm' | 'fretboard-game' | 'chord-trainer' | 'ear' | 'course' | 'editor' | 'backing' | 'assignments';
-const SIMPLE: SimpleRouteName[] = [
-  'library', 'guitar', 'settings', 'chords', 'scales', 'tuner', 'routines', 'progress',
-  'rhythm', 'fretboard-game', 'chord-trainer', 'ear', 'course', 'editor', 'backing', 'assignments',
-];
+  'library' | 'guitar' | 'settings' | 'chords' | 'scales' | 'tuner' | 'progress' | 'editor';
+const SIMPLE: SimpleRouteName[] = ['library', 'guitar', 'settings', 'chords', 'scales', 'tuner', 'progress', 'editor'];
 
 export const DEMO_LESSON_ID = 'warmup';
 

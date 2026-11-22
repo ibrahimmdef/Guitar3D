@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Activity, AudioLines, ClipboardList, Drum, Ear, GraduationCap, Gauge, Grid3x3, Guitar, Library, ListChecks, Menu, Music2, PencilLine, Repeat, Settings, Target } from 'lucide-react';
+import { Activity, Gauge, Grid3x3, Guitar, Library, Menu, Music2, PencilLine, Settings } from 'lucide-react';
 import { Sheet } from '../ui/kit';
 import { routeHref, type Route, type SimpleRouteName } from '../ui/router';
 
@@ -12,22 +12,14 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Çal',
     items: [
       { route: 'library', label: 'Kütüphane', icon: <Library size={18} /> },
-      { route: 'rhythm', label: 'Ritim', icon: <Drum size={18} /> },
-      { route: 'backing', label: 'Eşlik', icon: <AudioLines size={18} /> },
-      { route: 'routines', label: 'Rutinler', icon: <ListChecks size={18} /> },
       { route: 'progress', label: 'İlerleme', icon: <Activity size={18} /> },
-      { route: 'assignments', label: 'Ödevler', icon: <ClipboardList size={18} /> },
     ],
   },
   {
     label: 'Öğren',
     items: [
-      { route: 'course', label: 'Dersler', icon: <GraduationCap size={18} /> },
       { route: 'chords', label: 'Akorlar', icon: <Grid3x3 size={18} /> },
       { route: 'scales', label: 'Gamlar', icon: <Music2 size={18} /> },
-      { route: 'fretboard-game', label: 'Sap oyunu', icon: <Target size={18} /> },
-      { route: 'chord-trainer', label: 'Akor geçişi', icon: <Repeat size={18} /> },
-      { route: 'ear', label: 'Kulak eğitimi', icon: <Ear size={18} /> },
     ],
   },
   {
@@ -81,7 +73,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
 }
 
 /** Phone tab bar: the most used destinations plus a "Menü" sheet with every screen, grouped. */
-export const PRIMARY: SimpleRouteName[] = ['library', 'course', 'rhythm', 'tuner'];
+export const PRIMARY: SimpleRouteName[] = ['library', 'chords', 'tuner', 'progress'];
 
 function BottomNav({ route }: { route: Route }) {
   const [open, setOpen] = useState(false);

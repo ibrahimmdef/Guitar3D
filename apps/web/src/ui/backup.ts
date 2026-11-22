@@ -1,7 +1,7 @@
 /**
- * Export / import of all Guitar3D data: the server part (tabs, guitars, sessions, progress, notes,
- * assignments) from `GET /api/backup` and this browser's local data (settings, per-tab setup,
- * course, routines, badges…: every `guitar3d.*` localStorage key). Recordings (IndexedDB) are not
+ * Export / import of all Guitar3D data: the server part (tabs, guitars, sessions, progress, bar
+ * notes) from `GET /api/backup` and this browser's local data (settings, per-tab setup, badges…:
+ * every `guitar3d.*` localStorage key). Recordings (IndexedDB) are not
  * included. There are no accounts: "sync" means a file or a snapshot on the server.
  */
 

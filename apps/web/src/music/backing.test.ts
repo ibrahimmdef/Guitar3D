@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barEvents, bassMidi, chordLabel, padMidi, parseProgression, presetChords, stepTime } from './backing';
-
-describe('parseProgression', () => {
-  it('reads letter and solfège chords with separators', () => {
-    expect(parseProgression('Am - F | C, G7')?.map(chordLabel)).toEqual(['Am', 'F', 'C', 'G7']);
-    expect(parseProgression('Lam Fa Do Sol')?.map(chordLabel)).toEqual(['Am', 'F', 'C', 'G']);
-    expect(parseProgression('Dm7 Cmaj7 F#m Bb')?.map(chordLabel)).toEqual(['Dm7', 'Cmaj7', 'F#m', 'A#']);
-  });
-  it('rejects unreadable input', () => {
-    expect(parseProgression('')).toBeNull();
-    expect(parseProgression('Am Xyz')).toBeNull();
-    expect(parseProgression('Am7b13')).toBeNull();
-  });
-});
+import { barEvents, bassMidi, chordLabel, padMidi, presetChords, stepTime } from './backing';
 
 describe('presets', () => {
   it('builds I–V–vi–IV in G and the 12-bar blues in A', () => {

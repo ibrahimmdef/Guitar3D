@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, Assignment, BarNote, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AppSettings, BarNote, GuitarProfile, PracticeSession, TabMeta, TabProgress } from '@guitar3d/shared';
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -10,7 +10,6 @@ interface DbShape {
   settings: AppSettings;
   sessions: PracticeSession[];
   notes: BarNote[];
-  assignments: Assignment[];
 }
 
 export interface ServerBackup {
@@ -45,7 +44,6 @@ export class Store {
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...loaded.settings },
       sessions: loaded.sessions ?? [],
       notes: loaded.notes ?? [],
-      assignments: loaded.assignments ?? [],
     };
   }
 
@@ -114,7 +112,7 @@ export class Store {
     return s;
   }
 
-  // ---- teacher mode: bar notes and assignments ------------------------------------------
+  // ---- bar notes -----------------------------------------------------------------------
 
   listNotes(tabKey?: string) {
     return this.db.notes.filter((n) => !tabKey || n.tabKey === tabKey).sort((a, b) => a.bar - b.bar || a.createdAt.localeCompare(b.createdAt));
@@ -130,24 +128,6 @@ export class Store {
     const before = this.db.notes.length;
     this.db.notes = this.db.notes.filter((n) => n.id !== id);
     if (this.db.notes.length === before) return false;
-    this.save();
-    return true;
-  }
-
-  listAssignments() {
-    return [...this.db.assignments].sort((a, b) => a.due.localeCompare(b.due));
-  }
-
-  addAssignment(a: Assignment) {
-    this.db.assignments.push(a);
-    this.save();
-    return a;
-  }
-
-  deleteAssignment(id: string) {
-    const before = this.db.assignments.length;
-    this.db.assignments = this.db.assignments.filter((a) => a.id !== id);
-    if (this.db.assignments.length === before) return false;
     this.save();
     return true;
   }
@@ -223,7 +203,6 @@ export class Store {
       settings: { activeGuitarId: BUILTIN_GUITAR_ID, ...d.settings },
       sessions: Array.isArray(d.sessions) ? d.sessions : [],
       notes: Array.isArray(d.notes) ? d.notes : [],
-      assignments: Array.isArray(d.assignments) ? d.assignments : [],
     };
     this.save();
   }

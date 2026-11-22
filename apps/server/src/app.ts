@@ -7,7 +7,7 @@ import type { TabFormat, TabMeta, TabProgress } from '@guitar3d/shared';
 import { Store } from './store.js';
 import { guitarsRouter } from './guitars.js';
 import { sessionsRouter } from './sessions.js';
-import { teacherRouter } from './teacher.js';
+import { notesRouter } from './notes.js';
 import { backupRouter } from './backup.js';
 import { extractTabInfo } from './tabInfo.js';
 
@@ -164,7 +164,7 @@ export function createApp(store: Store) {
 
   app.use('/api', guitarsRouter(store));
   app.use('/api', sessionsRouter(store));
-  app.use('/api', teacherRouter(store));
+  app.use('/api', notesRouter(store));
 
   return app;
 }

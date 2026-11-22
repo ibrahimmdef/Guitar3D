@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { loadDone } from '../../music/course';
 import { useToast } from '../../ui/kit';
 import { useSettings } from '../../ui/settings';
 import { earnedBadges, markSeen, SESSION_SAVED_EVENT } from './badges';
@@ -17,7 +16,7 @@ export function BadgeWatcher() {
       listSessions()
         .then((sessions) => {
           if (!alive) return;
-          const fresh = markSeen(earnedBadges({ sessions, courseDone: loadDone(), weeklyGoalMinutes: goal.current }));
+          const fresh = markSeen(earnedBadges({ sessions, weeklyGoalMinutes: goal.current }));
           for (const b of fresh) toast({ tone: 'success', title: `Yeni rozet: ${b.title}`, description: b.description, durationMs: 6000 });
         })
         .catch(() => {});
