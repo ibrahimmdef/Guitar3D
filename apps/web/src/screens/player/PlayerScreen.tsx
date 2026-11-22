@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Box, FileMusic, GraduationCap, PencilLine, Sparkles, X } from 'lucide-react';
+import { ArrowDownUp, ArrowLeft, Box, FileMusic, GraduationCap, PencilLine, Sparkles, X } from 'lucide-react';
 import type { AutoTabInfo, CameraMode, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { model } from '@coderline/alphatab';
 import { readAutoTabInfo } from '@guitar3d/shared';
 import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
@@ -37,6 +38,8 @@ import { clampZoom, CountIn, StageTools, useFullscreen } from './StageTools';
 import { Transport } from './Transport';
 import { RecordPanel } from './RecordPanel';
 import { NotesPanel, useBarNotes } from './NotesPanel';
+import { RhythmPanel, type StrumPos } from './RhythmPanel';
+import { strumFromScore } from '../../player/strumScore';
 
 const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
 
@@ -57,6 +60,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   /** Auto-transcription info of the loaded tab (null for ordinary tabs). */
   const [auto, setAuto] = useState<AutoTabInfo | null>(null);
   const [autoHidden, setAutoHidden] = useState(false);
+  const [rhythmHidden, setRhythmHidden] = useState(false);
 
   const [speed, setSpeed] = useState(settings.defaultSpeed);
   const [metronome, setMetronome] = useState(settings.metronome);
@@ -99,6 +103,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     setMeta(null);
     setAuto(null);
     setAutoHidden(false);
+    setRhythmHidden(false);
     api.current?.stop();
     setFetching(true);
     markPlayed(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
@@ -125,7 +130,10 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
             const info = text ? readAutoTabInfo(text) : null;
             if (info) {
               setAuto(info);
-              loadTex(text, (score) => markNotes(score, info.low));
+              loadTex(text, (score) => {
+                markNotes(score, info.low);
+                return info.strum?.pattern ? strummedTrack(score) : undefined;
+              });
             } else loadBuffer(buf);
           })
           .catch((e: Error) => alive && setLoadErr(e.message))
@@ -243,6 +251,31 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
 
   const sections = useMemo(() => (state.score ? computeSections(state.score.masterBars) : []), [state.score]);
   const activeSection = sectionAt(sections, state.currentBar);
+  /* ---------- Strum pattern ---------- */
+  // Auto-transcribed tabs carry the analysis; Guitar Pro files with strokes get it from the score.
+  const strum = useMemo(() => auto?.strum ?? (state.score ? strumFromScore(state.score)?.analysis ?? null : null), [auto, state.score]);
+  const strumPos = useMemo<StrumPos | null>(() => {
+    const score = state.score;
+    if (!strum || !score) return null;
+    let bar = state.currentBar;
+    let rel: number;
+    if (barTicks) {
+      // bar from the tick itself (the beat-driven bar index lags a little at bar lines)
+      let lo = 0;
+      let hi = barTicks.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (barTicks[mid] <= state.tick) lo = mid;
+        else hi = mid - 1;
+      }
+      bar = lo;
+      rel = state.tick - barTicks[bar];
+    } else rel = state.beat?.playbackStart ?? 0;
+    const mb = score.masterBars[bar];
+    if (!mb) return null;
+    const slot = Math.min(15, Math.max(0, Math.floor(rel / (mb.calculateDuration() / 16))));
+    return { bar, slot };
+  }, [strum, state.score, state.currentBar, state.tick, state.beat, barTicks]);
   const density = useMemo(() => {
     const bars = state.track?.staves[0]?.bars;
     return bars && barTicks && bars.length === barTicks.length ? normalize(barDensity(bars)) : null;
@@ -574,6 +607,18 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           {hasScore && !loadingLabel && auto && !autoHidden && tabId && (
             <AutoBanner info={auto} tabId={tabId} track={api.current?.tracks[0]?.index ?? state.track?.index ?? 0} onClose={() => setAutoHidden(true)} />
           )}
+          {hasScore && strum && (rhythmHidden ? (
+            <Button size="sm" className="rhythm-reopen" icon={<ArrowDownUp size={14} />} onClick={() => setRhythmHidden(false)}>Strum pattern</Button>
+          ) : (
+            <RhythmPanel
+              className="rhythm-dock"
+              analysis={strum}
+              pos={strumPos}
+              playing={state.playing}
+              onPracticeStart={() => api.current?.pause()}
+              onClose={() => setRhythmHidden(true)}
+            />
+          ))}
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
           {hasScore && (
             <StageTools
@@ -731,6 +776,14 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
       </Dialog>
     </div>
   );
+}
+
+/** An auto tab that is mostly strummed opens on its Rhythm track (the lead track is then a few stray notes). */
+function strummedTrack(score: model.Score): number | undefined {
+  const count = (t: model.Track) => t.staves[0]?.bars.reduce((n, b) => n + (b.voices[0]?.beats.reduce((m, be) => m + be.notes.length, 0) ?? 0), 0) ?? 0;
+  const rhythm = score.tracks.find((t) => t.name === 'Rhythm');
+  const others = score.tracks.filter((t) => t !== rhythm).reduce((n, t) => n + count(t), 0);
+  return rhythm && count(rhythm) > 3 * others ? rhythm.index : undefined;
 }
 
 /** "Auto-transcribed — N notes may need checking" with the detected tuning and a way into the editor. */

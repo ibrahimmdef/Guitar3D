@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, FileMusic, Pause, Play, Repeat, RotateCcw, SkipBack, Sparkles, X } from 'lucide-react';
-import type { SeparatorStatus, Song, StemName, TranscriberStatus } from '@guitar3d/shared';
+import type { SeparatorStatus, Song, StemName, StrumAnalysis, TranscriberStatus } from '@guitar3d/shared';
 import { STEM_NAMES } from '@guitar3d/shared';
 import { Button, EmptyState, IconButton, Slider, Spinner, useToast } from '../../ui/kit';
 import { navigate, playTab, routeHref } from '../../ui/router';
@@ -8,6 +8,7 @@ import { useHotkeys } from '../../ui/shortcuts';
 import { getSong, listTranscriptions, retrySong, retryTranscription, separatorStatus, stemUrl, transcribeSong, transcriberStatus } from '../data';
 import { isActiveJob, jobProgressLabel, useTranscriptionJob } from '../../songs/useTranscription';
 import { StemEngine } from '../../songs/stemEngine';
+import { RhythmPanel, type StrumPos } from '../player/RhythmPanel';
 import {
   activePreset,
   applyPreset,
@@ -16,6 +17,7 @@ import {
   initialMix,
   MAX_SPEED,
   MIN_SPEED,
+  clampSpeed,
   PRESETS,
   setLoopPoint,
   setVolume,
@@ -34,6 +36,7 @@ export function SongScreen({ id }: { id: string }) {
   const [missing, setMissing] = useState(false);
   const [sep, setSep] = useState<SeparatorStatus | null>(null);
   const [poll, setPoll] = useState(0);
+  const [strum, setStrum] = useState<StrumAnalysis | null>(null);
 
   // Poll while the song is still being separated.
   useEffect(() => {
@@ -86,8 +89,8 @@ export function SongScreen({ id }: { id: string }) {
       </header>
       {song.status === 'ready' ? (
         <>
-          {song.stems.includes('guitar') && <SongTabPanel song={song} />}
-          <StemPlayer key={song.id} song={song} />
+          {song.stems.includes('guitar') && <SongTabPanel song={song} onStrum={setStrum} />}
+          <StemPlayer key={song.id} song={song} strum={strum} />
         </>
       ) : (
         <SeparationStatus song={song} sep={sep} onRetried={(s) => { setSong(s); setPoll((n) => n + 1); }} />
@@ -133,7 +136,16 @@ function SeparationStatus({ song, sep, onRetried }: { song: Song; sep: Separator
   );
 }
 
-function StemPlayer({ song }: { song: Song }) {
+/** Bar and sixteenth at a time of the song, from the transcription's bar times. */
+export function strumPosAt(barTimes: readonly number[] | undefined, t: number): StrumPos | null {
+  if (!barTimes || barTimes.length < 2 || t < barTimes[0] || t >= barTimes[barTimes.length - 1]) return null;
+  let bar = 0;
+  while (bar + 1 < barTimes.length - 1 && barTimes[bar + 1] <= t) bar++;
+  const len = barTimes[bar + 1] - barTimes[bar];
+  return { bar, slot: Math.min(15, Math.max(0, Math.floor(((t - barTimes[bar]) / len) * 16))) };
+}
+
+function StemPlayer({ song, strum }: { song: Song; strum: StrumAnalysis | null }) {
   const toast = useToast();
   const stems = useMemo(() => STEM_NAMES.filter((s) => song.stems.includes(s)), [song.stems]);
   const engine = useRef<StemEngine | null>(null);
@@ -180,6 +192,18 @@ function StemPlayer({ song }: { song: Song }) {
     b: () => markLoop('b'),
   });
 
+  const strumPos = useMemo(() => strumPosAt(strum?.barTimes, time), [strum, time]);
+  /** Drums (and bass) only at the practice tempo, from a bar before the pattern starts. */
+  const playAlong = (bpm: number) => {
+    if (!strum) return;
+    setMix((m) => Object.fromEntries(Object.entries(m).map(([k, ch]) => [k, { ...ch!, solo: false, muted: k !== 'drums' && k !== 'bass' }])) as Mix);
+    setSpeed(clampSpeed(bpm / Math.max(1, strum.tempo)));
+    const bt = strum.barTimes ?? [];
+    const first = strum.pattern?.starts[0] ?? 0;
+    seek(Math.max(0, bt[Math.max(0, first - 1)] ?? 0));
+    if (!playing) engine.current?.play();
+  };
+
   const preset = activePreset(mix);
   const gains = effectiveGains(mix);
   const shownTime = scrub ?? time;
@@ -187,6 +211,9 @@ function StemPlayer({ song }: { song: Song }) {
 
   return (
     <>
+      {strum && (
+        <RhythmPanel analysis={strum} pos={strumPos} playing={playing} onPracticeStart={() => engine.current?.pause()} onPlayAlong={stems.includes('drums') ? playAlong : undefined} />
+      )}
       <section className="song-presets" aria-label="Mix presets">
         {PRESETS.map((p) => (
           <button key={p.id} type="button" className={`song-preset${preset === p.id ? ' is-on' : ''}`} aria-pressed={preset === p.id} onClick={() => setMix((m) => applyPreset(m, p.id))}>
@@ -248,9 +275,11 @@ function StemPlayer({ song }: { song: Song }) {
 }
 
 /** Guitar stem → tab: start a transcription, follow it, open the result. */
-function SongTabPanel({ song }: { song: Song }) {
+function SongTabPanel({ song, onStrum }: { song: Song; onStrum: (s: StrumAnalysis | null) => void }) {
   const toast = useToast();
   const [job, setJob] = useTranscriptionJob(null);
+  const strum = job?.status === 'ready' ? job.summary?.strum ?? null : null;
+  useEffect(() => onStrum(strum), [strum, onStrum]);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<TranscriberStatus | null>(null);
   useEffect(() => {
@@ -296,6 +325,7 @@ function SongTabPanel({ song }: { song: Song }) {
             <p className="song-tab-title"><Sparkles size={14} aria-hidden className="tab-card-auto" /> Tab ready · Detected: {s.detected}</p>
             <p className="muted small">
               {s.tempo} BPM · {s.bars} bars · {s.tracks.join(' + ')} · {s.lowConfidence ? `${s.lowConfidence} of ${s.notes} notes may need checking` : `${s.notes} notes`}
+              {s.strum?.pattern ? ` · strum: ${s.strum.pattern.text}` : ''}
             </p>
           </>
         )}

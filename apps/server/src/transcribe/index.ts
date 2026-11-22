@@ -1,10 +1,11 @@
-import type { AutoTabInfo, TranscriptionSummary } from '@guitar3d/shared';
-import { chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, type RawTranscription } from './grid.js';
+import type { AutoTabInfo, StrumAnalysis, TranscriptionSummary } from '@guitar3d/shared';
+import { barOrigin, chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, type RawTranscription } from './grid.js';
+import { analyzeStrums, applyStrums } from './strum.js';
 import { cleanNotes } from './clean.js';
 import { buildAlphaTex, groupEvents, LEAD_NAME, placeEvents, RHYTHM_NAME, splitLeadRhythm, type TrackPart } from './tab.js';
 import { detectTuning, suggestCapo, tuningLabel } from './tuning.js';
 
-export type { RawNote, RawTranscription } from './grid.js';
+export type { RawNote, RawStrum, RawTranscription } from './grid.js';
 
 export interface BuildOptions {
   title: string;
@@ -32,7 +33,8 @@ export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab
   if (!notes.length) throw new Error('No guitar notes were detected.');
   const grid = opts.bpm ? fixedGrid(opts.bpm, opts.offset ?? 0) : trackedGrid(raw.beats, raw.tempo);
   const q = quantize(notes, grid);
-  const barred = toBars(q, grid.fixedDownbeat ? 0 : chooseDownbeat(q), grid.fixedDownbeat);
+  const downbeat = grid.fixedDownbeat ? 0 : chooseDownbeat(q);
+  const barred = toBars(q, downbeat, grid.fixedDownbeat);
   if (!barred.length) throw new Error('No guitar notes were detected after the count-in.');
 
   const events = groupEvents(barred);
@@ -40,7 +42,17 @@ export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab
   const tuning = detectTuning(barred, pitchBeats);
   const capo = suggestCapo(barred, pitchBeats, tuning.midi);
 
-  const { lead, rhythm } = splitLeadRhythm(events);
+  let { lead, rhythm } = splitLeadRhythm(events);
+  // Strummed rhythm part: every strum with its direction, the chords and the repeating pattern.
+  let strum: StrumAnalysis | undefined;
+  if (raw.strums?.length && rhythm.length) {
+    const barCount = Math.floor(Math.max(...barred.map((n) => n.slot)) / SLOTS_PER_BAR) + 1;
+    const found = analyzeStrums({ strums: raw.strums, grid, origin: barOrigin(q, downbeat, grid.fixedDownbeat), barCount, notes, rhythm });
+    if (found) {
+      strum = found.analysis;
+      ({ rhythm, lead } = applyStrums(rhythm, lead, found.strums, found.analysis.bars));
+    }
+  }
   const parts: TrackPart[] = [];
   let dropped = 0;
   for (const [name, evs] of [[LEAD_NAME, lead], [RHYTHM_NAME, rhythm]] as const) {
@@ -53,7 +65,7 @@ export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab
 
   const cents = Math.round(raw.cents ?? 0);
   const detected = tuningLabel(tuning, cents, capo);
-  const { tex, info } = buildAlphaTex({ title: opts.title, artist: opts.artist, tempo: grid.tempo, tuning: tuning.midi, capo, parts, detected });
+  const { tex, info } = buildAlphaTex({ title: opts.title, artist: opts.artist, tempo: grid.tempo, tuning: tuning.midi, capo, parts, detected, barCount: strum?.bars.length, strum });
   const last = Math.max(...parts.flatMap((p) => p.events.map((e) => e.slot)));
   return {
     tex,
@@ -66,11 +78,12 @@ export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab
       cents,
       capo,
       tempo: grid.tempo,
-      bars: Math.floor(last / SLOTS_PER_BAR) + 1,
+      bars: Math.max(strum?.bars.length ?? 0, Math.floor(last / SLOTS_PER_BAR) + 1),
       notes: info.notes,
       lowConfidence: info.low.length,
       dropped,
       tracks: parts.map((p) => p.name),
+      ...(strum ? { strum } : {}),
     },
   };
 }

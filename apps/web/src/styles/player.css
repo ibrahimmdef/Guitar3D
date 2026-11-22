@@ -1298,3 +1298,198 @@
     max-width: none;
   }
 }
+
+/* ---------- Strum pattern (rhythm panel) ---------- */
+.rhythm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  min-width: 0;
+}
+.rhythm-dock {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 4;
+  width: min(620px, calc(100% - 24px));
+  background: rgba(21, 22, 24, 0.94);
+  backdrop-filter: blur(8px);
+}
+.rhythm-reopen {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 4;
+}
+@media (max-width: 720px) {
+  .rhythm-dock {
+    top: 44px;
+    left: var(--sp-3);
+    right: var(--sp-3);
+    width: auto;
+  }
+}
+.rhythm-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+}
+.rhythm-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rhythm-title strong {
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+.rhythm-text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rhythm-meta {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.rhythm-section {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-xs);
+}
+.rhythm-lane-wrap {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.rhythm-lane {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  min-width: max-content;
+  row-gap: 2px;
+}
+.rhythm-chord {
+  min-height: 18px;
+  padding-left: 4px;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: visible;
+}
+.rhythm-step {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  transition: background 80ms linear, color 80ms linear;
+}
+.rhythm-panel {
+  --strum-up: #8ec5ff;
+}
+:root[data-theme='light'] .rhythm-panel:not(.rhythm-dock) {
+  --strum-up: #1d64b3;
+}
+.rhythm-step.is-u {
+  color: var(--strum-up);
+}
+.rhythm-step.is-x {
+  color: var(--text-2);
+}
+.rhythm-step.is-bar {
+  box-shadow: inset 1px 0 0 var(--border-strong);
+}
+.rhythm-step.is-accent svg {
+  filter: drop-shadow(0 0 4px rgba(245, 184, 61, 0.45));
+}
+.rhythm-acc {
+  position: absolute;
+  top: 1px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--accent);
+}
+.rhythm-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.6;
+}
+.rhythm-step.is-now {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.rhythm-step.is-now .rhythm-acc {
+  color: var(--accent-ink);
+}
+.rhythm-step.is-now .rhythm-dot {
+  background: var(--accent-ink);
+  opacity: 1;
+}
+.rhythm-count {
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.rhythm-count.is-beat {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+.rhythm-count.is-now {
+  color: var(--accent);
+}
+.rhythm-note {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.rhythm-practice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+.rhythm-practice-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+}
+.rhythm-practice-row .toggle-row {
+  gap: var(--sp-2);
+}
+.rhythm-bpm {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+.rhythm-bpm-num {
+  min-width: 64px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.rhythm-chips {
+  display: flex;
+  gap: 4px;
+}

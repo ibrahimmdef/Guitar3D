@@ -32,13 +32,13 @@ class MockSongTools implements SongTools {
 class MockTranscriber implements TranscriberTools {
   available = true;
   fail = false;
-  calls: { input: string; noBeats?: boolean }[] = [];
+  calls: { input: string; noBeats?: boolean; beatsInput?: string }[] = [];
   gate: Promise<void> = Promise.resolve();
   async status(): Promise<TranscriberStatus> {
     return this.available ? { available: true } : { available: false, reason: 'Basic Pitch is not installed.', setupHint: 'setup-demucs.sh' };
   }
-  async transcribe(input: string, { noBeats, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
-    this.calls.push({ input, noBeats });
+  async transcribe(input: string, { noBeats, beatsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
+    this.calls.push({ input, noBeats, beatsInput });
     onProgress(0.5);
     await this.gate;
     if (signal.aborted) throw new Error('aborted');
@@ -50,6 +50,8 @@ class MockTranscriber implements TranscriberTools {
       beats: noBeats ? undefined : Array.from({ length: 10 }, (_, i) => i * 0.5),
       cents: 0,
       notes: [n(0, 40), n(0.5, 43), n(1, 45, 0.2), n(1.5, 47), n(2, 40, 0.8, 1.5), n(2, 47, 0.8, 1.5), n(2, 52, 0.8, 1.5)],
+      // the E5 chord strummed in eighths: down, up, down, up
+      strums: [2, 2.25, 2.5, 2.75].map((t) => ({ t, strength: 0.5, decay: 0.7, flatness: 0.05, spread: null })),
     };
   }
 }
@@ -91,6 +93,9 @@ describe('transcriptions api', () => {
     expect(done).toMatchObject({ status: 'ready', progress: 1, summary: { tuningId: 'standard', tempo: 120, tracks: ['Lead / riff', 'Rhythm'], lowConfidence: 1 } });
     expect(tr.calls[0].input).toBe(path.join(dir, 'songs', songId, 'stems', 'guitar.mp3'));
     expect(tr.calls[0].noBeats).toBe(false);
+    // the beat is tracked on the full mix
+    expect(tr.calls[0].beatsInput).toBe(path.join(dir, 'songs', songId, 'original.wav'));
+    expect(done.summary.strum.bars[1].s).toBe('D-U-D-U---------');
 
     const tabs = (await request(app).get('/api/tabs')).body;
     expect(tabs).toHaveLength(1);
@@ -98,6 +103,7 @@ describe('transcriptions api', () => {
     const tex = (await request(app).get(`/api/tabs/${done.tabId}/file`).expect(200)).text;
     expect(readAutoTabInfo(tex)?.low).toHaveLength(1);
     expect(tex).toContain('\\track "Rhythm"');
+    expect(tex).toContain('{su}');
 
     expect((await request(app).get(`/api/transcriptions?songId=${songId}`)).body).toHaveLength(1);
     expect((await request(app).get('/api/transcriptions?songId=nope')).body).toHaveLength(0);

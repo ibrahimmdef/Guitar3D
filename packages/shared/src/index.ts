@@ -1,3 +1,5 @@
+import type { StrumAnalysis } from './strum';
+
 export interface TabMeta {
   id: string;
   title: string;
@@ -164,6 +166,8 @@ export interface TranscriptionSummary {
   dropped: number;
   /** Track names in the tab, e.g. ["Lead / riff", "Rhythm"]. */
   tracks: string[];
+  /** Strum directions, chords and the repeating strum pattern of the rhythm part (when it is strummed). */
+  strum?: StrumAnalysis;
 }
 
 /** One transcription job (`/api/transcriptions`): a song's guitar stem or a microphone recording → tab. */
@@ -202,6 +206,8 @@ export interface AutoTabInfo {
   notes: number;
   /** Low-confidence notes: [track index, bar index, beat index in the bar, tab string (1 = high e)]. */
   low: [number, number, number, number][];
+  /** Strum pattern of the "Rhythm" track (bars match the tab's bars). */
+  strum?: StrumAnalysis;
 }
 
 /** The `AutoTabInfo` header of an auto-transcribed alphaTex, or null for any other text. */
@@ -218,3 +224,5 @@ export function readAutoTabInfo(text: string): AutoTabInfo | null {
 }
 
 export * from './fingering';
+export * from './chords';
+export * from './strum';

@@ -15,6 +15,8 @@ import type { RawTranscription } from './transcribe/index.js';
 export interface TranscribeOptions {
   /** Skip beat tracking (the caller knows the tempo). */
   noBeats?: boolean;
+  /** Track the beat on this audio instead (a song's full mix, steadier than the guitar stem). */
+  beatsInput?: string;
   onProgress: (fraction: number) => void;
   signal: AbortSignal;
 }
@@ -67,17 +69,20 @@ export class BasicPitchTools implements TranscriberTools {
     return { available: true };
   }
 
-  async transcribe(input: string, { noBeats, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
+  async transcribe(input: string, { noBeats, beatsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
     fs.mkdirSync(this.tmpRoot, { recursive: true });
     const work = fs.mkdtempSync(path.join(this.tmpRoot, 'tr-'));
     try {
       // Decode anything (mp3, webm/opus from the browser…) to the model's mono 22.05 kHz WAV first.
       const wav = path.join(work, 'input.wav');
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-ac', '1', '-ar', '22050', '-c:a', 'pcm_s16le', wav], { signal, onSpawn: track });
+      const beatsWav = path.join(work, 'beats.wav');
+      const withBeats = !noBeats && !!beatsInput && fs.existsSync(beatsInput);
+      if (withBeats) await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', beatsInput!, '-ac', '1', '-ar', '22050', '-c:a', 'pcm_s16le', beatsWav], { signal, onSpawn: track });
       onProgress(0.05);
       const out = path.join(work, 'notes.json');
       const threads = String(Math.max(1, Math.min(4, os.cpus().length - 1)));
-      await run(this.python, [this.script, wav, '--out', out, ...(noBeats ? ['--no-beats'] : [])], {
+      await run(this.python, [this.script, wav, '--out', out, ...(noBeats ? ['--no-beats'] : withBeats ? ['--beats-from', beatsWav] : [])], {
         signal,
         env: { ...process.env, TMPDIR: work, OMP_NUM_THREADS: threads, NUMBA_CACHE_DIR: path.join(this.tmpRoot, 'numba-cache'), PYTHONUNBUFFERED: '1' },
         onSpawn: (c) => {

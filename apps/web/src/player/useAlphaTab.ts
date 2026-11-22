@@ -187,9 +187,9 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
 
   /**
    * Parses the file here, picks the guitar track and hands alphaTab only that track. `prepare` may
-   * adjust the parsed score first (e.g. colour notes).
+   * adjust the parsed score first (e.g. colour notes) and return the index of the track to show.
    */
-  const show = useCallback((parse: (settings: AlphaTabApi['settings']) => model.Score, fallback: (a: AlphaTabApi) => void, prepare?: (score: model.Score) => void) => {
+  const show = useCallback((parse: (settings: AlphaTabApi['settings']) => model.Score, fallback: (a: AlphaTabApi) => void, prepare?: (score: model.Score) => number | void) => {
     const a = apiRef.current;
     if (!a) return;
     patch({ loading: true, error: null });
@@ -201,20 +201,21 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
       fallback(a); // alphaTab reports the error through its error event
       return;
     }
+    let wanted: number | void = undefined;
     try {
-      prepare?.(score);
+      wanted = prepare?.(score);
     } catch {
       /* decoration only */
     }
-    wantTrack.current = pickGuitarTrack(score).index;
+    wantTrack.current = typeof wanted === 'number' && score.tracks[wanted] ? wanted : pickGuitarTrack(score).index;
     a.renderScore(score, [wantTrack.current]);
   }, [patch]);
 
-  const loadBuffer = useCallback((buf: ArrayBuffer, prepare?: (score: model.Score) => void) => {
+  const loadBuffer = useCallback((buf: ArrayBuffer, prepare?: (score: model.Score) => number | void) => {
     show((st) => importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(buf), st), (a) => a.load(new Uint8Array(buf)), prepare);
   }, [show]);
 
-  const loadTex = useCallback((tex: string, prepare?: (score: model.Score) => void) => {
+  const loadTex = useCallback((tex: string, prepare?: (score: model.Score) => number | void) => {
     show((st) => {
       const imp = new importer.AlphaTexImporter();
       imp.initFromString(tex, st);

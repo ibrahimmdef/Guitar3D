@@ -1,8 +1,17 @@
-import { AUTO_TEX_TAG, fingerPitches, type AutoTabInfo } from '@guitar3d/shared';
+import { AUTO_TEX_TAG, fingerPitches, type AutoTabInfo, type StrumAnalysis } from '@guitar3d/shared';
 import { SLOTS_PER_BAR, type QNote } from './grid.js';
 
+/** What a strummed event carries besides its notes. */
+export interface StrokeInfo {
+  /** Pick stroke: down / up (written as alphaTex `sd` / `su`, drawn as arrows). */
+  stroke?: 'D' | 'U';
+  accent?: boolean;
+  /** Chord symbol written above the beat (at chord changes). */
+  chord?: string;
+}
+
 /** Notes starting together. */
-export interface TabEvent {
+export interface TabEvent extends StrokeInfo {
   slot: number;
   notes: QNote[];
 }
@@ -13,7 +22,7 @@ export interface PlacedNote extends QNote {
   fret: number;
 }
 
-export interface PlacedEvent {
+export interface PlacedEvent extends StrokeInfo {
   slot: number;
   notes: PlacedNote[];
 }
@@ -65,7 +74,7 @@ export function placeEvents(events: TabEvent[], tuning: readonly number[], capo 
       if (p) notes.push({ ...n, string: p.string, fret: p.fret });
       else dropped++;
     });
-    if (notes.length) out.push({ slot: e.slot, notes });
+    if (notes.length) out.push({ ...e, notes });
   });
   return { events: out, dropped };
 }
@@ -121,12 +130,17 @@ export function renderTrack(events: PlacedEvent[], barCount: number, lowConf = L
       const len = Math.max(1, Math.min(Math.max(...e.notes.map((n) => n.len)), next - e.slot));
       const v = alignedValue(at, len);
       const sorted = [...e.notes].sort((a, b) => a.string - b.string);
-      const body = sorted.map((n) => `${n.fret}.${n.string}`);
+      const body = sorted.map((n) => {
+        const fx = [n.dead ? 'x' : '', e.accent ? 'ac' : ''].filter(Boolean);
+        return `${n.fret}.${n.string}${fx.length ? `{${fx.join(' ')}}` : ''}`;
+      });
       sorted.forEach((n) => {
         if (n.conf < lowConf) low.push([bar, tokens.length, n.string]);
       });
       notes += sorted.length;
-      tokens.push(body.length === 1 ? `${body[0]}.${texDur(v)}` : `(${body.join(' ')}).${texDur(v)}`);
+      const beatFx = [e.stroke === 'D' ? 'sd' : e.stroke === 'U' ? 'su' : '', e.chord ? `ch "${esc(e.chord)}"` : ''].filter(Boolean);
+      const fx = beatFx.length ? `{${beatFx.join(' ')}}` : '';
+      tokens.push(body.length === 1 ? `${body[0]}.${texDur(v)}${fx}` : `(${body.join(' ')}).${texDur(v)}${fx}`);
       pos = at + v;
       ei++;
     }
@@ -151,18 +165,23 @@ export interface TexInput {
   detected: string;
   /** General MIDI program (25 = steel-string acoustic; guitar programs also set the notation octave). */
   program?: number;
+  /** At least this many bars (the strum analysis covers them). */
+  barCount?: number;
+  /** Strum pattern of the rhythm part, stored in the info header. */
+  strum?: StrumAnalysis;
 }
 
 /** The whole auto-transcribed tab, starting with the `AUTO_TEX_TAG` info line. */
 export function buildAlphaTex(input: TexInput): { tex: string; info: AutoTabInfo } {
   const last = Math.max(0, ...input.parts.flatMap((p) => p.events.map((e) => e.slot)));
-  const barCount = Math.floor(last / SLOTS_PER_BAR) + 1;
+  const barCount = Math.max(input.barCount ?? 0, Math.floor(last / SLOTS_PER_BAR) + 1);
   const tracks = input.parts.map((p) => ({ part: p, r: renderTrack(p.events, barCount) }));
   const info: AutoTabInfo = {
     v: 1,
     detected: input.detected,
     notes: tracks.reduce((s, t) => s + t.r.notes, 0),
     low: tracks.flatMap((t, ti) => t.r.low.map(([bar, beat, string]) => [ti, bar, beat, string] as [number, number, number, number])),
+    ...(input.strum ? { strum: input.strum } : {}),
   };
   const head = [
     `${AUTO_TEX_TAG}${JSON.stringify(info)}`,

@@ -69,6 +69,14 @@ export class TranscriptionQueue {
     }
   }
 
+  /** A song's full mix for beat tracking (undefined for recordings). */
+  private beatsInput(job: TranscriptionJob): string | undefined {
+    const song = job.source === 'song' && job.songId ? this.store.getSong(job.songId) : undefined;
+    const file = song?.fileName ? path.join(this.store.songDir(song.id), song.fileName) : '';
+    // link imports may have dropped the original after separation
+    return file && fs.existsSync(file) && fs.statSync(file).isFile() ? file : undefined;
+  }
+
   /** The audio to transcribe: the song's separated guitar stem, or the uploaded recording. */
   private input(job: TranscriptionJob): string {
     if (job.source === 'song') {
@@ -104,6 +112,7 @@ export class TranscriptionQueue {
         let saved = 0;
         return this.tools.transcribe(input, {
           noBeats: !!job.bpm,
+          beatsInput: this.beatsInput(job),
           signal: ctrl.signal,
           onProgress: (p) => {
             if (p - saved >= 0.02 && this.store.getTranscription(id)) {
