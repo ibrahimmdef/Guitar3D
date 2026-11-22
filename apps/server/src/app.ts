@@ -13,6 +13,7 @@ import { extractTabInfo } from './tabInfo.js';
 import { SongQueue, songsRouter } from './songs.js';
 import { DemucsTools, type SongTools } from './separator.js';
 import { JobLock } from './jobLock.js';
+import { YtDlpTools, type LinkTools } from './linkImport.js';
 import { BasicPitchTools, type TranscriberTools } from './transcriber.js';
 import { TranscriptionQueue, transcriptionsRouter } from './transcriptions.js';
 
@@ -34,15 +35,18 @@ export interface AppOptions {
   songTools?: SongTools;
   /** Transcription backend (tests pass a mock). Defaults to Basic Pitch + librosa. */
   transcriberTools?: TranscriberTools;
+  /** yt-dlp backend for "Add a song from a link" (tests pass a mock). */
+  linkTools?: LinkTools;
 }
 
 export function createApp(store: Store, opts: AppOptions = {}) {
   const app = express();
   const songTools = opts.songTools ?? new DemucsTools();
   const transcriberTools = opts.transcriberTools ?? new BasicPitchTools();
+  const linkTools = opts.linkTools ?? new YtDlpTools();
   // Separation and transcription share one lock: never two heavy jobs at once.
   const heavy = new JobLock();
-  const songQueue = new SongQueue(store, songTools, 1, heavy);
+  const songQueue = new SongQueue(store, songTools, 1, heavy, linkTools);
   songQueue.resume();
   app.locals.songQueue = songQueue;
   const transcriptionQueue = new TranscriptionQueue(store, transcriberTools, heavy);
@@ -188,7 +192,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
   app.use('/api', guitarsRouter(store));
   app.use('/api', sessionsRouter(store));
   app.use('/api', notesRouter(store));
-  app.use('/api', songsRouter(store, songTools, songQueue));
+  app.use('/api', songsRouter(store, songTools, songQueue, linkTools));
   app.use('/api', transcriptionsRouter(store, transcriberTools, transcriptionQueue));
 
   return app;

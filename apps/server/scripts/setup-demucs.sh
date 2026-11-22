@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Creates the Python environment used for stem separation (Demucs, CPU-only PyTorch) and
-# transcription (Spotify Basic Pitch with the ONNX backend — no TensorFlow — plus librosa).
+# transcription (Spotify Basic Pitch with the ONNX backend — no TensorFlow — plus librosa), and
+# yt-dlp for adding songs from a link.
 #   Linux/macOS: ~/.local/share/guitar3d/demucs-venv   (override with G3D_DEMUCS_VENV)
 # The server finds it via G3D_DEMUCS_PYTHON or that default path.
 # Needs `uv` (https://docs.astral.sh/uv/) — it downloads Python 3.12 itself if missing.
@@ -38,6 +39,10 @@ uv pip freeze --python "$PY" | grep -i -E '^(numpy|torch|torchaudio)==' > "$PINS
 uv pip install --python "$PY" -c "$PINS" librosa onnxruntime pretty_midi resampy mir_eval
 uv pip install --python "$PY" --no-deps basic-pitch
 "$PY" -c "from basic_pitch import build_icassp_2022_model_path, FilenameSuffix; import onnxruntime, librosa; print('basic-pitch ok:', build_icassp_2022_model_path(FilenameSuffix.onnx))"
+
+echo "==> yt-dlp (\"Add a song from a link\"; yt-dlp-ejs solves YouTube's JS challenges with Node)"
+uv pip install --python "$PY" -U "yt-dlp[default]"
+"$VENV/bin/yt-dlp" --version
 
 echo "==> model htdemucs_6s (downloaded once into the torch hub cache)"
 "$PY" - <<'PY'

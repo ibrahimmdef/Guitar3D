@@ -10,6 +10,7 @@
   font-weight: var(--fw-medium);
 }
 .song-badge.is-separating,
+.song-badge.is-downloading,
 .song-badge.is-queued {
   background: var(--accent-soft);
   color: var(--accent);
@@ -34,6 +35,48 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.song-card-retry {
+  position: absolute;
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+}
+.song-card:has(.song-badge.is-error) .song-card-err {
+  padding-right: 84px;
+}
+
+/* "From link" box under the upload area */
+.song-link {
+  display: grid;
+  gap: var(--sp-2);
+}
+.song-link-row {
+  position: relative;
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.song-link-row .input {
+  flex: 1;
+  min-width: 0;
+  padding-left: calc(var(--sp-3) + 22px);
+}
+.song-link-ic {
+  position: absolute;
+  left: var(--sp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.song-link-err {
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+.song-link .subtle {
+  margin: 0;
+}
+
 .song-setup {
   display: flex;
   gap: var(--sp-3);

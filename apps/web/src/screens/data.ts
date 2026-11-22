@@ -65,6 +65,16 @@ export function uploadSong(file: File): Promise<Song> {
   return fetch('/api/songs', { method: 'POST', body: fd }).then((r) => json<Song>(r));
 }
 
+/** Downloads a song's audio from a page (YouTube, SoundCloud, Vimeo…) on the server, then separates it. */
+export const addSongFromLink = (url: string) =>
+  fetch('/api/songs/from-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then((r) => json<Song>(r));
+
+/** First http(s) link in pasted text, or null. */
+export function findLink(text: string): string | null {
+  const m = text.match(/https?:\/\/[^\s<>"']+/i);
+  return m ? m[0] : null;
+}
+
 export const retrySong = (id: string) => fetch(`/api/songs/${encodeURIComponent(id)}/retry`, { method: 'POST' }).then((r) => json<Song>(r));
 
 export async function deleteSong(id: string) {

@@ -68,7 +68,7 @@ export function overallProgress(demucs: number, encoded = 0, total = STEM_NAMES.
 }
 
 /** Runs a command, collecting output; rejects with the tail of stderr on a non-zero exit. */
-export function run(cmd: string, args: string[], opts: { signal?: AbortSignal; env?: NodeJS.ProcessEnv; onStderr?: (s: string) => void; onSpawn?: (c: ChildProcess) => void } = {}) {
+export function run(cmd: string, args: string[], opts: { signal?: AbortSignal; env?: NodeJS.ProcessEnv; onStderr?: (s: string) => void; onStdout?: (s: string) => void; onSpawn?: (c: ChildProcess) => void } = {}) {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new Error('aborted'));
     const child = spawn(cmd, args, { env: opts.env ?? process.env, windowsHide: true });
@@ -78,7 +78,9 @@ export function run(cmd: string, args: string[], opts: { signal?: AbortSignal; e
     const abort = () => child.kill();
     opts.signal?.addEventListener('abort', abort, { once: true });
     child.stdout.on('data', (d: Buffer) => {
-      stdout += d.toString();
+      const s = d.toString();
+      stdout += s;
+      opts.onStdout?.(s);
       if (stdout.length > 200_000) stdout = stdout.slice(-100_000);
     });
     child.stderr.on('data', (d: Buffer) => {

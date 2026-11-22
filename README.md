@@ -28,6 +28,23 @@ apps/server/scripts/setup-demucs.sh   # needs uv + ffmpeg; installs CPU-only tor
 Environment variables: `G3D_DEMUCS_PYTHON` (default `~/.local/share/guitar3d/demucs-venv/bin/python`),
 `G3D_TMP_DIR` (default `~/.cache/g3d-tmp`), `DATA_DIR`. Songs live under `data/songs/<id>/` and are not included in backups.
 
+#### From a link
+
+"From link" (or paste a link anywhere on the library screen) downloads the audio of a page with
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) — YouTube, SoundCloud, Vimeo, Instagram, Internet Archive,
+Wikimedia Commons and other sites it supports — then the song goes through the same validation and
+separation queue (`POST /api/songs/from-link {url}`; status `queued → downloading → separating → ready`).
+Audio only (`bestaudio`, extracted to m4a), first item of a playlist only, max 50 MB / 10 min, 120 s
+timeout, no cookies and `--ignore-config`. Links must be http(s) and resolve to public addresses only.
+The setup script installs yt-dlp (with `yt-dlp-ejs`; YouTube's player challenges run on the server's Node)
+into the venv. Sites sometimes block server downloads (e.g. YouTube's "confirm you're not a bot"); the
+card then says so and suggests uploading the file. Only add songs you have the right to use.
+
+- `G3D_YTDLP`: yt-dlp binary (default: `yt-dlp` on PATH, else `<venv>/bin/yt-dlp`)
+- `G3D_LINK_IMPORT=off`: turn the feature off (`GET /api/songs/separator` reports `linkImport`)
+- `G3D_DELETE_LINK_ORIGINALS=0`: keep the downloaded original (default: deleted once the stems exist)
+- `G3D_LINK_TIMEOUT_SECONDS` (default 120)
+
 ### Auto-transcription (tab + notation)
 
 "Transcribe guitar" on a separated song, or "Transcribe my playing" in the library (microphone take,

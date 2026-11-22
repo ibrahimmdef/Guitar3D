@@ -95,7 +95,7 @@ export interface BarNote {
 export const STEM_NAMES = ['guitar', 'vocals', 'bass', 'drums', 'piano', 'other'] as const;
 export type StemName = (typeof STEM_NAMES)[number];
 
-export type SongStatus = 'queued' | 'separating' | 'ready' | 'error';
+export type SongStatus = 'queued' | 'downloading' | 'separating' | 'ready' | 'error';
 
 /** An audio song split into stems (`/api/songs`). Files live in data/songs/<id>/. */
 export interface Song {
@@ -116,6 +116,10 @@ export interface Song {
   stems: StemName[];
   /** Wall-clock seconds the last successful separation took. */
   separationSeconds?: number;
+  /** Page the audio was downloaded from ("From link"); absent for uploaded files. */
+  sourceUrl?: string;
+  /** The downloaded original was deleted after separation (data retention); the stems stay. */
+  originalDeleted?: boolean;
 }
 
 /** `GET /api/songs/separator`: whether stem separation can run on this machine. */
@@ -124,6 +128,15 @@ export interface SeparatorStatus {
   /** Why not, e.g. Demucs / ffmpeg not installed. */
   reason?: string;
   /** Command or steps that fix it. */
+  setupHint?: string;
+  /** Whether "Add a song from a link" (yt-dlp) works on this server. */
+  linkImport?: LinkImportStatus;
+}
+
+/** Link import (yt-dlp) availability, reported inside `SeparatorStatus`. */
+export interface LinkImportStatus {
+  available: boolean;
+  reason?: string;
   setupHint?: string;
 }
 

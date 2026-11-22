@@ -44,7 +44,7 @@ export function SongScreen({ id }: { id: string }) {
         .then((s) => {
           if (stop) return;
           setSong(s);
-          if (s.status === 'queued' || s.status === 'separating') timer = window.setTimeout(load, 1500);
+          if (s.status === 'queued' || s.status === 'downloading' || s.status === 'separating') timer = window.setTimeout(load, 1500);
           if (s.status === 'error') separatorStatus().then(setSep).catch(() => {});
         })
         .catch(() => !stop && setMissing(true));
@@ -125,7 +125,7 @@ function SeparationStatus({ song, sep, onRetried }: { song: Song; sep: Separator
     <section className="song-status" role="status" aria-live="polite">
       <Spinner label="Separating" />
       <div className="song-status-body">
-        <p className="song-status-title">{song.status === 'queued' ? 'Waiting in the queue…' : `Splitting the instruments… ${pct}%`}</p>
+        <p className="song-status-title">{song.status === 'queued' ? 'Waiting in the queue…' : song.status === 'downloading' ? `Downloading the audio… ${pct}%` : `Splitting the instruments… ${pct}%`}</p>
         <p className="muted small">Guitar, vocals, bass, drums, piano and other go to separate tracks. This can take a few minutes depending on the song length; you can leave this page.</p>
         <span className="song-progress"><span style={{ width: `${pct}%` }} /></span>
       </div>

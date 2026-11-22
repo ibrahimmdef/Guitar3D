@@ -6,8 +6,9 @@ import path from 'node:path';
 import type { Song, StemName } from '@guitar3d/shared';
 import { STEM_NAMES } from '@guitar3d/shared';
 import type { Store } from './store.js';
-import { STEM_EXT, type SongTools } from './separator.js';
+import { separationTempDir, STEM_EXT, type SongTools } from './separator.js';
 import { JobLock } from './jobLock.js';
+import { checkLink, deleteLinkOriginals, LinkError, type LinkTools } from './linkImport.js';
 
 /** Accepted uploads (validated by extension and then by ffprobe). */
 export const AUDIO_EXTS = ['.mp3', '.wav', '.flac', '.ogg', '.oga', '.opus', '.m4a', '.aac'];
@@ -24,6 +25,25 @@ const uploadId = (req: object) => uploadIds.get(req) ?? crypto.randomUUID();
 
 const stemsDir = (store: Store, id: string) => path.join(store.songDir(id), 'stems');
 
+/** Title shown for a link song until yt-dlp's metadata arrives. */
+export const linkPlaceholderTitle = (url: string) => {
+  try {
+    return `Song from ${new URL(url).hostname.replace(/^www\./, '')}`;
+  } catch {
+    return 'Song from a link';
+  }
+};
+
+/** Moves a file, falling back to copy + delete across file systems. */
+function moveFile(from: string, to: string) {
+  try {
+    fs.renameSync(from, to);
+  } catch {
+    fs.copyFileSync(from, to);
+    fs.rmSync(from, { force: true });
+  }
+}
+
 /**
  * Separation job queue: one worker, jobs run in upload order. `concurrency` is kept as a knob for a
  * bigger host; with Demucs on CPU each job needs ~1–2 GB RAM, so the default is 1.
@@ -39,12 +59,14 @@ export class SongQueue {
     private readonly concurrency = 1,
     /** Shared with the transcription queue so only one heavy job runs at a time. */
     private readonly lock = new JobLock(),
+    /** yt-dlp for songs added from a link (undefined: link songs fail with a clear error). */
+    private readonly links?: LinkTools,
   ) {}
 
-  /** Songs left 'queued' or 'separating' by a previous run start again. */
+  /** Songs left 'queued', 'downloading' or 'separating' by a previous run start again. */
   resume() {
     for (const s of [...this.store.listSongs()].reverse()) {
-      if (s.status === 'queued' || s.status === 'separating') {
+      if (s.status === 'queued' || s.status === 'downloading' || s.status === 'separating') {
         this.store.updateSong(s.id, { status: 'queued', progress: 0 });
         this.enqueue(s.id);
       }
@@ -84,8 +106,81 @@ export class SongQueue {
     }
   }
 
-  private process(id: string, ctrl: AbortController) {
+  /** Link songs download first (network-bound, outside the heavy-job lock), then separate. */
+  private async process(id: string, ctrl: AbortController) {
+    const song = this.store.getSong(id);
+    if (!song) return;
+    const needsDownload = !!song.sourceUrl && (!song.fileName || !fs.existsSync(path.join(this.store.songDir(id), song.fileName)));
+    if (needsDownload && !(await this.download(id, song.sourceUrl!, ctrl))) return;
     return this.lock.run(() => this.separate(id, ctrl));
+  }
+
+  /** Downloads a link song's audio and validates it like an upload. Resolves false on failure. */
+  private async download(id: string, url: string, ctrl: AbortController): Promise<boolean> {
+    const fail = (message: string) => {
+      if (!ctrl.signal.aborted && this.store.getSong(id)) this.store.updateSong(id, { status: 'error', progress: 0, error: message.slice(0, 500) });
+      return false;
+    };
+    if (!this.links) return fail('Adding songs from links is unavailable on this server.');
+    this.store.updateSong(id, { status: 'downloading', progress: 0, error: undefined });
+    const tmpRoot = separationTempDir();
+    fs.mkdirSync(tmpRoot, { recursive: true });
+    const work = fs.mkdtempSync(path.join(tmpRoot, 'dl-'));
+    let saved = 0;
+    try {
+      const got = await this.links.download(url, work, {
+        signal: ctrl.signal,
+        maxSeconds: maxSongSeconds(),
+        onProgress: (p) => {
+          if (p - saved >= 0.02 && this.store.getSong(id)) {
+            saved = p;
+            this.store.updateSong(id, { progress: Math.round(p * 1000) / 1000 });
+          }
+        },
+      });
+      if (ctrl.signal.aborted || !this.store.getSong(id)) return false;
+      // Same checks as an upload: extension, size, decodable audio, duration.
+      const ext = path.extname(got.file).toLowerCase();
+      if (!AUDIO_EXTS.includes(ext)) return fail('The download is not a supported audio file. Upload the audio file instead.');
+      if (fs.statSync(got.file).size > MAX_SONG_BYTES) return fail(`The audio is too large (max ${MAX_SONG_BYTES / 1024 / 1024} MB).`);
+      let info;
+      try {
+        info = await this.tools.probe(got.file);
+      } catch {
+        return fail('The downloaded file is not valid audio. Upload the audio file instead.');
+      }
+      if (info.duration > maxSongSeconds()) return fail(`Song too long (max ${Math.round(maxSongSeconds() / 60)} min).`);
+      const song = this.store.getSong(id);
+      if (!song) return false;
+      const dir = this.store.songDir(id);
+      fs.mkdirSync(dir, { recursive: true });
+      const fileName = `original${ext}`;
+      moveFile(got.file, path.join(dir, fileName));
+      this.store.updateSong(id, {
+        fileName,
+        duration: Math.round(info.duration * 100) / 100,
+        // Keep a title/artist the user typed; otherwise use the page's metadata.
+        title: song.title === linkPlaceholderTitle(url) ? (got.title || info.title || song.title).slice(0, 200) : song.title,
+        artist: song.artist || (got.artist || info.artist || '').slice(0, 200),
+        status: 'queued',
+        progress: 0,
+        originalDeleted: undefined,
+      });
+      return true;
+    } catch (e) {
+      if (ctrl.signal.aborted) return false;
+      return fail(e instanceof LinkError ? e.message : `Download failed: ${(e as Error).message}`);
+    } finally {
+      fs.rmSync(work, { recursive: true, force: true });
+    }
+  }
+
+  /** Data retention: a downloaded original is not kept once its stems exist. */
+  private dropLinkOriginal(id: string) {
+    const song = this.store.getSong(id);
+    if (!song?.sourceUrl || !song.fileName || !deleteLinkOriginals()) return;
+    fs.rmSync(path.join(this.store.songDir(id), song.fileName), { force: true });
+    this.store.updateSong(id, { originalDeleted: true });
   }
 
   private async separate(id: string, ctrl: AbortController) {
@@ -113,6 +208,7 @@ export class SongQueue {
       });
       if (!this.store.getSong(id)) return;
       this.store.updateSong(id, { status: 'ready', progress: 1, stems, separationSeconds: Math.round((Date.now() - started) / 100) / 10 });
+      this.dropLinkOriginal(id);
     } catch (e) {
       if (ctrl.signal.aborted || !this.store.getSong(id)) return;
       this.store.updateSong(id, { status: 'error', error: `Separation failed: ${(e as Error).message}`.slice(0, 500) });
@@ -121,7 +217,7 @@ export class SongQueue {
 }
 
 /** `/api/songs`: upload audio, follow separation, stream stems. */
-export function songsRouter(store: Store, tools: SongTools, queue: SongQueue) {
+export function songsRouter(store: Store, tools: SongTools, queue: SongQueue, links?: LinkTools) {
   const r = Router();
 
   const upload = multer({
@@ -145,7 +241,38 @@ export function songsRouter(store: Store, tools: SongTools, queue: SongQueue) {
   });
 
   r.get('/songs/separator', async (_req, res) => {
-    res.json(await tools.status());
+    const [sep, linkImport] = await Promise.all([tools.status(), links ? links.status() : Promise.resolve({ available: false, reason: 'Adding songs from links is unavailable on this server.' })]);
+    res.json({ ...sep, linkImport });
+  });
+
+  /** `{ url, title?, artist? }`: download the audio of a page with yt-dlp, then separate it. */
+  r.post('/songs/from-link', async (req, res) => {
+    const status = links ? await links.status() : { available: false, reason: 'Adding songs from links is unavailable on this server.' };
+    if (!links || !status.available) {
+      res.status(503).json({ error: status.reason ?? 'Adding songs from links is unavailable.' });
+      return;
+    }
+    let url: string;
+    try {
+      url = await checkLink((req.body as { url?: unknown } | undefined)?.url, (h) => links.resolve(h));
+    } catch (e) {
+      if (!(e instanceof LinkError)) throw e;
+      res.status(400).json({ error: e.message, code: e.code });
+      return;
+    }
+    const song: Song = store.addSong({
+      id: crypto.randomUUID(),
+      title: str(req.body?.title) || linkPlaceholderTitle(url),
+      artist: str(req.body?.artist),
+      fileName: '',
+      uploadedAt: new Date().toISOString(),
+      status: 'queued',
+      progress: 0,
+      stems: [],
+      sourceUrl: url,
+    });
+    queue.enqueue(song.id);
+    res.status(201).json(song);
   });
 
   r.post('/songs', (req, res) => {
@@ -238,7 +365,11 @@ export function songsRouter(store: Store, tools: SongTools, queue: SongQueue) {
 
   r.get('/songs/:id/original', (req, res) => {
     const song = store.getSong(req.params.id);
-    if (!song) return notFound(res);
+    if (!song || !song.fileName) return notFound(res);
+    if (song.originalDeleted) {
+      res.status(404).json({ error: 'The downloaded original was deleted after separation; the stems are kept.' });
+      return;
+    }
     res.sendFile(path.join(store.songDir(song.id), song.fileName), { dotfiles: 'allow' });
   });
 
