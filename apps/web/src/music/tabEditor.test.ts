@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addBar, barFill, clearFret, deleteBar, deleteBeat, insertBeat, newDoc, parseAlphaTex, parseTexPitch, pasteBar, setDuration, setFret, stepLeft, stepRight,
+  addBar, barFill, clearFret, deleteBar, deleteBeat, insertBeat, newDoc, parseAlphaTex, parseTexPitch, pasteBar, selectTexTrack, setDuration, setFret, stepLeft, stepRight,
   toAlphaTex, type EdDoc,
 } from './tabEditor';
 
@@ -82,5 +82,38 @@ describe('editing', () => {
     d = deleteBar(d, 0);
     expect(d.bars).toHaveLength(1);
     expect(deleteBar(d, 0).bars).toHaveLength(1);
+  });
+});
+
+describe('selectTexTrack', () => {
+  const tex = [
+    '// guitar3d-auto {"v":1,"detected":"E standard","notes":4,"low":[]}',
+    '\\title "Riff (auto)"',
+    '\\tempo 100',
+    '.',
+    '\\track "Lead / riff"',
+    '\\staff {score tabs}',
+    '\\instrument 25',
+    '\\tuning e4 b3 g3 d3 a2 e2',
+    '0.6.8 r.8 3.6.8 r.8 r.2 |',
+    'r.1 |',
+    '\\track "Rhythm"',
+    '\\staff {score tabs}',
+    '\\instrument 25',
+    '\\tuning e4 b3 g3 d3 a2 e2',
+    'r.1 |',
+    '(2.4 2.5 0.6).2 r.2 |',
+  ].join('\n');
+
+  it('keeps the metadata and one track, so the editor can open an auto tab', () => {
+    const lead = parseAlphaTex(selectTexTrack(tex, 0));
+    expect(lead.title).toBe('Riff (auto)');
+    expect(lead.tempo).toBe(100);
+    expect(lead.bars).toHaveLength(2);
+    expect(lead.bars[0].beats[0]).toEqual({ duration: 8, notes: [{ fret: 0, string: 6 }] });
+    const rhythm = parseAlphaTex(selectTexTrack(tex, 1));
+    expect(rhythm.bars[1].beats[0]).toEqual({ duration: 2, notes: [{ fret: 2, string: 4 }, { fret: 2, string: 5 }, { fret: 0, string: 6 }] });
+    expect(selectTexTrack(tex, 7)).toBe(selectTexTrack(tex, 0));
+    expect(selectTexTrack('\\track "x"\n0.1 |', 0)).toBe('\\track "x"\n0.1 |');
   });
 });

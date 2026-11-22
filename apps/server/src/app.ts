@@ -12,6 +12,9 @@ import { backupRouter } from './backup.js';
 import { extractTabInfo } from './tabInfo.js';
 import { SongQueue, songsRouter } from './songs.js';
 import { DemucsTools, type SongTools } from './separator.js';
+import { JobLock } from './jobLock.js';
+import { BasicPitchTools, type TranscriberTools } from './transcriber.js';
+import { TranscriptionQueue, transcriptionsRouter } from './transcriptions.js';
 
 /** Upload extension → stored format. Text formats (.atex/.tex) hold alphaTex. */
 export const TAB_FORMATS: Record<string, TabFormat> = {
@@ -29,14 +32,22 @@ const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u
 export interface AppOptions {
   /** Separation / probing backend (tests pass a mock). Defaults to Demucs + ffmpeg. */
   songTools?: SongTools;
+  /** Transcription backend (tests pass a mock). Defaults to Basic Pitch + librosa. */
+  transcriberTools?: TranscriberTools;
 }
 
 export function createApp(store: Store, opts: AppOptions = {}) {
   const app = express();
   const songTools = opts.songTools ?? new DemucsTools();
-  const songQueue = new SongQueue(store, songTools);
+  const transcriberTools = opts.transcriberTools ?? new BasicPitchTools();
+  // Separation and transcription share one lock: never two heavy jobs at once.
+  const heavy = new JobLock();
+  const songQueue = new SongQueue(store, songTools, 1, heavy);
   songQueue.resume();
   app.locals.songQueue = songQueue;
+  const transcriptionQueue = new TranscriptionQueue(store, transcriberTools, heavy);
+  transcriptionQueue.resume();
+  app.locals.transcriptionQueue = transcriptionQueue;
   app.use('/api', backupRouter(store));
   app.use(express.json({ limit: '5mb' }));
 
@@ -153,7 +164,8 @@ export function createApp(store: Store, opts: AppOptions = {}) {
     }
     const file = path.resolve(store.tabsDir, tab.fileName);
     if (tab.fileName.endsWith('.atex')) res.type('text/plain; charset=utf-8');
-    res.sendFile(file);
+    // dotfiles: 'allow' so a data dir below a dot folder (e.g. ~/.local) still serves.
+    res.sendFile(file, { dotfiles: 'allow' });
   });
 
   app.delete('/api/tabs/:id', (req, res) => {
@@ -177,6 +189,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
   app.use('/api', sessionsRouter(store));
   app.use('/api', notesRouter(store));
   app.use('/api', songsRouter(store, songTools, songQueue));
+  app.use('/api', transcriptionsRouter(store, transcriberTools, transcriptionQueue));
 
   return app;
 }

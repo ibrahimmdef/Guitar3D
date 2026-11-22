@@ -5,6 +5,7 @@ import { ShortcutList } from '../../ui/ShortcutList';
 import { ScreenHeader } from '../AppShell';
 import { SPEED_PRESETS } from '../player/Transport';
 import { BackupSection } from './BackupSection';
+import { TAB_VIEWS } from '../player/Transport';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -101,6 +102,20 @@ export function SettingsScreen() {
           </div>
           <hr />
           <Toggle label="Show tab strip" checked={s.showTabStrip} onChange={(v) => set({ showTabStrip: v })} />
+          <hr />
+          <div className="setting">
+            <div className="setting-text">
+              <div className="setting-label">Tab strip view</div>
+              <p className="setting-desc">Tablature, standard notation, or both, for every tab.</p>
+            </div>
+            <SegmentedControl<Settings['tabView']>
+              aria-label="Tab strip view"
+              size="sm"
+              value={s.tabView}
+              onChange={(v) => set({ tabView: v })}
+              options={TAB_VIEWS}
+            />
+          </div>
           <hr />
           <Toggle label="Fret numbers" description="Shows fret numbers along the edge of the neck." checked={s.showFretNumbers} onChange={(v) => set({ showFretNumbers: v })} />
         </Card>

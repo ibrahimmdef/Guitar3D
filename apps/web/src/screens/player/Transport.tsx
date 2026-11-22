@@ -1,10 +1,17 @@
-import { GraduationCap, Metronome, Mic, MicOff, Minus, PanelBottom, Pause, Play, Plus, Repeat, SkipBack, Timer, Volume2, VolumeX, X } from 'lucide-react';
+import { GraduationCap, Music2, Metronome, Mic, MicOff, Minus, PanelBottom, Pause, Play, Plus, Repeat, SkipBack, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import { GUITAR_SOUNDS, MIXES, mixOf, type Mix } from '../../audio/sounds';
 import { Button, IconButton, Popover, SegmentedControl, Slider, Toggle, Tooltip } from '../../ui/kit';
 import { formatPercent, formatTime } from '../../ui/format';
 import { Scrubber } from './Scrubber';
 
 export const SPEED_PRESETS = [0.5, 0.75, 0.9, 1] as const;
+
+export type TabView = 'tab' | 'score' | 'both';
+export const TAB_VIEWS: { value: TabView; label: string }[] = [
+  { value: 'tab', label: 'Tab' },
+  { value: 'score', label: 'Notation' },
+  { value: 'both', label: 'Tab + notation' },
+];
 
 const fmtTime = formatTime;
 const pct = formatPercent;
@@ -49,6 +56,9 @@ export interface TransportProps {
 
   showTab: boolean;
   onToggleTab: () => void;
+  /** Tab strip view: tablature, notation or both. */
+  tabView: TabView;
+  onTabView: (v: TabView) => void;
 
   program: number;
   onProgram: (p: number) => void;
@@ -209,6 +219,30 @@ export function Transport(p: TransportProps) {
           {p.loop && <IconButton label="Clear loop" icon={<X size={14} />} size="sm" onClick={p.onClearLoop} tooltip={false} className="tp-loop-x" />}
         </div>
 
+        <Popover
+          label="View"
+          trigger={
+            <Tooltip content="View: tab / notation">
+              <button type="button" className="btn btn-ghost btn-md icon-btn tp-hide-sm" aria-label={`View: ${TAB_VIEWS.find((v) => v.value === p.tabView)?.label ?? 'Tab'}`}>
+                <Music2 size={18} />
+              </button>
+            </Tooltip>
+          }
+        >
+          <div className="pop-stack">
+            <div className="pop-title">View</div>
+            <SegmentedControl<TabView>
+              aria-label="Tab strip view"
+              size="sm"
+              value={p.tabView}
+              onChange={(v) => {
+                p.onTabView(v);
+                if (!p.showTab) p.onToggleTab();
+              }}
+              options={TAB_VIEWS}
+            />
+          </div>
+        </Popover>
         <IconButton
           label={p.showTab ? 'Hide tab strip' : 'Show tab strip'}
           shortcut="T"

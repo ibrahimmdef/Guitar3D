@@ -68,7 +68,7 @@ export function overallProgress(demucs: number, encoded = 0, total = STEM_NAMES.
 }
 
 /** Runs a command, collecting output; rejects with the tail of stderr on a non-zero exit. */
-function run(cmd: string, args: string[], opts: { signal?: AbortSignal; env?: NodeJS.ProcessEnv; onStderr?: (s: string) => void; onSpawn?: (c: ChildProcess) => void } = {}) {
+export function run(cmd: string, args: string[], opts: { signal?: AbortSignal; env?: NodeJS.ProcessEnv; onStderr?: (s: string) => void; onSpawn?: (c: ChildProcess) => void } = {}) {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new Error('aborted'));
     const child = spawn(cmd, args, { env: opts.env ?? process.env, windowsHide: true });
@@ -113,7 +113,7 @@ function lastLines(stderr: string) {
 /** Child processes still running; killed when the server process exits. */
 const live = new Set<ChildProcess>();
 process.once('exit', () => live.forEach((c) => c.kill()));
-const track = (c: ChildProcess) => {
+export const track = (c: ChildProcess) => {
   live.add(c);
   c.once('close', () => live.delete(c));
 };

@@ -302,3 +302,108 @@
     flex-wrap: wrap;
   }
 }
+
+/* ---------- Transcribe my playing ---------- */
+.rec-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.rec-warn {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.rec-warn svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+.rec-live {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-6) 0;
+  text-align: center;
+}
+.rec-count {
+  font-size: 56px;
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  color: var(--accent);
+}
+.rec-time {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+}
+.rec-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+@keyframes rec-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-dot {
+    animation: none;
+  }
+}
+.rec-meter {
+  width: min(280px, 100%);
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.rec-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--success);
+  transition: width 80ms linear;
+}
+.rec-live .song-progress {
+  width: min(280px, 100%);
+}
+
+/* ---------- Song → tab (transcription) ---------- */
+.song-tab {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+}
+.song-tab-body {
+  flex: 1;
+  min-width: 220px;
+}
+.song-tab-title {
+  margin: 0;
+  font-weight: var(--fw-semibold);
+}
+.song-tab-body p {
+  margin: 2px 0 0;
+}
+.song-tab-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.tab-card-auto {
+  color: #ff8a3d;
+}

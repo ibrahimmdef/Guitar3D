@@ -14,6 +14,8 @@ export interface Settings {
   view: GuitarView;
   cameraMode: CameraMode;
   showTabStrip: boolean;
+  /** Tab strip: tablature, standard notation, or both. */
+  tabView: 'tab' | 'score' | 'both';
   showPractice: boolean;
   /** General MIDI program of the guitar sound (see audio/sounds.ts). */
   program: number;
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   view: 'player',
   cameraMode: 'follow',
   showTabStrip: true,
+  tabView: 'tab',
   showPractice: false,
   program: 25,
   showFretNumbers: true,

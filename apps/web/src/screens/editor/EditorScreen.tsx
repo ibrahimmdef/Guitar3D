@@ -3,7 +3,7 @@ import { ClipboardCopy, ClipboardPaste, Download, FilePlus2, Play, Plus, Redo2, 
 import type { FretNote } from '@guitar3d/shared';
 import { tabsApi } from '../../tabs/api';
 import {
-  addBar, barFill, clearFret, deleteBar, deleteBeat, DURATION_LABEL, DURATIONS, insertBeat, newDoc, parseAlphaTex, pasteBar, setDuration, setFret, stepLeft,
+  addBar, barFill, clearFret, deleteBar, deleteBeat, DURATION_LABEL, DURATIONS, insertBeat, newDoc, parseAlphaTex, pasteBar, selectTexTrack, setDuration, setFret, stepLeft,
   stepRight, toAlphaTex, type Cursor, type Duration, type EdBar, type EdDoc,
 } from '../../music/tabEditor';
 import { useTexPlayer } from '../../player/useTexPlayer';
@@ -163,7 +163,7 @@ export function EditorScreen() {
     e.preventDefault();
   };
 
-  const doImport = (text: string) => {
+  const doImport = useCallback((text: string) => {
     try {
       const d = parseAlphaTex(text);
       h.apply(d);
@@ -172,7 +172,22 @@ export function EditorScreen() {
     } catch (err) {
       toast({ title: 'Couldn\'t import', description: (err as Error).message, tone: 'danger' });
     }
-  };
+  }, [h.apply, toast]);
+
+  // #/editor?tab=<id>&track=<n>: open a library tab (e.g. an auto-transcription to fix).
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const id = qs.get('tab');
+    if (!id) return;
+    // drop the query so a reload or StrictMode re-run doesn't import twice
+    history.replaceState(null, '', '#/editor');
+    tabsApi
+      .file(id)
+      .then((buf) => doImport(selectTexTrack(new TextDecoder().decode(buf), Number(qs.get('track') ?? 0))))
+      .catch(() => toast({ title: 'Couldn\'t open the tab', tone: 'danger' }));
+    // once, on arrival
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const download = () => {
     const blob = new Blob([tex], { type: 'text/plain' });

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Pause, Play, Repeat, RotateCcw, SkipBack, X } from 'lucide-react';
-import type { SeparatorStatus, Song, StemName } from '@guitar3d/shared';
+import { AlertTriangle, ArrowLeft, FileMusic, Pause, Play, Repeat, RotateCcw, SkipBack, Sparkles, X } from 'lucide-react';
+import type { SeparatorStatus, Song, StemName, TranscriberStatus } from '@guitar3d/shared';
 import { STEM_NAMES } from '@guitar3d/shared';
 import { Button, EmptyState, IconButton, Slider, Spinner, useToast } from '../../ui/kit';
-import { routeHref } from '../../ui/router';
+import { navigate, playTab, routeHref } from '../../ui/router';
 import { useHotkeys } from '../../ui/shortcuts';
-import { getSong, retrySong, separatorStatus, stemUrl } from '../data';
+import { getSong, listTranscriptions, retrySong, retryTranscription, separatorStatus, stemUrl, transcribeSong, transcriberStatus } from '../data';
+import { isActiveJob, jobProgressLabel, useTranscriptionJob } from '../../songs/useTranscription';
 import { StemEngine } from '../../songs/stemEngine';
 import {
   activePreset,
@@ -84,7 +85,10 @@ export function SongScreen({ id }: { id: string }) {
         <p className="screen-desc">{[song.artist, song.duration ? formatTime(song.duration) : ''].filter(Boolean).join(' · ') || 'Audio file'}</p>
       </header>
       {song.status === 'ready' ? (
-        <StemPlayer key={song.id} song={song} />
+        <>
+          {song.stems.includes('guitar') && <SongTabPanel song={song} />}
+          <StemPlayer key={song.id} song={song} />
+        </>
       ) : (
         <SeparationStatus song={song} sep={sep} onRetried={(s) => { setSong(s); setPoll((n) => n + 1); }} />
       )}
@@ -240,5 +244,80 @@ function StemPlayer({ song }: { song: Song }) {
         <p className="subtle small">Space: play/pause · ←/→: 5 s · A/B: set loop points. Slowing down keeps the pitch.</p>
       </section>
     </>
+  );
+}
+
+/** Guitar stem → tab: start a transcription, follow it, open the result. */
+function SongTabPanel({ song }: { song: Song }) {
+  const toast = useToast();
+  const [job, setJob] = useTranscriptionJob(null);
+  const [loaded, setLoaded] = useState(false);
+  const [status, setStatus] = useState<TranscriberStatus | null>(null);
+  useEffect(() => {
+    let alive = true;
+    listTranscriptions(song.id)
+      .then((js) => alive && setJob(js[0] ?? null))
+      .catch(() => {})
+      .finally(() => alive && setLoaded(true));
+    transcriberStatus().then((st) => alive && setStatus(st)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [song.id, setJob]);
+
+  const start = () =>
+    transcribeSong(song.id)
+      .then(setJob)
+      .catch((e) => toast({ tone: 'danger', title: 'Could not start the transcription.', description: (e as Error).message }));
+  if (!loaded) return null;
+  const s = job?.summary;
+  const unavailable = status && !status.available;
+
+  return (
+    <section className="song-tab" aria-label="Tab from the guitar track" aria-live="polite">
+      {isActiveJob(job) ? <Spinner label="Transcribing" /> : <FileMusic size={20} aria-hidden />}
+      <div className="song-tab-body">
+        {!job && (
+          <>
+            <p className="song-tab-title">Get the tab of this song</p>
+            <p className="muted small">Turns the separated guitar into tab and notation, with the riff and the chords on separate tracks and unsure notes marked.</p>
+            {unavailable && <p className="song-hint small">{status?.reason} {status?.setupHint}</p>}
+          </>
+        )}
+        {job && isActiveJob(job) && (
+          <>
+            <p className="song-tab-title">{jobProgressLabel(job)}</p>
+            <p className="muted small">Usually under a minute; you can leave this page.</p>
+            <span className="song-progress"><span style={{ width: `${Math.round(job.progress * 100)}%` }} /></span>
+          </>
+        )}
+        {job?.status === 'ready' && s && (
+          <>
+            <p className="song-tab-title"><Sparkles size={14} aria-hidden className="tab-card-auto" /> Tab ready · Detected: {s.detected}</p>
+            <p className="muted small">
+              {s.tempo} BPM · {s.bars} bars · {s.tracks.join(' + ')} · {s.lowConfidence ? `${s.lowConfidence} of ${s.notes} notes may need checking` : `${s.notes} notes`}
+            </p>
+          </>
+        )}
+        {job?.status === 'error' && (
+          <>
+            <p className="song-tab-title">Could not transcribe the guitar</p>
+            <p className="muted small">{job.error}</p>
+          </>
+        )}
+      </div>
+      <div className="song-tab-actions">
+        {!job && <Button variant="primary" onClick={start} disabled={!!unavailable}>Transcribe guitar</Button>}
+        {job?.status === 'ready' && job.tabId && (
+          <>
+            <Button variant="primary" icon={<Play size={15} fill="currentColor" />} onClick={() => navigate(playTab(job.tabId!))}>Open tab</Button>
+            <Button variant="ghost" onClick={start}>Transcribe again</Button>
+          </>
+        )}
+        {job?.status === 'error' && (
+          <Button icon={<RotateCcw size={15} />} onClick={() => retryTranscription(job.id).then(setJob).catch((e) => toast({ tone: 'danger', title: (e as Error).message }))}>Try again</Button>
+        )}
+      </div>
+    </section>
   );
 }

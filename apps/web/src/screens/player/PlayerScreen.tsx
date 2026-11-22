@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Box, FileMusic, GraduationCap } from 'lucide-react';
-import type { CameraMode, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
+import { ArrowLeft, Box, FileMusic, GraduationCap, PencilLine, Sparkles, X } from 'lucide-react';
+import type { AutoTabInfo, CameraMode, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
+import { readAutoTabInfo } from '@guitar3d/shared';
 import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
@@ -9,7 +10,7 @@ import { getTuning, withCapo } from '../../music/tunings';
 import { useSessionRecorder } from '../../player/useSessionRecorder';
 import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
-import { barRange, hasRepeats, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
+import { barRange, hasRepeats, markNotes, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
@@ -44,7 +45,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const { api, state, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale } = useAlphaTab(host, scroller);
+  const { api, state, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
@@ -53,6 +54,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const [fetching, setFetching] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  /** Auto-transcription info of the loaded tab (null for ordinary tabs). */
+  const [auto, setAuto] = useState<AutoTabInfo | null>(null);
+  const [autoHidden, setAutoHidden] = useState(false);
 
   const [speed, setSpeed] = useState(settings.defaultSpeed);
   const [metronome, setMetronome] = useState(settings.metronome);
@@ -85,7 +89,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     };
   }, [share?.guitarId]);
 
-  const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus } = settings;
+  const { view, cameraMode, showTabStrip: showTab, showPractice, metronomeVolume: metroVol, program, showFretNumbers, stageZoom, focus, tabView } = settings;
   const fs = useFullscreen(useCallback(() => root.current, []));
 
   /* ---------- Loading ---------- */
@@ -93,6 +97,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     let alive = true;
     setLoadErr(null);
     setMeta(null);
+    setAuto(null);
+    setAutoHidden(false);
     api.current?.stop();
     setFetching(true);
     markPlayed(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
@@ -111,7 +117,17 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           .finally(done);
       } else {
         fetchTabFile(source.id)
-          .then((buf) => alive && loadBuffer(buf))
+          .then((buf) => {
+            if (!alive) return;
+            // Auto-transcribed alphaTex starts with an info comment: colour the notes it is unsure about.
+            const head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
+            const text = head[0] === 0x2f && head[1] === 0x2f ? new TextDecoder().decode(buf) : '';
+            const info = text ? readAutoTabInfo(text) : null;
+            if (info) {
+              setAuto(info);
+              loadTex(text, (score) => markNotes(score, info.low));
+            } else loadBuffer(buf);
+          })
           .catch((e: Error) => alive && setLoadErr(e.message))
           .finally(done);
         listTabs().then((ts) => alive && setMeta(ts.find((x) => x.id === source.id) ?? null)).catch(() => {});
@@ -202,6 +218,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     return capo ? up.map((b) => withCapo(b, capo)) : up;
   }, [state.upcoming, ghosts, capo]);
 
+  useEffect(() => {
+    setTabView(tabView);
+  }, [tabView, setTabView]);
   useEffect(() => {
     setTabScale(focus === 'tab' ? 1.6 : 0.95);
   }, [focus, setTabScale, state.score]);
@@ -552,6 +571,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
             </div>
           )}
 
+          {hasScore && !loadingLabel && auto && !autoHidden && tabId && (
+            <AutoBanner info={auto} tabId={tabId} track={state.track ? state.score?.tracks.indexOf(state.track) ?? 0 : 0} onClose={() => setAutoHidden(true)} />
+          )}
           {hasScore && !loadingLabel && <CountIn value={countValue} />}
           {hasScore && (
             <StageTools
@@ -636,7 +658,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         </Drawer>
       </div>
 
-      <section className={`tabpanel${showTab && !failed ? '' : ' collapsed'}`} aria-label="Tab strip" aria-hidden={!showTab || failed}>
+      <section className={`tabpanel view-${tabView}${showTab && !failed ? '' : ' collapsed'}`} aria-label="Tab strip" aria-hidden={!showTab || failed}>
         <div className="tabpanel-scroll" ref={scroller}>
           <div ref={host} />
         </div>
@@ -678,6 +700,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         onClearLoop={() => setLoop(null)}
         showTab={showTab}
         onToggleTab={toggleTab}
+        tabView={tabView}
+        onTabView={(v) => setSettings({ tabView: v })}
         program={program}
         onProgram={(v) => setSettings({ program: v })}
         onMix={onMix}
@@ -705,6 +729,27 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Keyboard shortcuts" description="You can do everything from the keyboard too.">
         <ShortcutList />
       </Dialog>
+    </div>
+  );
+}
+
+/** "Auto-transcribed — N notes may need checking" with the detected tuning and a way into the editor. */
+function AutoBanner({ info, tabId, track, onClose }: { info: AutoTabInfo; tabId: string; track: number; onClose: () => void }) {
+  const n = info.low.length;
+  return (
+    <div className="auto-banner" role="status">
+      <Sparkles size={16} aria-hidden className="auto-banner-ic" />
+      <div className="auto-banner-text">
+        <strong>Auto-transcribed</strong>
+        <span>
+          {n ? <>{' — '}<span className="auto-low-dot" aria-hidden /> {n} {n === 1 ? 'note' : 'notes'} may need checking</> : ' — check it by ear'}
+        </span>
+        {info.detected && <span className="auto-banner-sub">Detected: {info.detected}</span>}
+      </div>
+      <a className="btn btn-ghost btn-sm auto-banner-edit" href={`#/editor?tab=${encodeURIComponent(tabId)}&track=${track}`}>
+        <PencilLine size={14} aria-hidden /> Open in Tab editor
+      </a>
+      <button type="button" className="auto-banner-x" aria-label="Hide" onClick={onClose}><X size={14} /></button>
     </div>
   );
 }

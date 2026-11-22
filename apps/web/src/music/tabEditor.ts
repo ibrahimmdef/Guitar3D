@@ -288,3 +288,14 @@ export function parseAlphaTex(text: string): EdDoc {
   if (!doc.title) doc.title = 'Imported tab';
   return doc;
 }
+
+/**
+ * One track of a multi-track alphaTex (`\\track` sections), with the score metadata kept, so the
+ * single-track editor can open it. Index out of range → the first track; no tracks → the text as is.
+ */
+export function selectTexTrack(text: string, index: number): string {
+  const starts = [...text.matchAll(/^\s*\\track\b/gm)].map((m) => m.index ?? 0);
+  if (starts.length < 2) return text;
+  const i = index >= 0 && index < starts.length ? index : 0;
+  return text.slice(0, starts[0]) + text.slice(starts[i], starts[i + 1] ?? text.length);
+}

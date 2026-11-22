@@ -8,6 +8,19 @@ export interface TabMeta {
   format?: TabFormat;
   /** ISO time of the last `POST /api/tabs/:id/played`. */
   lastPlayedAt?: string;
+  /** Set on tabs made by auto-transcription (`/api/transcriptions`). */
+  transcription?: TabTranscriptionInfo;
+}
+
+/** Where an auto-transcribed tab came from and how sure the transcription is. */
+export interface TabTranscriptionInfo {
+  jobId: string;
+  source: TranscriptionSource;
+  songId?: string;
+  /** e.g. "Eb standard (½ step down)". */
+  detected: string;
+  notes: number;
+  lowConfidence: number;
 }
 
 export type TabFormat = 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'musicxml' | 'mxl' | 'alphatex' | 'ascii';
@@ -113,3 +126,82 @@ export interface SeparatorStatus {
   /** Command or steps that fix it. */
   setupHint?: string;
 }
+
+// ---- auto-transcription -------------------------------------------------------------------
+
+export type TranscriptionSource = 'song' | 'recording';
+export type TranscriptionStatus = 'queued' | 'running' | 'ready' | 'error';
+
+/** What the post-processing found (`TranscriptionJob.summary`). */
+export interface TranscriptionSummary {
+  /** Human readable tuning / capo line, e.g. "Eb standard (½ step down) · capo 2". */
+  detected: string;
+  /** Tuning id ('standard', 'half-down', 'drop-d', 'd-standard', 'drop-c#'…) and its MIDI pitches (tab order). */
+  tuningId: string;
+  tuning: number[];
+  tuningLabel: string;
+  /** Global detune in cents left after the tuning (e.g. -30 = a bit flat). */
+  cents: number;
+  capo: number;
+  tempo: number;
+  bars: number;
+  notes: number;
+  lowConfidence: number;
+  /** Detected notes that could not be placed on the neck (out of range) and were left out. */
+  dropped: number;
+  /** Track names in the tab, e.g. ["Lead / riff", "Rhythm"]. */
+  tracks: string[];
+}
+
+/** One transcription job (`/api/transcriptions`): a song's guitar stem or a microphone recording → tab. */
+export interface TranscriptionJob {
+  id: string;
+  source: TranscriptionSource;
+  songId?: string;
+  title: string;
+  createdAt: string;
+  status: TranscriptionStatus;
+  progress: number;
+  error?: string;
+  /** The library tab once 'ready'. */
+  tabId?: string;
+  /** Tempo the player recorded to (recordings with a metronome); replaces beat tracking. */
+  bpm?: number;
+  /** Seconds from the start of the recording to the first downbeat (after the count-in). */
+  offset?: number;
+  summary?: TranscriptionSummary;
+  /** Wall-clock seconds the job took. */
+  seconds?: number;
+}
+
+/** `GET /api/transcriptions/status`. */
+export type TranscriberStatus = SeparatorStatus;
+
+/**
+ * Auto-transcribed alphaTex starts with this comment line followed by JSON (`AutoTabInfo`). The
+ * player reads it to colour notes that may be wrong.
+ */
+export const AUTO_TEX_TAG = '// guitar3d-auto ';
+
+export interface AutoTabInfo {
+  v: 1;
+  detected: string;
+  notes: number;
+  /** Low-confidence notes: [track index, bar index, beat index in the bar, tab string (1 = high e)]. */
+  low: [number, number, number, number][];
+}
+
+/** The `AutoTabInfo` header of an auto-transcribed alphaTex, or null for any other text. */
+export function readAutoTabInfo(text: string): AutoTabInfo | null {
+  const start = text.indexOf(AUTO_TEX_TAG);
+  if (start < 0 || text.slice(0, start).trim()) return null;
+  const end = text.indexOf('\n', start);
+  try {
+    const info = JSON.parse(text.slice(start + AUTO_TEX_TAG.length, end < 0 ? undefined : end)) as AutoTabInfo;
+    return info && info.v === 1 && Array.isArray(info.low) ? info : null;
+  } catch {
+    return null;
+  }
+}
+
+export * from './fingering';

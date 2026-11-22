@@ -28,6 +28,17 @@ apps/server/scripts/setup-demucs.sh   # needs uv + ffmpeg; installs CPU-only tor
 Environment variables: `G3D_DEMUCS_PYTHON` (default `~/.local/share/guitar3d/demucs-venv/bin/python`),
 `G3D_TMP_DIR` (default `~/.cache/g3d-tmp`), `DATA_DIR`. Songs live under `data/songs/<id>/` and are not included in backups.
 
+### Auto-transcription (tab + notation)
+
+"Transcribe guitar" on a separated song, or "Transcribe my playing" in the library (microphone take,
+optionally to a metronome with a count-in), turns audio into a library tab "<title> (auto)". The same setup
+script installs Spotify Basic Pitch (ONNX backend, no TensorFlow) and librosa into the venv; jobs share the
+one-at-a-time queue with Demucs. Post-processing (`apps/server/src/transcribe/`): beat grid and 16th
+quantisation in 4/4, tuning detection (E / Eb standard, drop D, D standard, drop C#, drop C, plus detune in
+cents) and capo suggestion, string/fret assignment by dynamic programming, a "Lead / riff" track (single notes,
+double stops) and a "Rhythm" track (3+ note chords). Low-confidence notes are coloured in the player and
+listed in the banner. Recordings are kept under `data/recordings/<jobId>/` and never served or backed up.
+
 ## Features
 
 - **Reading and playing tabs:** powered by alphaTab. Playback supports speed control, a metronome, count-in and muting the guitar sound.

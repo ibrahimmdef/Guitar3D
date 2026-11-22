@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlphaTabApi, importer, synth, type model } from '@coderline/alphatab';
+import { AlphaTabApi, importer, model, StaveProfile, synth } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
 
@@ -34,6 +34,37 @@ export interface PlayerState {
   beatsPerBar: number;
   pulse: number;
   error: string | null;
+}
+
+/** How the tab strip shows a track: tablature, standard notation, or both. */
+export type TabView = 'tab' | 'score' | 'both';
+export const STAVE_PROFILE: Record<TabView, StaveProfile> = { tab: StaveProfile.Tab, score: StaveProfile.Score, both: StaveProfile.ScoreTab };
+
+/** Colour of notes an auto-transcription is unsure about (amber, distinct from the cursor accent). */
+export const LOW_CONFIDENCE_COLOR = '#ff8a3d';
+
+/**
+ * Colours the given notes (`[track, bar, beat, tab string]`, tab string 1 = high e) in the tab and
+ * the notation. Returns how many notes were found.
+ */
+export function markNotes(score: model.Score, notes: readonly (readonly [number, number, number, number])[], color = LOW_CONFIDENCE_COLOR): number {
+  const c = model.Color.fromJson(color);
+  if (!c) return 0;
+  let found = 0;
+  for (const [ti, bi, be, str] of notes) {
+    const staff = score.tracks[ti]?.staves[0];
+    const beat = staff?.bars[bi]?.voices[0]?.beats[be];
+    if (!staff || !beat) continue;
+    const modelString = staff.tuning.length - str + 1;
+    const note = beat.notes.find((n) => n.string === modelString);
+    if (!note) continue;
+    note.style ??= new model.NoteStyle();
+    note.style.colors.set(model.NoteSubElement.GuitarTabFretNumber, c);
+    note.style.colors.set(model.NoteSubElement.StandardNotationNoteHead, c);
+    note.style.colors.set(model.NoteSubElement.StandardNotationAccidentals, c);
+    found++;
+  }
+  return found;
 }
 
 /** Tab colours tuned for the dark tab panel (see styles/player.css .tabpanel). */
@@ -154,8 +185,11 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     };
   }, [host, scroller, patch]);
 
-  /** Parses the file here, picks the guitar track and hands alphaTab only that track. */
-  const show = useCallback((parse: (settings: AlphaTabApi['settings']) => model.Score, fallback: (a: AlphaTabApi) => void) => {
+  /**
+   * Parses the file here, picks the guitar track and hands alphaTab only that track. `prepare` may
+   * adjust the parsed score first (e.g. colour notes).
+   */
+  const show = useCallback((parse: (settings: AlphaTabApi['settings']) => model.Score, fallback: (a: AlphaTabApi) => void, prepare?: (score: model.Score) => void) => {
     const a = apiRef.current;
     if (!a) return;
     patch({ loading: true, error: null });
@@ -167,20 +201,25 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
       fallback(a); // alphaTab reports the error through its error event
       return;
     }
+    try {
+      prepare?.(score);
+    } catch {
+      /* decoration only */
+    }
     wantTrack.current = pickGuitarTrack(score).index;
     a.renderScore(score, [wantTrack.current]);
   }, [patch]);
 
-  const loadBuffer = useCallback((buf: ArrayBuffer) => {
-    show((st) => importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(buf), st), (a) => a.load(new Uint8Array(buf)));
+  const loadBuffer = useCallback((buf: ArrayBuffer, prepare?: (score: model.Score) => void) => {
+    show((st) => importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(buf), st), (a) => a.load(new Uint8Array(buf)), prepare);
   }, [show]);
 
-  const loadTex = useCallback((tex: string) => {
+  const loadTex = useCallback((tex: string, prepare?: (score: model.Score) => void) => {
     show((st) => {
       const imp = new importer.AlphaTexImporter();
       imp.initFromString(tex, st);
       return imp.readScore();
-    }, (a) => a.tex(tex));
+    }, (a) => a.tex(tex), prepare);
   }, [show]);
 
   /** Shows another track of the loaded score (multi-track files). */
@@ -241,7 +280,17 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (a.score) a.render();
   }, []);
 
-  return { api: apiRef, state: s, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale };
+  /** Tab, notation or both in the tab strip. */
+  const setTabView = useCallback((view: TabView) => {
+    const a = apiRef.current;
+    const profile = STAVE_PROFILE[view] ?? StaveProfile.Tab;
+    if (!a || a.settings.display.staveProfile === profile) return;
+    a.settings.display.staveProfile = profile;
+    a.updateSettings();
+    if (a.score) a.render();
+  }, []);
+
+  return { api: apiRef, state: s, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
 }
 
 /** True when the score has repeats, so score ticks differ from playback ticks. */

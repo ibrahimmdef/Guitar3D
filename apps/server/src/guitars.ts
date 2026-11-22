@@ -179,7 +179,7 @@ export function guitarsRouter(store: Store): Router {
       res.status(404).end();
       return;
     }
-    res.sendFile(f);
+    res.sendFile(f, { dotfiles: 'allow' });
   });
 
   r.put('/guitars/:id/textures/:name', express.raw({ type: Object.keys(IMAGE_TYPES), limit: '40mb' }), (req, res) => {

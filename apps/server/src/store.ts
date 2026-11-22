@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, BarNote, GuitarProfile, PracticeSession, Song, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AppSettings, BarNote, GuitarProfile, PracticeSession, Song, TabMeta, TabProgress, TranscriptionJob } from '@guitar3d/shared';
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -12,6 +12,8 @@ interface DbShape {
   notes: BarNote[];
   /** Audio songs split into stems. Not part of backups (audio is large); kept across restores. */
   songs: Song[];
+  /** Transcription jobs (song guitar stems and microphone recordings). Not part of backups either. */
+  transcriptions: TranscriptionJob[];
 }
 
 export interface ServerBackup {
@@ -29,6 +31,8 @@ export class Store {
   readonly tabsDir: string;
   readonly guitarsDir: string;
   readonly songsDir: string;
+  /** Microphone recordings to transcribe: data/recordings/<jobId>/ (private, never served). */
+  readonly recordingsDir: string;
   private readonly dbFile: string;
   private db: DbShape;
 
@@ -36,6 +40,7 @@ export class Store {
     this.tabsDir = path.join(dataDir, 'tabs');
     this.guitarsDir = path.join(dataDir, 'guitars');
     this.songsDir = path.join(dataDir, 'songs');
+    this.recordingsDir = path.join(dataDir, 'recordings');
     this.dbFile = path.join(dataDir, 'db.json');
     fs.mkdirSync(this.tabsDir, { recursive: true });
     fs.mkdirSync(this.guitarsDir, { recursive: true });
@@ -50,6 +55,7 @@ export class Store {
       sessions: loaded.sessions ?? [],
       notes: loaded.notes ?? [],
       songs: loaded.songs ?? [],
+      transcriptions: loaded.transcriptions ?? [],
     };
   }
 
@@ -75,7 +81,7 @@ export class Store {
     return meta;
   }
 
-  updateTab(id: string, patch: Partial<Pick<TabMeta, 'title' | 'artist' | 'lastPlayedAt'>>) {
+  updateTab(id: string, patch: Partial<Pick<TabMeta, 'title' | 'artist' | 'lastPlayedAt' | 'transcription'>>) {
     const tab = this.getTab(id);
     if (!tab) return undefined;
     Object.assign(tab, patch);
@@ -182,7 +188,7 @@ export class Store {
     };
     walk(this.tabsDir, 'tabs');
     walk(this.guitarsDir, 'guitars');
-    const { songs: _songs, ...db } = this.db;
+    const { songs: _songs, transcriptions: _tr, ...db } = this.db;
     return { version: 1, createdAt: new Date().toISOString(), db: structuredClone(db), files };
   }
 
@@ -211,6 +217,7 @@ export class Store {
       sessions: Array.isArray(d.sessions) ? d.sessions : [],
       notes: Array.isArray(d.notes) ? d.notes : [],
       songs: this.db.songs,
+      transcriptions: this.db.transcriptions,
     };
     this.save();
   }
@@ -250,6 +257,43 @@ export class Store {
 
   songDir(id: string) {
     return path.join(this.songsDir, id);
+  }
+
+  // ---- transcriptions ------------------------------------------------------------------
+
+  listTranscriptions() {
+    return [...this.db.transcriptions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  getTranscription(id: string) {
+    return this.db.transcriptions.find((t) => t.id === id);
+  }
+
+  addTranscription(job: TranscriptionJob) {
+    this.db.transcriptions.push(job);
+    this.save();
+    return job;
+  }
+
+  updateTranscription(id: string, patch: Partial<Omit<TranscriptionJob, 'id'>>) {
+    const job = this.getTranscription(id);
+    if (!job) return undefined;
+    Object.assign(job, patch);
+    this.save();
+    return job;
+  }
+
+  /** Removes the job and its recording (the tab it made stays in the library). */
+  deleteTranscription(id: string) {
+    if (!this.getTranscription(id)) return false;
+    this.db.transcriptions = this.db.transcriptions.filter((t) => t.id !== id);
+    fs.rmSync(this.recordingDir(id), { recursive: true, force: true, maxRetries: 3 });
+    this.save();
+    return true;
+  }
+
+  recordingDir(jobId: string) {
+    return path.join(this.recordingsDir, jobId);
   }
 
   // ---- settings ---------------------------------------------------------------------------

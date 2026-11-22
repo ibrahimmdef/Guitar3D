@@ -1,3 +1,4 @@
+import { chordComfort, reach } from '@guitar3d/shared';
 import type { SimpleBar, SimpleBeat, SimpleNote } from './model';
 
 export type IssueKind =
@@ -82,10 +83,8 @@ export interface Report {
 
 const FINGER = ['', 'index', 'middle', 'ring', 'pinky'];
 const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
-/** Frets the hand covers beyond the index finger without stretching: one finger per fret, a bit more high up. */
-export const reach = (position: number) => (position >= 9 ? 4 : 3);
-/** Largest comfortable fret distance inside one chord; frets are wider near the nut. */
-export const chordComfort = (lowestFret: number) => (lowestFret <= 4 ? 2 : lowestFret <= 8 ? 3 : 4);
+/** Hand reach and chord comfort are shared with the fingering optimiser (@guitar3d/shared). */
+export { reach, chordComfort };
 const nutFactor = (lowestFret: number) => (lowestFret <= 3 ? 1.4 : lowestFret <= 6 ? 1.15 : lowestFret <= 9 ? 1 : 0.85);
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));

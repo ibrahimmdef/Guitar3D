@@ -7,6 +7,7 @@ import type { Song, StemName } from '@guitar3d/shared';
 import { STEM_NAMES } from '@guitar3d/shared';
 import type { Store } from './store.js';
 import { STEM_EXT, type SongTools } from './separator.js';
+import { JobLock } from './jobLock.js';
 
 /** Accepted uploads (validated by extension and then by ffprobe). */
 export const AUDIO_EXTS = ['.mp3', '.wav', '.flac', '.ogg', '.oga', '.opus', '.m4a', '.aac'];
@@ -36,6 +37,8 @@ export class SongQueue {
     private readonly store: Store,
     private readonly tools: SongTools,
     private readonly concurrency = 1,
+    /** Shared with the transcription queue so only one heavy job runs at a time. */
+    private readonly lock = new JobLock(),
   ) {}
 
   /** Songs left 'queued' or 'separating' by a previous run start again. */
@@ -81,7 +84,12 @@ export class SongQueue {
     }
   }
 
-  private async process(id: string, ctrl: AbortController) {
+  private process(id: string, ctrl: AbortController) {
+    return this.lock.run(() => this.separate(id, ctrl));
+  }
+
+  private async separate(id: string, ctrl: AbortController) {
+    if (ctrl.signal.aborted) return;
     const song = this.store.getSong(id);
     if (!song) return;
     const status = await this.tools.status();

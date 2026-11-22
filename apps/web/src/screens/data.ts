@@ -1,4 +1,4 @@
-import type { SeparatorStatus, Song, StemName, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { SeparatorStatus, Song, StemName, TabMeta, TabProgress, TranscriberStatus, TranscriptionJob } from '@guitar3d/shared';
 
 /**
  * Screen-level data access for tabs and progress. Guitars live in guitar-setup/api.ts
@@ -71,3 +71,29 @@ export async function deleteSong(id: string) {
   const r = await fetch(`/api/songs/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 404) throw new Error(`Delete failed (HTTP ${r.status}).`);
 }
+
+// ---- auto-transcription -------------------------------------------------------------------
+
+export const transcriberStatus = () => fetch('/api/transcriptions/status').then((r) => json<TranscriberStatus>(r));
+export const listTranscriptions = (songId?: string) =>
+  fetch(`/api/transcriptions${songId ? `?songId=${encodeURIComponent(songId)}` : ''}`).then((r) => json<TranscriptionJob[]>(r));
+export const getTranscription = (id: string) => fetch(`/api/transcriptions/${encodeURIComponent(id)}`).then((r) => json<TranscriptionJob>(r));
+
+/** Transcribes a separated song's guitar stem into a tab. */
+export const transcribeSong = (songId: string) =>
+  fetch('/api/transcriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ songId }) }).then((r) => json<TranscriptionJob>(r));
+
+/** Uploads a microphone recording; `bpm`/`offset` when it was played to a metronome after a count-in. */
+export function transcribeRecording(blob: Blob, meta: { title?: string; bpm?: number; offset?: number }): Promise<TranscriptionJob> {
+  const fd = new FormData();
+  const ext = /ogg/.test(blob.type) ? 'ogg' : /mp4|aac|m4a/.test(blob.type) ? 'm4a' : /wav/.test(blob.type) ? 'wav' : 'webm';
+  fd.append('file', blob, `recording.${ext}`);
+  if (meta.title) fd.append('title', meta.title);
+  if (meta.bpm) {
+    fd.append('bpm', String(meta.bpm));
+    fd.append('offset', String(meta.offset ?? 0));
+  }
+  return fetch('/api/transcriptions', { method: 'POST', body: fd }).then((r) => json<TranscriptionJob>(r));
+}
+
+export const retryTranscription = (id: string) => fetch(`/api/transcriptions/${encodeURIComponent(id)}/retry`, { method: 'POST' }).then((r) => json<TranscriptionJob>(r));

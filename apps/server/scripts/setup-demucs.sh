@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Creates the Python environment used for stem separation (Demucs, CPU-only PyTorch).
+# Creates the Python environment used for stem separation (Demucs, CPU-only PyTorch) and
+# transcription (Spotify Basic Pitch with the ONNX backend — no TensorFlow — plus librosa).
 #   Linux/macOS: ~/.local/share/guitar3d/demucs-venv   (override with G3D_DEMUCS_VENV)
 # The server finds it via G3D_DEMUCS_PYTHON or that default path.
 # Needs `uv` (https://docs.astral.sh/uv/) — it downloads Python 3.12 itself if missing.
@@ -28,6 +29,15 @@ uv pip install --python "$PY" --index-url "$TORCH_INDEX" torch torchaudio
 echo "==> demucs"
 # soundfile: lets torchaudio/demucs write wav without extra backends.
 uv pip install --python "$PY" --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match demucs soundfile
+
+echo "==> transcription: Basic Pitch (ONNX) + librosa"
+# basic-pitch's own requirements pull TensorFlow on Linux; install it without deps and add only
+# what the ONNX path needs. Pin the installed numpy/torch so Demucs keeps working.
+PINS="$TMPDIR/g3d-venv-pins.txt"
+uv pip freeze --python "$PY" | grep -i -E '^(numpy|torch|torchaudio)==' > "$PINS" || true
+uv pip install --python "$PY" -c "$PINS" librosa onnxruntime pretty_midi resampy
+uv pip install --python "$PY" --no-deps basic-pitch
+"$PY" -c "from basic_pitch import build_icassp_2022_model_path, FilenameSuffix; import onnxruntime, librosa; print('basic-pitch ok:', build_icassp_2022_model_path(FilenameSuffix.onnx))"
 
 echo "==> model htdemucs_6s (downloaded once into the torch hub cache)"
 "$PY" - <<'PY'

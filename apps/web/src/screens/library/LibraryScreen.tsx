@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
+import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Mic, Play, Search, Sparkles, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
 import { navigate, playLesson, playTab } from '../../ui/router';
@@ -11,6 +11,7 @@ import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } 
 import { TabImportSlot } from './TabImportSlot';
 import { SongsSection } from './SongsSection';
 import { ImageImportDialog, TextImportDialog } from './TextImport';
+import { RecordTranscribeDialog } from './RecordTranscribe';
 
 type Sort = 'recent' | 'title' | 'added';
 
@@ -27,7 +28,7 @@ export function LibraryScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
-  const [importMode, setImportMode] = useState<'text' | 'image' | null>(null);
+  const [importMode, setImportMode] = useState<'text' | 'image' | 'record' | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
 
   const load = useCallback(() => {
@@ -95,6 +96,7 @@ export function LibraryScreen() {
     <div className="lib-import-row">
       <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Import from text</Button>
       <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => { setImportFile(null); setImportMode('image'); }}>From PDF / image</Button>
+      <Button variant="secondary" icon={<Mic size={15} />} onClick={() => setImportMode('record')}>Transcribe my playing</Button>
     </div>
     </>
   );
@@ -170,7 +172,14 @@ export function LibraryScreen() {
                         <span className="tab-card-ic" aria-hidden><FileMusic size={18} /></span>
                         <span className="tab-card-title">{t.title || t.fileName}</span>
                         <span className="tab-card-sub">{t.artist || 'Unknown artist'}</span>
-                        <span className="tab-card-meta">{played ? `Last played ${played}` : 'Not played yet'}</span>
+                        <span className="tab-card-meta">
+                          {t.transcription && (
+                            <span className="tab-card-auto" title={t.transcription.detected}>
+                              <Sparkles size={12} aria-hidden /> Auto{t.transcription.lowConfidence ? ` · ${t.transcription.lowConfidence} to check` : ''} ·{' '}
+                            </span>
+                          )}
+                          {played ? `Last played ${played}` : 'Not played yet'}
+                        </span>
                         <span className="tab-card-progress" aria-label={best == null ? 'No practice yet' : `Best clean speed ${Math.round(best * 100)} percent`}>
                           <span className="bar"><span style={{ width: `${(best ?? 0) * 100}%` }} /></span>
                           <span className="num">{best == null ? '—' : `%${Math.round(best * 100)}`}</span>
@@ -244,6 +253,7 @@ export function LibraryScreen() {
       )}
 
       {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
+      {importMode === 'record' && <RecordTranscribeDialog open onOpenChange={(o) => !o && setImportMode(null)} />}
       {importMode === 'image' && <ImageImportDialog open initialFile={importFile} onOpenChange={(o) => { if (!o) { setImportMode(null); setImportFile(null); } }} onSaved={savedImport} />}
 
       <Dialog
