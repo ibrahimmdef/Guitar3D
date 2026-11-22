@@ -21,7 +21,7 @@ export function OfflineIndicator() {
   return (
     <div className="offline-pill" role="status" aria-live="polite">
       <WifiOff size={14} aria-hidden />
-      <span>Çevrimdışı: dersler, araçlar ve önbellekteki tablar çalışır</span>
+      <span>Offline: lessons, tools and cached tabs still work</span>
     </div>
   );
 }

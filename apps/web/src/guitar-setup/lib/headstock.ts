@@ -47,7 +47,7 @@ export function sideAt(pts: Pt[], t: number, dir: Pt): Pt {
 }
 
 export function buildHeadstock(img: RGBAImage, inp: HeadstockInput, outW = 512, outH = 1024): HeadstockResult {
-  if (inp.lowSide.length < 2 || inp.highSide.length < 2) throw new Error('Her iki kenar için en az 2 nokta gerekli.');
+  if (inp.lowSide.length < 2 || inp.highSide.length < 2) throw new Error('At least 2 points are needed for each edge.');
   const { dir } = axisOf(inp);
   const across: Pt = [-dir[1], dir[0]];
   const texture = createImage(outW, outH);

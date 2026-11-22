@@ -100,9 +100,9 @@ describe('hand position and shifts', () => {
     expect(shift).toBeDefined();
     expect(r.handPosition).toBe(10);
     expect(r.maxShift).toBe(7);
-    expect(shift.detail).toContain('10. pozisyondan 3. pozisyona');
-    expect(shift.detail).toContain('burguya doğru');
-    expect(shift.detail).toContain('4. tel 3. perdeye işaret parmağınla');
+    expect(shift.detail).toContain('from position 10 to position 3');
+    expect(shift.detail).toContain('toward the headstock');
+    expect(shift.detail).toContain('index finger on the 4th string, 3rd fret');
   });
 
   it('measures shifts from the hand position, not from the previous note', () => {
@@ -112,7 +112,7 @@ describe('hand position and shifts', () => {
     const r = one([[n(1, 5)], [n(1, 7)], [n(1, 8)], [n(1, 10)], [n(1, 12)], [n(1, 13)]]);
     expect(r.shiftCount).toBe(1);
     expect(r.maxShift).toBe(5);
-    expect(issue(r, 'shift')!.detail).toContain('kılavuz parmak');
+    expect(issue(r, 'shift')!.detail).toContain('guide finger');
   });
 
   it('weights a rushed shift more than the same shift with time or an open string in between', () => {
@@ -120,7 +120,7 @@ describe('hand position and shifts', () => {
     const slow = one([[n(1, 1)], [n(1, 3)], [n(1, 8)], [n(1, 10)]], 1, 80);
     const viaOpen = one([[n(1, 1)], [n(1, 3)], [n(1, 0)], [n(1, 8)]], 0.25, 120);
     expect(issue(fast, 'shift')!.weight).toBeGreaterThan(issue(slow, 'shift')!.weight);
-    expect(issue(viaOpen, 'shift')!.detail).toContain('açık tel');
+    expect(issue(viaOpen, 'shift')!.detail).toContain('open string');
     // A small shift with plenty of time is not worth a tip.
     const relaxed = one([[n(1, 5)], [n(1, 7)], [n(1, 3)]], 2, 60);
     expect(relaxed.maxShift).toBe(2);
@@ -139,7 +139,7 @@ describe('stretches', () => {
   it('flags a wide chord and names the outer fingers', () => {
     const r = one([[n(6, 3), n(5, 5), n(4, 7), n(3, 8)]], 2);
     const s = issue(r, 'stretch')!;
-    expect(s.detail).toContain('3–8. perdeler');
+    expect(s.detail).toContain('frets 3–8');
     expect(r.fretSpan).toBe(5);
     expect(r.difficulty).toBeGreaterThanOrEqual(3);
   });
@@ -160,8 +160,8 @@ describe('stretches', () => {
   it('flags a quick five-fret reach over a sliding window, but not a slow one', () => {
     const beats = [[n(2, 1)], [n(1, 3)], [n(1, 5)], [n(1, 3)], [n(1, 1)], [n(2, 1)]];
     const quick = one(beats, 0.5, 90);
-    expect(issue(quick, 'stretch')!.detail).toContain('1–5. perdeler');
-    expect(issue(quick, 'stretch')!.detail).toContain('serçe');
+    expect(issue(quick, 'stretch')!.detail).toContain('frets 1–5');
+    expect(issue(quick, 'stretch')!.detail).toContain('pinky');
     expect(kinds(quick)).not.toContain('shift');
     expect(kinds(one(beats, 2, 60))).not.toContain('stretch');
   });
@@ -171,11 +171,11 @@ describe('barre', () => {
   it('detects a full barre in a strummed chord and suggests the other fingers', () => {
     const r = one([F_BARRE], 2);
     const b = issue(r, 'barre')!;
-    expect(b.detail).toContain('1. perdede');
-    expect(b.detail).toContain('6. telden 1. tele');
-    expect(b.detail).toContain('3. tel 2. perde orta');
-    expect(b.detail).toContain('5. tel 3. perde yüzük');
-    expect(b.detail).toContain('4. tel 3. perde serçe');
+    expect(b.detail).toContain('at the 1st fret');
+    expect(b.detail).toContain('from the 6th to the 1st string');
+    expect(b.detail).toContain('3rd string 2nd fret middle');
+    expect(b.detail).toContain('5th string 3rd fret ring');
+    expect(b.detail).toContain('4th string 3rd fret pinky');
   });
 
   it('detects a barre shape played as an arpeggio', () => {
@@ -183,7 +183,7 @@ describe('barre', () => {
   });
 
   it('detects a barre whose finger only sounds on the outer strings (Bm)', () => {
-    expect(issue(one([BM], 2), 'barre')!.detail).toContain('5. telden 1. tele');
+    expect(issue(one([BM], 2), 'barre')!.detail).toContain('from the 5th to the 1st string');
   });
 
   it('calls two adjacent top strings a mini barre with a lower weight', () => {
@@ -211,16 +211,16 @@ describe('chord changes', () => {
   it('names the chords and counts the fingers that move', () => {
     const c = change(C, G)!;
     expect(c.detail).toContain('C → G');
-    expect(c.detail).toContain('3 parmak');
-    expect(c.detail).toContain('6. tel 3. perde orta');
+    expect(c.detail).toContain('3 fingers');
+    expect(c.detail).toContain('6th string 3rd fret middle');
   });
 
   it('points out anchor fingers and scores a small change lower than a full one', () => {
     // C → Am keeps index and middle finger: only one finger moves, not worth a tip.
     expect(change(C, Am)).toBeUndefined();
     const amF = change(Am, F_SMALL)!;
-    expect(amF.detail).toContain('Çapa parmak: 2. tel 1. perde');
-    expect(change(C, G)!.detail).toContain('Ortak parmak yok');
+    expect(amF.detail).toContain('Anchor finger: 2nd string 1st fret');
+    expect(change(C, G)!.detail).toContain('No common finger');
   });
 
   it('is harder with less time', () => {
@@ -238,7 +238,7 @@ describe('chord changes', () => {
   it('reports one chord-change issue per bar even with several changes', () => {
     const r = one([C, G, Am, F_SMALL], 1);
     expect(kinds(r).filter((k) => k === 'chordChange')).toHaveLength(1);
-    expect(issue(r, 'chordChange')!.detail).toContain('3 geçiş');
+    expect(issue(r, 'chordChange')!.detail).toContain('3 changes');
   });
 
   it('follows arpeggiated chords across bars', () => {
@@ -254,9 +254,9 @@ describe('right hand', () => {
     const r = one(Array.from({ length: 8 }, (_, i) => [n(i % 2 ? 2 : 5, 0)]), 0.25, 120);
     const skip = issue(r, 'stringSkip')!;
     expect(r.stringSkips).toBe(7);
-    expect(skip.detail).toContain('5. telden 2. tele');
-    expect(skip.detail).toContain('aşağı (↓)');
-    expect(skip.advice).toContain('yukarı (↑)');
+    expect(skip.detail).toContain('from the 5th string to the 2nd');
+    expect(skip.detail).toContain('downstroke (↓)');
+    expect(skip.advice).toContain('upstroke (↑)');
   });
 
   it('does not count adjacent strings or legato notes as skips', () => {
@@ -275,8 +275,8 @@ describe('speed', () => {
     expect(fast.notesPerSecond).toBeCloseTo(8);
     expect(kinds(slow)).not.toContain('speed');
     const s = issue(fast, 'speed')!;
-    expect(s.detail).toContain('onaltılık');
-    expect(s.detail).toContain('%45');
+    expect(s.detail).toContain('sixteenth');
+    expect(s.detail).toContain('45%');
     expect(s.detail).toContain('54 bpm');
   });
 
@@ -286,7 +286,7 @@ describe('speed', () => {
     const r = analyzeBar(b);
     expect(r.notesPerSecond).toBeCloseTo(7 / 2.4);
     expect(r.peakNotesPerSecond).toBeCloseTo(10);
-    expect(issue(r, 'speed')!.detail).toContain('altılama');
+    expect(issue(r, 'speed')!.detail).toContain('sextuplet');
   });
 
   it('does not count tied notes as played notes', () => {
@@ -298,17 +298,17 @@ describe('speed', () => {
 describe('techniques', () => {
   it('tells hammer-ons from pull-offs by the next note on the string', () => {
     const r = one([[n(3, 5, { hammer: true })], [n(3, 7)], [n(3, 7, { hammer: true })], [n(3, 5)]], 1);
-    expect(issue(r, 'hammer')!.detail).toContain('3. telde 5. perde → 7. perde');
-    expect(issue(r, 'pull')!.detail).toContain('3. telde 7. perde → 5. perde');
+    expect(issue(r, 'hammer')!.detail).toContain('3rd string, 5th fret → 7th fret');
+    expect(issue(r, 'pull')!.detail).toContain('3rd string, 7th fret → 5th fret');
   });
 
   it('describes legato to and from open strings and counts repeats', () => {
     const r = one([[n(1, 0, { hammer: true })], [n(1, 2)], [n(2, 0, { hammer: true })], [n(2, 1)]], 1);
-    expect(issue(r, 'hammer')!.detail).toContain('açık tel → 2. perde');
-    expect(issue(r, 'hammer')!.detail).toContain('2 kez');
+    expect(issue(r, 'hammer')!.detail).toContain('open string → 2nd fret');
+    expect(issue(r, 'hammer')!.detail).toContain('2 times');
     expect(kinds(r)).not.toContain('pull');
     const pull = one([[n(1, 3, { hammer: true, pull: true })], [n(1, 0)]], 1);
-    expect(issue(pull, 'pull')!.detail).toContain('3. perde → açık tel');
+    expect(issue(pull, 'pull')!.detail).toContain('3rd fret → open string');
   });
 
   it('reports slide, bend, palm mute, harmonic and dead notes once each', () => {
@@ -320,8 +320,8 @@ describe('techniques', () => {
     for (const k of ['slide', 'bend', 'palmMute', 'harmonic', 'deadNote'] as const) {
       expect(kinds(r).filter((x) => x === k), k).toHaveLength(1);
     }
-    expect(issue(r, 'bend')!.detail).toContain('2. tel 8. perde');
-    expect(issue(r, 'palmMute')!.detail).toContain('2 nota');
+    expect(issue(r, 'bend')!.detail).toContain('2nd string 8th fret');
+    expect(issue(r, 'palmMute')!.detail).toContain('2 notes');
     expect(issue(r, 'bend')!.weight).toBeGreaterThan(issue(r, 'palmMute')!.weight);
   });
 
@@ -388,7 +388,7 @@ describe('analyze', () => {
     const [a, b, c] = r.bars.map((x) => issue(x, 'hammer')!);
     expect(a.message).toBe(`${a.detail} ${a.advice}`);
     expect(b.message).toBe(b.detail);
-    expect(b.message).toContain('7. perde → 9. perde');
+    expect(b.message).toContain('7th fret → 9th fret');
     expect(c.message).not.toContain(a.advice);
     const messages = r.bars.flatMap((x) => x.issues.map((i) => i.message));
     expect(messages.filter((m) => m.includes(a.advice))).toHaveLength(1);
@@ -401,7 +401,7 @@ describe('analyze', () => {
     expect(r.overallDifficulty).toBe(1);
     expect(r.suggestedStartSpeed).toBe(0.9);
     expect(r.summary).toHaveLength(2);
-    expect(r.summary[1]).toContain('%90');
+    expect(r.summary[1]).toContain('90%');
     expect(r.summary[1]).toContain('63 bpm');
   });
 

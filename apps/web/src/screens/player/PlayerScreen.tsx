@@ -266,7 +266,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   settingsRef.current = settings;
 
   /* ---------- Session recording ---------- */
-  const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
+  const sessionTitle = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Lesson');
   const recorder = useSessionRecorder({ active: state.playing || listening, kind: source.kind, refId: source.id, title: sessionTitle });
 
   /* ---------- Listen and wait ---------- */
@@ -288,8 +288,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
       setListening(false);
       toast({
         tone: 'danger',
-        title: listen.status === 'unsupported' ? 'Mikrofon desteklenmiyor' : 'Mikrofona erişilemedi',
-        description: listen.status === 'denied' ? 'Tarayıcı ayarlarından mikrofon izni verip tekrar dene.' : 'Bu tarayıcıda dinleme modu kullanılamıyor.',
+        title: listen.status === 'unsupported' ? 'Microphone not supported' : 'Couldn\'t access the microphone',
+        description: listen.status === 'denied' ? 'Allow microphone access in your browser settings and try again.' : 'Listen mode isn\'t available in this browser.',
       });
     }
   }, [listen.status, toast]);
@@ -359,12 +359,12 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     const pct = `%${Math.round(next.speed * 100)}`;
     if (event === 'up') {
       saveProgress(cur.speed);
-      toast({ tone: 'success', title: `${cur.passes} temiz tur! Hız ${pct} oldu.`, description: 'Aynı bölümü yeni hızda dene.' });
+      toast({ tone: 'success', title: `${cur.passes} clean passes! Speed is now ${pct}.`, description: 'Try the same section at the new speed.' });
     } else if (event === 'target') {
       saveProgress(cur.speed);
-      toast({ tone: 'success', title: 'Hedef hıza ulaştın.', description: 'Bu bölüm tamam. Haritadan sıradaki zor ölçüyü seç.' });
+      toast({ tone: 'success', title: 'You reached the target speed.', description: 'This section is done. Pick the next hard bar from the map.' });
     } else if (event === 'down' && autoRef.current) {
-      toast({ tone: 'info', title: `Hız ${pct} oldu`, description: 'Bir tur takıldı; biraz yavaşlayıp tekrar dene.' });
+      toast({ tone: 'info', title: `Speed is now ${pct}`, description: 'You got stuck on a pass; slow down a little and try again.' });
     }
   }, [recorder, saveProgress, toast]);
   applyPassRef.current = applyPass;
@@ -450,23 +450,23 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     const hash = buildShareHash({ source, guitarId: sharedGuitar?.id ?? getActiveGuitar().id, loop: loop ?? undefined, speed });
     const url = `${location.origin}${location.pathname}${hash}`;
     const local = source.kind === 'tab';
-    const note = local ? 'Yüklediğin tablar yalnızca bu sunucuya bağlananlarda açılır.' : 'Hazır dersler her Guitar3D\'de açılır.';
+    const note = local ? 'Tabs you uploaded only open for people connected to this server.' : 'Built-in lessons open in any Guitar3D.';
     (navigator.clipboard?.writeText(url) ?? Promise.reject())
-      .then(() => toast({ tone: 'success', title: 'Paylaşım bağlantısı kopyalandı.', description: note }))
-      .catch(() => toast({ tone: 'info', title: 'Bağlantı', description: url, durationMs: 12000 }));
+      .then(() => toast({ tone: 'success', title: 'Share link copied.', description: note }))
+      .catch(() => toast({ tone: 'info', title: 'Link', description: url, durationMs: 12000 }));
   }, [source, sharedGuitar, loop, speed, toast]);
 
   /* ---------- View ---------- */
-  const title = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Ders');
+  const title = meta?.title || state.score?.title || (tabId ? 'Tab' : 'Lesson');
   const subtitle = [
-    source.kind === 'lesson' ? 'Ders' : state.score?.artist || meta?.artist || '',
+    source.kind === 'lesson' ? 'Lesson' : state.score?.artist || meta?.artist || '',
     state.score ? `${Math.round(state.score.tempo)} BPM` : '',
   ].filter(Boolean).join(' · ');
   const busy = fetching || state.loading;
   const hasScore = !!state.score && !loadErr;
   const failed = !!(loadErr || state.error);
   // One loading state for the whole stage: tab, guitar (incl. textures) and sound.
-  const loadingLabel = failed ? null : busy || !state.score ? 'Tab yükleniyor…' : !guitarReady ? 'Gitar hazırlanıyor…' : !state.ready ? 'Ses hazırlanıyor…' : null;
+  const loadingLabel = failed ? null : busy || !state.score ? 'Loading tab…' : !guitarReady ? 'Preparing guitar…' : !state.ready ? 'Preparing sound…' : null;
 
   return (
     <div ref={root} className={`player${showPractice ? ' practice-open' : ''}${focus === 'tab' && showTab ? ' focus-tab' : ''}`}>
@@ -495,11 +495,11 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         loop={loop}
         onSection={goSection}
         pulse={state.playing && countValue == null ? { n: state.pulse, beat: state.beatInBar } : null}
-        listen={listening ? { feedback: listen.feedback, hits: listen.pass.hits, firstTry: listen.pass.firstTry, status: listen.status === 'asking' ? 'Mikrofon izni…' : '' } : null}
+        listen={listening ? { feedback: listen.feedback, hits: listen.pass.hits, firstTry: listen.pass.firstTry, status: listen.status === 'asking' ? 'Microphone permission…' : '' } : null}
       />
 
       <div className="player-body">
-        <main className="stage" aria-label="3D gitar">
+        <main className="stage" aria-label="3D guitar">
           <ErrorBoundary
             onError={() => setGuitarReady(true)}
             fallback={(retry) => (
@@ -508,9 +508,9 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
                   <EmptyState
                     tone="danger"
                     icon={<Box size={22} />}
-                    title="3D sahne gösterilemedi"
-                    description="Tarayıcın WebGL'i desteklemiyor olabilir. Tab ve ses çalışmaya devam eder."
-                    action={<Button onClick={retry}>Tekrar dene</Button>}
+                    title="Couldn't show the 3D stage"
+                    description="Your browser may not support WebGL. The tab and sound keep working."
+                    action={<Button onClick={retry}>Try again</Button>}
                   />
                 </div>
               </div>
@@ -535,20 +535,20 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
 
           {hasScore && !loadingLabel && (
             <div className="stage-hud" aria-live="off">
-              {share && <span className="hud-chip">Paylaşılan görünüm</span>}
+              {share && <span className="hud-chip">Shared view</span>}
               {barNotes.notes.filter((n) => n.bar === state.currentBar).slice(0, 1).map((n) => (
-                <span key={n.id} className="hud-chip hud-note" title={n.text}>Not: {n.text}</span>
+                <span key={n.id} className="hud-chip hud-note" title={n.text}>Note: {n.text}</span>
               ))}
-              {listening && <span className="hud-chip hud-accent">Dinliyorum: notayı çal</span>}
+              {listening && <span className="hud-chip hud-accent">Listening: play the note</span>}
               {loop && (
                 <span className="hud-chip hud-accent num">
-                  Döngü {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''}
+                  Loop {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''}
                 </span>
               )}
-              {speed !== 1 && <span className="hud-chip num">%{Math.round(speed * 100)} hız</span>}
-              {capo > 0 && <span className="hud-chip hud-capo num">Kapo {capo}. perde</span>}
+              {speed !== 1 && <span className="hud-chip num">{Math.round(speed * 100)}% speed</span>}
+              {capo > 0 && <span className="hud-chip hud-capo num">Capo fret {capo}</span>}
               {tuningOverride && tuningOverride !== 'standard' && <span className="hud-chip">{getTuning(tuningOverride).label}</span>}
-              {!state.playing && state.timeMs > 500 && <span className="hud-chip">Duraklatıldı</span>}
+              {!state.playing && state.timeMs > 500 && <span className="hud-chip">Paused</span>}
             </div>
           )}
 
@@ -586,12 +586,12 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
                 <EmptyState
                   tone="danger"
                   icon={<FileMusic size={22} />}
-                  title="Tab açılamadı"
-                  description={loadErr ?? `${state.error} Dosya bozuk ya da desteklenmeyen bir biçimde olabilir.`}
+                  title="Couldn't open the tab"
+                  description={loadErr ?? `${state.error} The file may be corrupt or in an unsupported format.`}
                   action={
                     <>
-                      <Button icon={<ArrowLeft size={16} />} onClick={() => navigate({ name: 'library' })}>Kütüphane</Button>
-                      {source.id !== DEMO_LESSON_ID && <Button variant="primary" icon={<GraduationCap size={16} />} onClick={() => navigate(playLesson(DEMO_LESSON_ID))}>Bir dersle başla</Button>}
+                      <Button icon={<ArrowLeft size={16} />} onClick={() => navigate({ name: 'library' })}>Library</Button>
+                      {source.id !== DEMO_LESSON_ID && <Button variant="primary" icon={<GraduationCap size={16} />} onClick={() => navigate(playLesson(DEMO_LESSON_ID))}>Start with a lesson</Button>}
                     </>
                   }
                 />
@@ -600,10 +600,10 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           )}
         </main>
 
-        <Drawer open={showPractice} onClose={togglePractice} title="Çalış" shortcut="P" className="practice-drawer">
+        <Drawer open={showPractice} onClose={togglePractice} title="Practice" shortcut="P" className="practice-drawer">
           {lastPass && (
             <Button size="sm" variant="ghost" className="fb-open" onClick={() => setFeedbackOpen(true)}>
-              Son tur özeti · %{lastPass.accuracy}
+              Last pass summary · {lastPass.accuracy}%
             </Button>
           )}
           {report && (
@@ -636,7 +636,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         </Drawer>
       </div>
 
-      <section className={`tabpanel${showTab && !failed ? '' : ' collapsed'}`} aria-label="Tab şeridi" aria-hidden={!showTab || failed}>
+      <section className={`tabpanel${showTab && !failed ? '' : ' collapsed'}`} aria-label="Tab strip" aria-hidden={!showTab || failed}>
         <div className="tabpanel-scroll" ref={scroller}>
           <div ref={host} />
         </div>
@@ -702,7 +702,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         }}
       />
 
-      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Klavye kısayolları" description="Her şeyi klavyeden de yapabilirsin.">
+      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Keyboard shortcuts" description="You can do everything from the keyboard too.">
         <ShortcutList />
       </Dialog>
     </div>

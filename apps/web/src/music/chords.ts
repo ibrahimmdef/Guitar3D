@@ -1,5 +1,5 @@
 import type { FretNote } from '@guitar3d/shared';
-import { noteName, parseRoot, pc, SOLFEGE } from './notes';
+import { noteName, parseRoot, pc } from './notes';
 import { STANDARD, type Tuning } from './tunings';
 
 /**
@@ -10,11 +10,11 @@ import { STANDARD, type Tuning } from './tunings';
 export type ChordType = 'maj' | 'm' | '7' | 'maj7' | 'm7' | 'sus2' | 'sus4' | 'add9' | '5';
 
 export const CHORD_TYPES: { id: ChordType; suffix: string; label: string; intervals: number[] }[] = [
-  { id: 'maj', suffix: '', label: 'Majör', intervals: [0, 4, 7] },
-  { id: 'm', suffix: 'm', label: 'Minör', intervals: [0, 3, 7] },
+  { id: 'maj', suffix: '', label: 'Major', intervals: [0, 4, 7] },
+  { id: 'm', suffix: 'm', label: 'Minor', intervals: [0, 3, 7] },
   { id: '7', suffix: '7', label: '7 (dominant)', intervals: [0, 4, 7, 10] },
-  { id: 'maj7', suffix: 'maj7', label: 'Majör 7', intervals: [0, 4, 7, 11] },
-  { id: 'm7', suffix: 'm7', label: 'Minör 7', intervals: [0, 3, 7, 10] },
+  { id: 'maj7', suffix: 'maj7', label: 'Major 7', intervals: [0, 4, 7, 11] },
+  { id: 'm7', suffix: 'm7', label: 'Minor 7', intervals: [0, 3, 7, 10] },
   { id: 'sus2', suffix: 'sus2', label: 'sus2', intervals: [0, 2, 7] },
   { id: 'sus4', suffix: 'sus4', label: 'sus4', intervals: [0, 5, 7] },
   { id: 'add9', suffix: 'add9', label: 'add9', intervals: [0, 2, 4, 7] },
@@ -22,7 +22,7 @@ export const CHORD_TYPES: { id: ChordType; suffix: string; label: string; interv
 ];
 
 export type ChordShape = 'open' | 'E' | 'A';
-export const SHAPE_LABEL: Record<ChordShape, string> = { open: 'Açık', E: 'E kalıbı', A: 'A kalıbı' };
+export const SHAPE_LABEL: Record<ChordShape, string> = { open: 'Open', E: 'E shape', A: 'A shape' };
 
 export interface Barre {
   fret: number;
@@ -142,7 +142,7 @@ function build(): ChordVoicing[] {
 
 export const VOICINGS: ChordVoicing[] = build();
 
-/** Lowest fretted fret (for the "3. perde" label of a diagram), 1 for open shapes. */
+/** Lowest fretted fret (for the "3fr" label of a diagram), 1 for open shapes. */
 export function baseFret(v: ChordVoicing): number {
   const fretted = v.frets.filter((f) => f > 0);
   return fretted.length ? Math.min(...fretted) : 1;
@@ -168,7 +168,7 @@ export interface ChordQuery {
   text?: string;
 }
 
-/** Case-, accent- and solfège-aware search ("am", "La minör", "f#m7", "sol7"). */
+/** Case-insensitive search ("am", "A minor", "f#m7", "g7"). */
 export function searchChords(q: ChordQuery, all = VOICINGS): ChordVoicing[] {
   let list = all;
   if (q.root != null) list = list.filter((v) => v.root === q.root);
@@ -176,12 +176,12 @@ export function searchChords(q: ChordQuery, all = VOICINGS): ChordVoicing[] {
   const text = (q.text ?? '').trim();
   if (text) {
     const r = parseRoot(text);
-    const fold = text.toLocaleLowerCase('tr');
+    const fold = text.toLowerCase();
     if (r) {
-      const rest = text.slice(r.length).trim().toLocaleLowerCase('tr').replace(/\s+/g, '');
+      const rest = text.slice(r.length).trim().toLowerCase().replace(/\s+/g, '');
       list = list.filter((v) => v.root === r.pc && matchesSuffix(v.type, rest));
     } else {
-      list = list.filter((v) => typeInfo(v.type).label.toLocaleLowerCase('tr').includes(fold));
+      list = list.filter((v) => typeInfo(v.type).label.toLowerCase().includes(fold));
     }
   }
   return list;
@@ -191,17 +191,17 @@ function matchesSuffix(type: ChordType, rest: string) {
   if (!rest) return true;
   const info = typeInfo(type);
   const words: Record<ChordType, string[]> = {
-    maj: ['maj', 'majör', 'major'],
-    m: ['m', 'min', 'minör', 'minor'],
+    maj: ['maj', 'major'],
+    m: ['m', 'min', 'minor'],
     '7': ['7', 'dom7'],
-    maj7: ['maj7', 'majör7'],
-    m7: ['m7', 'min7', 'minör7'],
+    maj7: ['maj7', 'major7'],
+    m7: ['m7', 'min7', 'minor7'],
     sus2: ['sus2'],
     sus4: ['sus4', 'sus'],
     add9: ['add9'],
     '5': ['5', 'power'],
   };
-  return [info.suffix.toLowerCase(), ...words[type].map((w) => w.toLocaleLowerCase('tr'))].some((w) => w && w === rest);
+  return [info.suffix.toLowerCase(), ...words[type].map((w) => w.toLowerCase())].some((w) => w && w === rest);
 }
 
 /** Chord names grouped: one entry per (root, type) with its voicings, open first. */
@@ -215,4 +215,5 @@ export function groupVoicings(list: ChordVoicing[]) {
   return [...map.entries()].map(([name, vs]) => ({ name, root: vs[0].root, type: vs[0].type, voicings: vs.sort((a, b) => order[a.shape] - order[b.shape]) }));
 }
 
-export const solfegeName = (v: ChordVoicing) => `${SOLFEGE[v.root]} ${typeInfo(v.type).label.toLocaleLowerCase('tr')}`;
+/** Spelled-out chord name, e.g. "A minor 7". */
+export const longName = (v: ChordVoicing) => `${noteName(v.root)} ${typeInfo(v.type).label.toLowerCase()}`;

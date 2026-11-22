@@ -19,7 +19,7 @@ describe('sessions api', () => {
     const a = await request(app).post('/api/sessions').send({ kind: 'tab', refId: 't1', title: 'Riff', startedAt: '2026-11-10T10:00:00.000Z', seconds: 600, bestCleanSpeed: 0.85, accuracy: 92.4 }).expect(201);
     expect(a.body).toMatchObject({ kind: 'tab', refId: 't1', seconds: 600, bestCleanSpeed: 0.85, accuracy: 92, endedAt: '2026-11-10T10:10:00.000Z' });
     expect(a.body.id).toBeTruthy();
-    await request(app).post('/api/sessions').send({ kind: 'routine', title: '10 dk', startedAt: '2026-11-12T08:00:00.000Z', endedAt: '2026-11-12T08:10:00.000Z', seconds: 590 }).expect(201);
+    await request(app).post('/api/sessions').send({ kind: 'routine', title: '10 min', startedAt: '2026-11-12T08:00:00.000Z', endedAt: '2026-11-12T08:10:00.000Z', seconds: 590 }).expect(201);
 
     const list = await request(app).get('/api/sessions').expect(200);
     expect(list.body.map((s: { kind: string }) => s.kind)).toEqual(['routine', 'tab']);
@@ -40,6 +40,6 @@ describe('sessions api', () => {
     await request(app).post('/api/sessions').send({ kind: 'tab', startedAt: 'yesterday', seconds: 60 }).expect(400);
     await request(app).post('/api/sessions').send({ kind: 'tab', startedAt: '2026-11-10T10:00:00Z', seconds: 0 }).expect(400);
     const clamped = await request(app).post('/api/sessions').send({ kind: 'scales', startedAt: '2026-11-10T10:00:00Z', seconds: 999999, accuracy: 140, title: '  ' }).expect(201);
-    expect(clamped.body).toMatchObject({ seconds: 43200, accuracy: 100, title: 'Pratik' });
+    expect(clamped.body).toMatchObject({ seconds: 43200, accuracy: 100, title: 'Practice' });
   });
 });

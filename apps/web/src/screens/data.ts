@@ -13,14 +13,14 @@ export const listTabs = () => fetch('/api/tabs').then((r) => json<TabMeta[]>(r))
 
 export async function fetchTabFile(id: string): Promise<ArrayBuffer> {
   const r = await fetch(`/api/tabs/${encodeURIComponent(id)}/file`);
-  if (r.status === 404) throw new Error('Bu tab artık kütüphanede yok.');
-  if (!r.ok) throw new Error(`Tab dosyası alınamadı (HTTP ${r.status}).`);
+  if (r.status === 404) throw new Error('This tab is no longer in the library.');
+  if (!r.ok) throw new Error(`Couldn't load the tab file (HTTP ${r.status}).`);
   return r.arrayBuffer();
 }
 
 export async function deleteTab(id: string) {
   const r = await fetch(`/api/tabs/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!r.ok && r.status !== 404) throw new Error(`Silinemedi (HTTP ${r.status}).`);
+  if (!r.ok && r.status !== 404) throw new Error(`Couldn't delete (HTTP ${r.status}).`);
 }
 
 export async function uploadTab(file: File): Promise<TabMeta> {

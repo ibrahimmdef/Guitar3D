@@ -5,10 +5,10 @@
 export type PracticeStep = 'choose' | 'slow' | 'loop' | 'climb';
 
 export const PRACTICE_STEPS: { step: PracticeStep; label: string }[] = [
-  { step: 'choose', label: 'Bölüm seç' },
-  { step: 'slow', label: 'Yavaşlat' },
-  { step: 'loop', label: 'Döngüde çal' },
-  { step: 'climb', label: 'Hızlandır' },
+  { step: 'choose', label: 'Pick a section' },
+  { step: 'slow', label: 'Slow down' },
+  { step: 'loop', label: 'Play in a loop' },
+  { step: 'climb', label: 'Speed up' },
 ];
 
 export interface PracticeState {

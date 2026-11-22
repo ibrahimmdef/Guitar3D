@@ -19,7 +19,7 @@ export function notesRouter(store: Store) {
     const text = str(b.text, 1000);
     const bar = typeof b.bar === 'number' && Number.isInteger(b.bar) && b.bar >= 0 && b.bar < 10000 ? b.bar : -1;
     if (!isKey(tabKey) || !text || bar < 0) {
-      res.status(400).json({ error: 'tabKey, bar (0 veya üstü) ve text gerekli.' });
+      res.status(400).json({ error: 'tabKey, bar (0 or more) and text are required.' });
       return;
     }
     const note: BarNote = { id: crypto.randomUUID(), tabKey, bar, text, createdAt: new Date().toISOString() };

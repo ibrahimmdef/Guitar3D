@@ -32,7 +32,7 @@ const PRESETS: Preset[] = [
   { id: 'fifties', label: 'I–vi–IV–V', minor: false, steps: [[0, 'maj'], [9, 'm'], [5, 'maj'], [7, 'maj']] },
   { id: 'jazz', label: 'ii–V–I', minor: false, steps: [[2, 'm7'], [7, '7'], [0, 'maj7'], [0, 'maj7']] },
   {
-    id: 'blues', label: '12 ölçü blues', minor: false,
+    id: 'blues', label: '12-bar blues', minor: false,
     steps: [[0, '7'], [5, '7'], [0, '7'], [0, '7'], [5, '7'], [5, '7'], [0, '7'], [0, '7'], [7, '7'], [5, '7'], [0, '7'], [7, '7']],
   },
   { id: 'minor-rock', label: 'i–VII–VI–VII', minor: true, steps: [[0, 'm'], [10, 'maj'], [8, 'maj'], [10, 'maj']] },

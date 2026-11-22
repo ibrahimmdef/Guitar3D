@@ -8,7 +8,7 @@ import { STANDARD } from './tunings';
 
 export type Duration = 1 | 2 | 4 | 8 | 16;
 export const DURATIONS: Duration[] = [1, 2, 4, 8, 16];
-export const DURATION_LABEL: Record<Duration, string> = { 1: 'Birlik', 2: 'İkilik', 4: 'Dörtlük', 8: 'Sekizlik', 16: 'Onaltılık' };
+export const DURATION_LABEL: Record<Duration, string> = { 1: 'Whole', 2: 'Half', 4: 'Quarter', 8: 'Eighth', 16: '16th' };
 
 export interface EdNote {
   /** Tab string, 1 = high e. */
@@ -39,7 +39,7 @@ export interface EdDoc {
 export const restBeat = (duration: Duration = 4): EdBeat => ({ duration, notes: [] });
 export const emptyBar = (): EdBar => ({ beats: [restBeat(4)] });
 
-export function newDoc(title = 'Yeni riff'): EdDoc {
+export function newDoc(title = 'New riff'): EdDoc {
   return { title, tempo: 90, beatsPerBar: 4, tuning: [...STANDARD.midi], bars: [emptyBar()] };
 }
 
@@ -156,7 +156,7 @@ export function toAlphaTex(doc: EdDoc): string {
     `\\title "${esc(doc.title) || 'Riff'}"`,
     `\\tempo ${Math.round(doc.tempo)}`,
     '.',
-    '\\track "Gitar"',
+    '\\track "Guitar"',
     '\\staff {tabs}',
     `\\tuning ${doc.tuning.map(texPitch).join(' ')}`,
   ];
@@ -284,7 +284,7 @@ export function parseAlphaTex(text: string): EdDoc {
     }
   }
   flush();
-  if (!doc.bars.length) throw new Error('alphaTex içinde nota bulunamadı.');
-  if (!doc.title) doc.title = 'İçe aktarılan tab';
+  if (!doc.bars.length) throw new Error('No notes found in the alphaTex.');
+  if (!doc.title) doc.title = 'Imported tab';
   return doc;
 }

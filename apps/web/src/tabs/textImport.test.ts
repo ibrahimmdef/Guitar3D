@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { convertAscii, withTitle } from './textImport';
 
-const TAB = `Title: Deneme
+const TAB = `Title: Trial
 e|-----0-----|-0h2-----|
 B|---1---1---|-----3p1-|
 G|-2-------2-|---------|
@@ -21,7 +21,7 @@ describe('convertAscii', () => {
     expect(convertAscii('   ')).toBe('');
   });
   it('returns the error message when there is no tab', () => {
-    expect(convertAscii('merhaba dünya')).toMatch(/bulunamadı/);
+    expect(convertAscii('hello world')).toMatch(/No 6-string/);
   });
   it('converts several systems and honours the tempo override', () => {
     const r = convertAscii(TAB, 72);
@@ -29,7 +29,7 @@ describe('convertAscii', () => {
     expect(r.systems).toBe(2);
     expect(r.bars).toBe(3);
     expect(r.tempo).toBe(72);
-    expect(r.title).toBe('Deneme');
+    expect(r.title).toBe('Trial');
     expect(r.alphaTex).toContain('\\tempo 72');
   });
 });

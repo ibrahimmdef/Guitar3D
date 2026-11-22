@@ -1,12 +1,12 @@
 /** Metadata of a built-in lesson. `level` runs from 1 (first day) to 5 (hard); the regular built-in set stays within 1–3, the packs go up to 5. */
 export interface BuiltinLesson {
   id: string;
-  /** Turkish display title. */
+  /** Display title. */
   title: string;
   level: 1 | 2 | 3 | 4 | 5;
   /** Target tempo in BPM (same as the \tempo of the alphaTex). */
   tempo: number;
-  /** What the lesson trains, one short Turkish sentence. */
+  /** What the lesson trains, one short sentence. */
   goal: string;
   description: string;
   /** Practice tip shown next to the lesson. */
@@ -26,10 +26,10 @@ export interface BuiltinLessonDef extends BuiltinLesson {
 export function lessonTex(def: BuiltinLessonDef): string {
   return [
     `\\title "${def.title}"`,
-    `\\subtitle "Guitar3D dersleri"`,
+    `\\subtitle "Guitar3D lessons"`,
     `\\tempo ${def.tempo}`,
     '.',
-    '\\track "Akustik Gitar"',
+    '\\track "Acoustic Guitar"',
     '\\staff {tabs}',
     '\\tuning e4 b3 g3 d3 a2 e2',
     def.bars.trim(),

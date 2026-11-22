@@ -34,11 +34,11 @@ interface Props {
 /** Practice drawer content: bar difficulty map, tips for the focused bar, tempo ladder, summary. */
 export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick, ladder, onClean, onStuck, playing, speed, onPickBar, onSlowDown, onPlay }: Props) {
   if (!report) {
-    return <p className="muted small">Tab yüklenince ölçü haritası ve ipuçları burada görünecek.</p>;
+    return <p className="muted small">Once a tab loads, the bar map and tips will appear here.</p>;
   }
   const focusBar = loop ? loop[0] : currentBar;
   const bar = report.bars[focusBar];
-  const range = loop ? (loop[0] === loop[1] ? `Ölçü ${loop[0] + 1}` : `Ölçü ${loop[0] + 1}–${loop[1] + 1}`) : null;
+  const range = loop ? (loop[0] === loop[1] ? `Bar ${loop[0] + 1}` : `Bars ${loop[0] + 1}–${loop[1] + 1}`) : null;
 
   const step = practiceStep({ loop, playing, speed, ladderSpeed: ladder.speed });
   const stepIndex = PRACTICE_STEPS.findIndex((s) => s.step === step);
@@ -47,7 +47,7 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
   return (
     <div className="coach">
       <section className="flow" aria-labelledby="flow-title">
-        <ol className="flow-steps" aria-label="Pratik adımları">
+        <ol className="flow-steps" aria-label="Practice steps">
           {PRACTICE_STEPS.map((s, i) => (
             <li key={s.step} className={i < stepIndex ? 'done' : i === stepIndex ? 'current' : ''} aria-current={i === stepIndex ? 'step' : undefined}>
               <span className="flow-dot num" aria-hidden>{i < stepIndex ? <Check size={12} strokeWidth={3} /> : i + 1}</span>
@@ -58,40 +58,40 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
         <div className="flow-body">
           {step === 'choose' && (
             <>
-              <h3 id="flow-title">Çalışacağın bölümü seç</h3>
-              <p className="muted small">Haritadan bir ölçüye tıkla ya da en zor yerden başla. Çalarken <kbd className="kbd">L</kbd> o anki ölçüyü döngüye alır.</p>
+              <h3 id="flow-title">Pick the section to practice</h3>
+              <p className="muted small">Click a bar on the map or start with the hardest spot. While playing, <kbd className="kbd">L</kbd> loops the current bar.</p>
               <Button variant="primary" icon={<Target size={16} />} onClick={() => onPickBar(hardest)}>
-                {report.hardestBars.length ? `En zor ölçü: ${hardest + 1}` : `Ölçü ${hardest + 1} ile başla`}
+                {report.hardestBars.length ? `Hardest bar: ${hardest + 1}` : `Start with bar ${hardest + 1}`}
               </Button>
             </>
           )}
           {step === 'slow' && (
             <>
-              <h3 id="flow-title">Önce yavaş çal</h3>
-              <p className="muted small">Temiz çalabildiğin bir hızdan başla. Önerilen hız %{Math.round(ladder.speed * 100)}.</p>
-              <Button variant="primary" icon={<Gauge size={16} />} onClick={onSlowDown}>Hızı %{Math.round(ladder.speed * 100)} yap</Button>
+              <h3 id="flow-title">Play it slowly first</h3>
+              <p className="muted small">Start at a speed you can play cleanly. Suggested speed: {Math.round(ladder.speed * 100)}%.</p>
+              <Button variant="primary" icon={<Gauge size={16} />} onClick={onSlowDown}>Set speed to {Math.round(ladder.speed * 100)}%</Button>
             </>
           )}
           {step === 'loop' && (
             <>
-              <h3 id="flow-title">Döngüde çal</h3>
-              <p className="muted small">Bölüm durmadan tekrar eder. Her turdan sonra temiz çalıp çalmadığını işaretle.</p>
-              <Button variant="primary" icon={<Play size={16} fill="currentColor" />} onClick={onPlay}>Döngüyü başlat</Button>
+              <h3 id="flow-title">Play in a loop</h3>
+              <p className="muted small">The section repeats nonstop. After each pass, mark whether you played it cleanly.</p>
+              <Button variant="primary" icon={<Play size={16} fill="currentColor" />} onClick={onPlay}>Start loop</Button>
             </>
           )}
           {step === 'climb' && (
             <>
               <h3 id="flow-title" className="flow-title-row">
-                <span><Repeat size={15} aria-hidden /> Tur bitince işaretle</span>
-                <span className="ladder-dots" role="img" aria-label={`${ladder.clean} / ${ladder.passes ?? 3} temiz tur`}>
+                <span><Repeat size={15} aria-hidden /> Mark each pass when it ends</span>
+                <span className="ladder-dots" role="img" aria-label={`${ladder.clean} / ${ladder.passes ?? 3} clean passes`}>
                   {Array.from({ length: ladder.passes ?? 3 }, (_, i) => i).map((i) => <span key={i} className={i < ladder.clean ? 'on' : ''} />)}
                 </span>
               </h3>
               <div className="ladder-actions">
-                <Button variant="secondary" icon={<RotateCcw size={15} />} onClick={onStuck}>Takıldım</Button>
-                <Button variant="primary" icon={<Check size={15} />} onClick={onClean}>Temiz çaldım</Button>
+                <Button variant="secondary" icon={<RotateCcw size={15} />} onClick={onStuck}>I stumbled</Button>
+                <Button variant="primary" icon={<Check size={15} />} onClick={onClean}>Played it clean</Button>
               </div>
-              <p className="subtle small">Üst üste {ladder.passes ?? 3} temiz turda hız %5 artar · şu an %{Math.round(ladder.speed * 100)}, hedef %{Math.round(ladder.target * 100)}</p>
+              <p className="subtle small">Speed goes up 5% after {ladder.passes ?? 3} clean passes in a row · now {Math.round(ladder.speed * 100)}%, target {Math.round(ladder.target * 100)}%</p>
             </>
           )}
         </div>
@@ -99,18 +99,18 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
 
       <section className="coach-sec">
         <div className="coach-sec-head">
-          <h3>Ölçü haritası</h3>
+          <h3>Bar map</h3>
           <span className="heat-legend" aria-hidden>
-            <span>Kolay</span><i /><span>Zor</span>
+            <span>Easy</span><i /><span>Hard</span>
           </span>
         </div>
-        <p className="coach-hint">Döngüye almak için ölçüye tıkla. Aralık için Shift ile tıkla.</p>
-        <div className="heatmap" role="group" aria-label="Ölçüler, zorluğa göre">
+        <p className="coach-hint">Click a bar to loop it. Shift-click for a range.</p>
+        <div className="heatmap" role="group" aria-label="Bars by difficulty">
           {report.bars.map((b) => {
             const inLoop = !!loop && b.bar >= loop[0] && b.bar <= loop[1];
             // Difficulty is 1 (easy) … 5 (hard); an all-easy song stays cool.
             const level = Math.min(1, Math.max(0, (b.difficulty - 1) / 4));
-            const label = `Ölçü ${b.bar + 1}${b.issues.length ? `: ${b.issues.map((i) => KIND_LABEL[i.kind]).join(', ')}` : ', kolay'}`;
+            const label = `Bar ${b.bar + 1}${b.issues.length ? `: ${b.issues.map((i) => KIND_LABEL[i.kind]).join(', ')}` : ', easy'}`;
             return (
               <button
                 key={b.bar}
@@ -130,7 +130,7 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
       </section>
 
       <section className="coach-sec">
-        <h3>{range ?? `Ölçü ${focusBar + 1}`}</h3>
+        <h3>{range ?? `Bar ${focusBar + 1}`}</h3>
         {bar && bar.issues.length ? (
           <ul className="tips">
             {bar.issues.map((i) => (
@@ -141,12 +141,12 @@ export const Coach = memo(function Coach({ report, currentBar, loop, onBarClick,
             ))}
           </ul>
         ) : (
-          <p className="muted small">Bu ölçüde özel bir zorluk yok. Ritmi metronomla oturtmaya odaklan.</p>
+          <p className="muted small">No particular difficulty in this bar. Focus on locking in the rhythm with the metronome.</p>
         )}
       </section>
 
       <section className="coach-sec">
-        <h3>Genel öneriler</h3>
+        <h3>General tips</h3>
         <ul className="tips plain">
           {report.summary.map((s) => (
             <li key={s}><Lightbulb size={15} aria-hidden className="tip-ic" /><span>{s}</span></li>

@@ -265,8 +265,8 @@ const DREAD: BodySpec = { lengthCm: 50.8, upperCm: 29.2, waistCm: 27.0, lowerCm:
 
 export const TEMPLATE_SPECS: TemplateSpec[] = [
   {
-    id: 'natural-dreadnought', name: 'Doğal Dreadnought', label: 'Dreadnought',
-    description: 'Ladin kapak, gül ağacı sırt ve yanlar, nokta işaretler. Klasik akustik ses.',
+    id: 'natural-dreadnought', name: 'Natural Dreadnought', label: 'Dreadnought',
+    description: 'Spruce top, rosewood back and sides, dot inlays. Classic acoustic sound.',
     kind: 'acoustic', inlay: 'dots', scaleLengthCm: 64.5, fretCount: 20, bodyJoinFret: 14, nutWidthCm: 4.3, endWidthCm: 5.6,
     stringSpacingNutCm: 3.6, stringSpacingSaddleCm: 5.4, body: DREAD, depthCm: 12.0, soundholeRadiusCm: 5.0, soundholeGapCm: 0.7,
     bridge: { widthCm: 15.2, lengthCm: 3.8, style: 'pin' }, pickguard: true,
@@ -279,7 +279,7 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
   },
   {
     id: 'sunburst-dreadnought', name: 'Sunburst Dreadnought', label: 'Dreadnought',
-    description: 'Kenarlara doğru koyulaşan sunburst ladin kapak, maun gövde. Sıcak ve dolgun.',
+    description: 'Sunburst spruce top darkening toward the edges, mahogany body. Warm and full.',
     kind: 'acoustic', inlay: 'dots', scaleLengthCm: 64.5, fretCount: 20, bodyJoinFret: 14, nutWidthCm: 4.3, endWidthCm: 5.6,
     stringSpacingNutCm: 3.6, stringSpacingSaddleCm: 5.4, body: DREAD, depthCm: 12.0, soundholeRadiusCm: 5.0, soundholeGapCm: 0.7,
     bridge: { widthCm: 15.2, lengthCm: 3.8, style: 'pin' }, pickguard: true,
@@ -291,8 +291,8 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
     },
   },
   {
-    id: 'classical', name: 'Klasik Gitar', label: 'Klasik',
-    description: 'Naylon teller, 5,2 cm geniş eşik, oluklu kafa, 12. perdeden birleşen sap. Parmak stili için.',
+    id: 'classical', name: 'Classical Guitar', label: 'Classical',
+    description: 'Nylon strings, wide 5.2 cm nut, slotted headstock, neck joining at the 12th fret. For fingerstyle.',
     kind: 'classical', strings: 'nylon', inlay: 'none', scaleLengthCm: 65, fretCount: 19, bodyJoinFret: 12, nutWidthCm: 5.2, endWidthCm: 6.2,
     stringSpacingNutCm: 4.3, stringSpacingSaddleCm: 5.8,
     body: { lengthCm: 48.6, upperCm: 28.2, waistCm: 23.8, lowerCm: 36.8, upperT: 0.22, waistT: 0.45, lowerT: 0.74, shoulder: 2.5, tail: 2.3 },
@@ -306,8 +306,8 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
     },
   },
   {
-    id: 'mahogany-parlor', name: 'Maun Parlor', label: 'Parlor',
-    description: 'Küçük, rahat gövde; maun kapak ve gövde, kısa tel boyu. Yumuşak, odaklı ton.',
+    id: 'mahogany-parlor', name: 'Mahogany Parlor', label: 'Parlor',
+    description: 'Small, comfortable body; mahogany top and body, short scale. Soft, focused tone.',
     kind: 'acoustic', inlay: 'dots', scaleLengthCm: 62.9, fretCount: 18, bodyJoinFret: 12, nutWidthCm: 4.5, endWidthCm: 5.6,
     stringSpacingNutCm: 3.75, stringSpacingSaddleCm: 5.3,
     body: { lengthCm: 47.4, upperCm: 24.6, waistCm: 20.8, lowerCm: 34.3, upperT: 0.23, waistT: 0.46, lowerT: 0.74, shoulder: 2.5, tail: 2.3 },
@@ -321,8 +321,8 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
     },
   },
   {
-    id: 'cutaway-grand-auditorium', name: 'Kesik Grand Auditorium', label: 'Grand Auditorium',
-    description: 'Doğal ladin kapak, akçaağaç gövde, tiz tarafta kesik. Yüksek perdelere kolay erişim.',
+    id: 'cutaway-grand-auditorium', name: 'Cutaway Grand Auditorium', label: 'Grand Auditorium',
+    description: 'Natural spruce top, maple body, cutaway on the treble side. Easy access to the high frets.',
     kind: 'acoustic', inlay: 'blocks', scaleLengthCm: 64.8, fretCount: 20, bodyJoinFret: 14, nutWidthCm: 4.45, endWidthCm: 5.7,
     stringSpacingNutCm: 3.65, stringSpacingSaddleCm: 5.45,
     body: { lengthCm: 50.2, upperCm: 29.0, waistCm: 24.2, lowerCm: 40.6, upperT: 0.21, waistT: 0.44, lowerT: 0.72, shoulder: 2.7, tail: 2.3, cutaway: { heelHalfCm: 3.3, lengthT: 0.2 } },
@@ -336,8 +336,8 @@ export const TEMPLATE_SPECS: TemplateSpec[] = [
     },
   },
   {
-    id: 'solid-electric', name: 'Elektro Gitar', label: 'Elektro',
-    description: 'Masif gövde, iki manyetik, 22 perde. Ses deliği yok; ince sap, hafif teller.',
+    id: 'solid-electric', name: 'Electric Guitar', label: 'Electric',
+    description: 'Solid body, two pickups, 22 frets. No sound hole; slim neck, light strings.',
     kind: 'electric', inlay: 'dots', scaleLengthCm: 64.8, fretCount: 22, bodyJoinFret: 16, nutWidthCm: 4.25, endWidthCm: 5.6,
     stringSpacingNutCm: 3.5, stringSpacingSaddleCm: 5.25, body: { solid: true, lengthCm: 44.6 }, depthCm: 4.5, soundholeRadiusCm: 0,
     bridge: { widthCm: 8.6, lengthCm: 3.6, style: 'electric' }, pickguard: false,
@@ -409,7 +409,7 @@ export function buildTemplateProfile(t: TemplateSpec): GuitarProfile {
     },
     finish: t.finish,
     textures: {},
-    source: 'Şablon: scripts/gen-guitar-templates.ts ile parametrik olarak üretildi.',
+    source: 'Template: generated parametrically by scripts/gen-guitar-templates.ts.',
     builtIn: true,
   };
   p.totalLengthCm = Math.round(modelledLength(p) * 10) / 10;

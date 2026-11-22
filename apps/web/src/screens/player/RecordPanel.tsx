@@ -54,7 +54,7 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
 
   const startRecording = async () => {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      toast({ tone: 'danger', title: 'Bu tarayıcı kayıt yapamıyor.' });
+      toast({ tone: 'danger', title: 'This browser can\'t record.' });
       return;
     }
     stopAudio();
@@ -62,7 +62,7 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
     } catch {
-      toast({ tone: 'danger', title: 'Mikrofona erişilemedi', description: 'Tarayıcı ayarlarından mikrofon izni ver.' });
+      toast({ tone: 'danger', title: 'Couldn\'t access the microphone', description: 'Allow microphone access in your browser settings.' });
       return;
     }
     const mime = pickMime((m) => MediaRecorder.isTypeSupported(m));
@@ -76,8 +76,8 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
       const blob = new Blob(r.chunks, { type: mr.mimeType || mime || 'audio/webm' });
       addTake({ id: crypto.randomUUID(), tabKey, createdAt: new Date().toISOString(), startTick: r.startTick, speed: r.speed, durationMs, mime: blob.type, blob })
         .then(refresh)
-        .then(() => toast({ tone: 'success', title: 'Kayıt saklandı.', description: 'Orijinalle birlikte dinleyebilirsin.' }))
-        .catch((e: Error) => toast({ tone: 'danger', title: 'Kayıt saklanamadı.', description: e.message }));
+        .then(() => toast({ tone: 'success', title: 'Recording saved.', description: 'You can listen to it along with the original.' }))
+        .catch((e: Error) => toast({ tone: 'danger', title: 'Couldn\'t save the recording.', description: e.message }));
     };
     rec.current = r;
     mr.start(1000);
@@ -136,14 +136,14 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
 
   return (
     <section className="drawer-sec" aria-labelledby="rec-sec">
-      <h3 id="rec-sec" className="eyebrow">Kayıt ve karşılaştır</h3>
+      <h3 id="rec-sec" className="eyebrow">Record and compare</h3>
       <div className="ti-row">
         {recording ? (
-          <Button size="sm" variant="danger" icon={<Square size={14} fill="currentColor" />} onClick={stopRecording}>Kaydı bitir</Button>
+          <Button size="sm" variant="danger" icon={<Square size={14} fill="currentColor" />} onClick={stopRecording}>Stop recording</Button>
         ) : (
-          <Button size="sm" icon={<Circle size={14} fill="currentColor" className="rec-dot" />} onClick={startRecording} disabled={playing}>Kaydet</Button>
+          <Button size="sm" icon={<Circle size={14} fill="currentColor" className="rec-dot" />} onClick={startRecording} disabled={playing}>Record</Button>
         )}
-        <span className="subtle small"><Headphones size={13} aria-hidden /> Kulaklıkla kaydet; tab bulunduğu yerden çalar.</span>
+        <span className="subtle small"><Headphones size={13} aria-hidden /> Record with headphones; the tab plays from the current position.</span>
       </div>
       {takes.length > 0 && (
         <ul className="rec-list">
@@ -151,16 +151,16 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
             <li key={t.id} className={playingId === t.id ? 'is-now' : undefined}>
               <IconButton
                 size="sm"
-                label={playingId === t.id ? 'Durdur' : 'Orijinalle birlikte dinle'}
+                label={playingId === t.id ? 'Stop' : 'Listen with the original'}
                 icon={playingId === t.id ? <Square size={14} /> : <Play size={14} />}
                 onClick={() => void playTake(t)}
                 disabled={recording}
               />
               <span className="rec-text">
                 <span>{relativeTime(t.createdAt) ?? ''}</span>
-                <span className="subtle small num">{secs(t.durationMs)} · %{Math.round(t.speed * 100)} hız</span>
+                <span className="subtle small num">{secs(t.durationMs)} · {Math.round(t.speed * 100)}% speed</span>
               </span>
-              <IconButton size="sm" label="Kaydı sil" icon={<Trash2 size={14} />} onClick={() => void remove(t)} />
+              <IconButton size="sm" label="Delete recording" icon={<Trash2 size={14} />} onClick={() => void remove(t)} />
             </li>
           ))}
         </ul>

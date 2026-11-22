@@ -17,7 +17,7 @@ export function BadgeWatcher() {
         .then((sessions) => {
           if (!alive) return;
           const fresh = markSeen(earnedBadges({ sessions, weeklyGoalMinutes: goal.current }));
-          for (const b of fresh) toast({ tone: 'success', title: `Yeni rozet: ${b.title}`, description: b.description, durationMs: 6000 });
+          for (const b of fresh) toast({ tone: 'success', title: `New badge: ${b.title}`, description: b.description, durationMs: 6000 });
         })
         .catch(() => {});
     };

@@ -102,10 +102,10 @@ export function TabImportDropzone({ onImported, global = true, showPaste = true,
       onDrop={localDrop}
     >
       <div style={zone} data-dragging={dragging || undefined}>
-        <p style={{ margin: 0 }}>Tab dosyalarını buraya sürükle ya da seç.</p>
+        <p style={{ margin: 0 }}>Drag tab files here or choose them.</p>
         <p style={muted}>Guitar Pro (gp3–gp7, gpx), MusicXML (.xml, .musicxml, .mxl), alphaTex (.atex, .tex), ASCII tab (.txt)</p>
         <label style={button}>
-          {busy ? 'Yükleniyor…' : 'Dosya seç'}
+          {busy ? 'Uploading…' : 'Choose files'}
           <input
             type="file"
             multiple
@@ -123,7 +123,7 @@ export function TabImportDropzone({ onImported, global = true, showPaste = true,
 
       {showPaste && (
         <div style={{ display: 'grid', gap: 8 }}>
-          <label style={muted} htmlFor="tab-import-paste">ASCII tab ya da alphaTex yapıştır</label>
+          <label style={muted} htmlFor="tab-import-paste">Paste ASCII tab or alphaTex</label>
           <textarea
             id="tab-import-paste"
             value={paste}
@@ -139,7 +139,7 @@ export function TabImportDropzone({ onImported, global = true, showPaste = true,
               <input type="number" min={30} max={300} placeholder="90" value={tempo} onChange={(e) => setTempo(e.target.value)} style={{ ...input, width: 72 }} />
             </label>
             <label style={muted}>
-              Ölçü{' '}
+              Time{' '}
               <select value={ts} onChange={(e) => setTs(e.target.value)} style={input}>
                 {['4/4', '3/4', '6/8', '2/4', '12/8'].map((t) => (
                   <option key={t}>{t}</option>
@@ -147,14 +147,14 @@ export function TabImportDropzone({ onImported, global = true, showPaste = true,
               </select>
             </label>
             <label style={muted}>
-              Izgara{' '}
+              Grid{' '}
               <select value={quantize} onChange={(e) => setQuantize(Number(e.target.value) as 8 | 16)} style={input}>
-                <option value={16}>16’lık</option>
-                <option value={8}>8’lik</option>
+                <option value={16}>16th</option>
+                <option value={8}>8th</option>
               </select>
             </label>
             <button type="button" style={button} disabled={busy || !paste.trim()} onClick={() => void run(paste)}>
-              Dönüştür ve ekle
+              Convert and add
             </button>
           </div>
         </div>
@@ -176,7 +176,7 @@ export function TabImportDropzone({ onImported, global = true, showPaste = true,
 
       {global && dragging && (
         <div style={overlay} aria-hidden>
-          <div style={{ fontSize: 20 }}>Tabları bırak, kütüphaneye ekleyelim</div>
+          <div style={{ fontSize: 20 }}>Drop your tabs to add them to the library</div>
         </div>
       )}
     </div>

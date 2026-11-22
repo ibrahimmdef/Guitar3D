@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { exporter, importer, LogLevel, Settings } from '@coderline/alphatab';
 import { importTabs, sniffText } from './importTabs';
 
-const RIFF = `Title: Kum Saati
+const RIFF = `Title: Hourglass
 e|-----------------|
 B|-----------------|
 G|-------2---2-----|
@@ -11,11 +11,11 @@ A|-0---0---0---0---|
 E|-----------------|
 `;
 
-const TEX = '\\title "Tex Etüdü"\n\\artist "Biri"\n\\track "Gitar"\n\\staff {tabs}\n:4 0.6 2.6 3.6 5.6 |';
+const TEX = '\\title "Tex Etude"\n\\artist "Someone"\n\\track "Guitar"\n\\staff {tabs}\n:4 0.6 2.6 3.6 5.6 |';
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
-  <work><work-title>XML Etüdü</work-title></work>
+  <work><work-title>XML Etude</work-title></work>
   <identification><creator type="composer">Test</creator></identification>
   <part-list><score-part id="P1"><part-name>Guitar</part-name></score-part></part-list>
   <part id="P1">
@@ -29,7 +29,7 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
 function gp7Bytes() {
   const s = new Settings();
   s.core.logLevel = LogLevel.None;
-  const score = importer.ScoreLoader.loadAlphaTex('\\title "GP Riff"\n\\artist "Exporter"\n\\track "Gitar"\n:4 0.6 3.6 5.6 3.6 |', s);
+  const score = importer.ScoreLoader.loadAlphaTex('\\title "GP Riff"\n\\artist "Exporter"\n\\track "Guitar"\n:4 0.6 3.6 5.6 3.6 |', s);
   return new exporter.Gp7Exporter().export(score, s);
 }
 
@@ -50,7 +50,7 @@ describe('sniffText', () => {
   it('tells ASCII tab, alphaTex and prose apart', () => {
     expect(sniffText(RIFF)).toBe('ascii');
     expect(sniffText(TEX)).toBe('alphatex');
-    expect(sniffText('Merhaba, bu bir şarkı sözü değil.')).toBe('unknown');
+    expect(sniffText('Hello, these are not song lyrics.')).toBe('unknown');
   });
 });
 
@@ -60,18 +60,18 @@ describe('importTabs', () => {
     const [r] = await importTabs(RIFF, { fetchImpl: f, ascii: { tempo: 110 } });
     expect(r.ok).toBe(true);
     expect(r.format).toBe('ascii');
-    expect(r.title).toBe('Kum Saati');
+    expect(r.title).toBe('Hourglass');
     expect(r.alphaTex).toContain('\\tempo 110');
     expect(calls).toHaveLength(1);
     const sent = JSON.parse(calls[0].init!.body as string);
-    expect(sent).toMatchObject({ format: 'ascii', title: 'Kum Saati' });
+    expect(sent).toMatchObject({ format: 'ascii', title: 'Hourglass' });
     expect(r.meta?.id).toBe('1');
   });
 
   it('imports several files in one go and reports bad ones', async () => {
     const { f, calls } = fakeServer();
     const files = [
-      new File([RIFF.replace('Title: Kum Saati\n', '')], 'my-riff.txt'),
+      new File([RIFF.replace('Title: Hourglass\n', '')], 'my-riff.txt'),
       new File([TEX], 'etut.atex'),
       new File([XML], 'etut.musicxml'),
       new File([new Uint8Array(gp7Bytes()) as Uint8Array<ArrayBuffer>], 'riff.gp'),
@@ -90,11 +90,11 @@ describe('importTabs', () => {
       ['words.txt', false],
     ]);
     expect(res[0].title).toBe('my-riff');
-    expect(res[1]).toMatchObject({ format: 'alphatex', title: 'Tex Etüdü', artist: 'Biri' });
-    expect(res[2]).toMatchObject({ format: 'musicxml', title: 'XML Etüdü' });
+    expect(res[1]).toMatchObject({ format: 'alphatex', title: 'Tex Etude', artist: 'Someone' });
+    expect(res[2]).toMatchObject({ format: 'musicxml', title: 'XML Etude' });
     expect(res[3]).toMatchObject({ format: 'gp', title: 'GP Riff', artist: 'Exporter' });
-    expect(res[4].error).toMatch(/okunamadı/);
-    expect(res[5].error).toMatch(/Desteklenmeyen/);
+    expect(res[4].error).toMatch(/Couldn't read/);
+    expect(res[5].error).toMatch(/Unsupported/);
     expect(calls).toHaveLength(4);
     expect(calls[3].init!.body).toBeInstanceOf(FormData);
     expect((calls[3].init!.body as FormData).get('title')).toBe('GP Riff');
@@ -110,8 +110,8 @@ describe('importTabs', () => {
   });
 
   it('surfaces server errors per file', async () => {
-    const f = (async () => new Response(JSON.stringify({ error: 'Disk dolu' }), { status: 500 })) as unknown as typeof fetch;
+    const f = (async () => new Response(JSON.stringify({ error: 'Disk full' }), { status: 500 })) as unknown as typeof fetch;
     const [r] = await importTabs([new File([TEX], 'a.tex')], { fetchImpl: f });
-    expect(r).toMatchObject({ ok: false, error: 'Disk dolu' });
+    expect(r).toMatchObject({ ok: false, error: 'Disk full' });
   });
 });

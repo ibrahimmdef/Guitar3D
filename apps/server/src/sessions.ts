@@ -13,14 +13,14 @@ const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && 
 /** Validates a POST body; returns the session or an error message. */
 export function parseSession(body: unknown): NewPracticeSession | string {
   const b = (body ?? {}) as Record<string, unknown>;
-  if (!KINDS.includes(b.kind as SessionKind)) return `kind şunlardan biri olmalı: ${KINDS.join(', ')}.`;
-  if (!isIso(b.startedAt)) return 'startedAt ISO tarih olmalı.';
+  if (!KINDS.includes(b.kind as SessionKind)) return `kind must be one of: ${KINDS.join(', ')}.`;
+  if (!isIso(b.startedAt)) return 'startedAt must be an ISO date.';
   const seconds = num(b.seconds, 0, MAX_SECONDS);
-  if (seconds == null || seconds < 1) return 'seconds en az 1 olmalı.';
+  if (seconds == null || seconds < 1) return 'seconds must be at least 1.';
   const endedAt = isIso(b.endedAt) ? b.endedAt : new Date(Date.parse(b.startedAt) + seconds * 1000).toISOString();
   const out: NewPracticeSession = {
     kind: b.kind as SessionKind,
-    title: typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 200) : 'Pratik',
+    title: typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 200) : 'Practice',
     startedAt: new Date(b.startedAt).toISOString(),
     endedAt: new Date(endedAt).toISOString(),
     seconds: Math.round(seconds),

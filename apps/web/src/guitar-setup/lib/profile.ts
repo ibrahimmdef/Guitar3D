@@ -58,7 +58,7 @@ export function assembleProfile(p: ProfileParts): Omit<GuitarProfile, 'id'> {
   const saddleX = p.saddleX ?? -p.scaleLengthCm;
   const head = p.headstock ?? defaultHeadstock(nutWidthCm);
   return {
-    name: p.name.trim() || 'Gitarım',
+    name: p.name.trim() || 'My guitar',
     totalLengthCm: r2(p.totalLengthCm),
     scaleLengthCm: r2(p.scaleLengthCm),
     fretCount,
@@ -79,6 +79,6 @@ export function assembleProfile(p: ProfileParts): Omit<GuitarProfile, 'id'> {
     headstock: { lengthCm: head.lengthCm, profile: head.profile, tunersLowE: head.tunersLowE, tunersHighE: head.tunersHighE, angleDeg: head.angleDeg ?? 14 },
     finish: { ...DEFAULT_FINISH, ...p.finish },
     textures: {},
-    source: p.source ?? 'Fotoğraftan oluşturuldu (Guitar3D sihirbazı).',
+    source: p.source ?? 'Created from photos (Guitar3D wizard).',
   };
 }

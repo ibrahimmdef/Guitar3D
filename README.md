@@ -1,8 +1,8 @@
 # Guitar3D
 
-Kendi gitarının 3D modeli üzerinde, Guitar Pro tablarını baloncuklarla gösteren interaktif bir gitar çalışma uygulaması.
+An interactive guitar practice app that shows Guitar Pro tabs as note bubbles on a 3D model of your own guitar.
 
-## Çalıştırma
+## Running
 
 ```bash
 npm install
@@ -12,76 +12,76 @@ npm run dev
 - Web: http://localhost:5173
 - API: http://localhost:3001
 
-Uygulama açılışta bir demo etüt yükler. "Tab yükle" ile `.gp`, `.gp5`, `.gpx`, `.gp7` veya MusicXML dosyası yükleyebilirsin.
+The app loads a demo étude on startup. Use "Upload tab" to load a `.gp`, `.gp5`, `.gpx`, `.gp7` or MusicXML file.
 
-### Şarkıdan kök sesler (çal-eşlik)
+### Song stems (play along)
 
-Kütüphanede "Ses dosyasından" ile bir mp3/wav/flac/ogg/m4a (en fazla 50 MB) yüklenir; sunucu Demucs
-(`htdemucs_6s`) ile gitar, vokal, bas, davul, piyano ve diğer kanallarına ayırır (sırayla, tek iş).
-Şarkı ekranında kanal başına sessiz/solo/ses, %50–100 hız (perde değişmez), A–B döngüsü ve
-"Play along" (orijinal gitar kapalı) hazır ayarı vardır. Sunucuda bir kez:
+In the library, "From audio file" uploads an mp3/wav/flac/ogg/m4a (up to 50 MB); the server splits it with Demucs
+(`htdemucs_6s`) into guitar, vocals, bass, drums, piano and other stems (one job at a time, queued).
+The song screen has per-stem mute/solo/volume, 50–100% speed (pitch unchanged), an A–B loop and a
+"Play along" preset (original guitar muted). Run once on the server:
 
 ```bash
-apps/server/scripts/setup-demucs.sh   # uv + ffmpeg gerekir; CPU-only torch kurar
+apps/server/scripts/setup-demucs.sh   # needs uv + ffmpeg; installs CPU-only torch
 ```
 
-Ortam değişkenleri: `G3D_DEMUCS_PYTHON` (varsayılan `~/.local/share/guitar3d/demucs-venv/bin/python`),
-`G3D_TMP_DIR` (varsayılan `~/.cache/g3d-tmp`), `DATA_DIR`. Şarkılar `data/songs/<id>/` altında durur ve yedeğe dahil edilmez.
+Environment variables: `G3D_DEMUCS_PYTHON` (default `~/.local/share/guitar3d/demucs-venv/bin/python`),
+`G3D_TMP_DIR` (default `~/.cache/g3d-tmp`), `DATA_DIR`. Songs live under `data/songs/<id>/` and are not included in backups.
 
-## Özellikler
+## Features
 
-- **Tab okuma ve çalma:** alphaTab ile yapılır. Çalarken hız ayarı, metronom, sayarak başlama ve gitar sesini kısma desteklenir.
-- **3D gitar:** react-three-fiber ile çizilir. Baloncuklarda dolu daire o an çalınacak notayı, halka sıradaki notayı gösterir. Her telin kendi rengi vardır. Basılan tel titreşir ve kamera notaları takip eder.
-- **Ölçü haritası:** her ölçünün zorluğunu gösterir. Bir ölçüye tıklayınca döngüye alınır, Shift ile tıklayınca aralık seçilir.
-- **Kural tabanlı ipuçları:** pozisyon kayması, geniş açılım, barre, akor geçişi, hız ve teknikleri (hammer-on, slide, bend, palm mute) otomatik bulur. AI gerekmez.
-- **Tempo merdiveni:** 3 temiz turdan sonra hız %5 artar. İlerleme sunucuya kaydedilir.
-- **"Gitarım" penceresi:**
-  - Fretboard fotoğrafında 4 noktaya tıklarsın. Uygulama perspektifi düzeltir ve fotoğrafı 3D sapa birebir giydirir.
-  - Gövde fotoğrafı da gövdenin üst yüzüne giydirilir.
+- **Reading and playing tabs:** powered by alphaTab. Playback supports speed control, a metronome, count-in and muting the guitar sound.
+- **3D guitar:** drawn with react-three-fiber. A filled circle shows the note to play now, a ring shows the next note. Each string has its own color. The played string vibrates and the camera follows the notes.
+- **Bar map:** shows the difficulty of every bar. Click a bar to loop it; Shift-click to select a range.
+- **Rule-based tips:** automatically detects position shifts, wide stretches, barres, chord changes, speed and techniques (hammer-on, slide, bend, palm mute). No AI needed.
+- **Tempo ladder:** speed goes up 5% after 3 clean passes. Progress is saved on the server.
+- **"My guitars" screen:**
+  - Click 4 points on a fretboard photo. The app corrects the perspective and maps the photo exactly onto the 3D neck.
+  - The body photo is mapped onto the top of the body as well.
 
-## Veston modeli
+## The Veston model
 
-Varsayılan model, sahibinin Veston dreadnought gitarıdır:
-- mat siyah gövde ve krem binding
-- siyah pickguard ve sedef görünümlü rozet
-- hayat ağacı kakmalı fretboard
+The default model is the owner's Veston dreadnought guitar:
+- matte black body with cream binding
+- black pickguard and a mother-of-pearl style rosette
+- tree-of-life fretboard inlay
 
-Fretboard ve headstock dokuları `assets/photos/front-neck.jpg` fotoğrafından üretilir:
+The fretboard and headstock textures are generated from the photo `assets/photos/front-neck.jpg`:
 
 ```bash
 python3 scripts/build-veston-textures.py
 ```
 
-Fotoğraf hafif açılı çekildiği için 20 perde teli fotoğrafta tek tek ölçüldü. Dokular perde perde düzeltildi, böylece fotoğraftaki perdeler 3D perdelerle tam çakışıyor. Ölçümler betiğin başındadır. Betiğin çıktıları `apps/web/public/guitar/` klasörüne yazılır.
+Because the photo was taken at a slight angle, all 20 fret wires were measured individually in the photo. The textures are corrected fret by fret, so the frets in the photo line up exactly with the 3D frets. The measurements are at the top of the script. The script writes its output to `apps/web/public/guitar/`.
 
-## Gitarının ölçüleri
+## Your guitar's measurements
 
-`data/guitar/guitar.json` dosyası `apps/web/src/fretboard/guitarSpec.ts` içindeki `GuitarSpec` alanlarını ezer. Örnek:
+The file `data/guitar/guitar.json` overrides the `GuitarSpec` fields in `apps/web/src/fretboard/guitarSpec.ts`. Example:
 
 ```json
 { "scaleLength": 65.0, "bodyLength": 51, "lowerBout": 40, "inlayShape": "diamond", "inlays": [3, 5, 7, 9, 15], "doubleInlays": [12] }
 ```
 
-## Meshy ile 3D gövde
+## 3D body with Meshy
 
-Meshy'nin resmi MCP sunucusu, fotoğraflardan 3D gövde modeli üretir.
+Meshy's official MCP server generates a 3D body model from photos.
 
-1. https://www.meshy.ai adresinde hesap aç ve bir API anahtarı al. Meshy API'si ücretli kredi ile çalışır.
-2. Anahtarı terminalinde ortam değişkeni olarak ayarla. Örnek fish kabuğu için:
+1. Create an account at https://www.meshy.ai and get an API key. The Meshy API runs on paid credits.
+2. Set the key as an environment variable in your terminal. For example, in the fish shell:
 
    ```bash
-   set -Ux MESHY_API_KEY anahtarın
+   set -Ux MESHY_API_KEY your-key
    ```
 
-3. MCP sunucusunu Claude Code'a ekle:
+3. Add the MCP server to Claude Code:
 
    ```bash
    claude mcp add --scope user meshy -- npx -y @meshy-ai/meshy-mcp-server
    ```
 
-Üretilen modeli `data/guitar/body.glb` konumuna koy. Uygulama prosedürel gövde yerine bunu kullanır. Konum ve ölçek `guitar.json` içindeki `bodyModel` alanından ayarlanır.
+Put the generated model at `data/guitar/body.glb`. The app uses it instead of the procedural body. Position and scale are set with the `bodyModel` field in `guitar.json`.
 
-## Testler
+## Tests
 
 ```bash
 npm test

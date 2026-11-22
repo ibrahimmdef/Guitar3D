@@ -30,7 +30,7 @@ const LESSONS: BuiltinLessonDef[] = [
 
 const ALL = [...LESSONS, ...TURKULER, ...ESERLER];
 
-/** Metadata of every built-in lesson: the regular lessons easiest first, then the "Türküler" and "Eserler" packs easiest first. */
+/** Metadata of every built-in lesson: the regular lessons easiest first, then the "Türküler" (Turkish folk) and "Classics" packs easiest first. */
 export function listBuiltinLessons(): BuiltinLesson[] {
   return ALL.map(({ bars: _bars, ...meta }) => meta);
 }
@@ -38,6 +38,6 @@ export function listBuiltinLessons(): BuiltinLesson[] {
 /** alphaTex source of a built-in lesson. Throws for an unknown id. */
 export function loadBuiltinLesson(id: string): string {
   const def = ALL.find((l) => l.id === id);
-  if (!def) throw new Error(`Bu ders bulunamadı: ${id}`);
+  if (!def) throw new Error(`Lesson not found: ${id}`);
   return lessonTex(def);
 }

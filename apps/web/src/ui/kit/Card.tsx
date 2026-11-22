@@ -10,6 +10,6 @@ export function Card({ padded = true, elevation = 'flat', className, ...rest }: 
   return <div className={`card card-${elevation}${padded ? ' card-pad' : ''}${className ? ` ${className}` : ''}`} {...rest} />;
 }
 
-export function Spinner({ label = 'Yükleniyor' }: { label?: string }) {
+export function Spinner({ label = 'Loading' }: { label?: string }) {
   return <span className="spinner" role="progressbar" aria-label={label} />;
 }

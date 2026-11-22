@@ -33,7 +33,7 @@ interface Props {
   listen: { feedback: 'hit' | 'miss' | null; hits: number; firstTry: number; status: string } | null;
 }
 
-/** "Sıradaki" strip under the header: current and next notes as string·fret, sections and bar. */
+/** "Up next" strip under the header: current and next notes as string·fret, sections and bar. */
 export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCount, sections, activeSection, loop, onSection, pulse, listen }: Props) {
   const stringCount = track?.staves[0]?.tuning.length || 6;
   const letters = useMemo(() => stringLetters(track?.staves[0]?.tuning, stringCount), [track, stringCount]);
@@ -47,22 +47,22 @@ export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCou
   const fb = listen?.feedback;
   // Screen readers hear the bar and its first cue when the bar changes, not every beat.
   const nowLabel = cues[0]?.label;
-  const barAnnouncement = useMemo(() => (beat ? `${currentBar + 1}. ölçü${nowLabel ? `, şimdi ${nowLabel}` : ''}` : ''),
+  const barAnnouncement = useMemo(() => (beat ? `Bar ${currentBar + 1}${nowLabel ? `, now ${nowLabel}` : ''}` : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentBar, !!beat]);
   return (
-    <div className="cue" role="region" aria-label="Sıradaki notalar">
+    <div className="cue" role="region" aria-label="Upcoming notes">
       <span className="sr-only" role="status" aria-live="polite">{barAnnouncement}</span>
       <div className={`cue-notes${fb ? ` is-${fb}` : ''}`}>
-        <span className="cue-eyebrow">Sıradaki</span>
+        <span className="cue-eyebrow">Up next</span>
         {cues.length === 0 ? (
-          <span className="cue-empty">Çalınca notalar burada görünür</span>
+          <span className="cue-empty">Notes appear here when you play</span>
         ) : (
           <ol className="cue-list" aria-live="off">
             {cues.map((c, i) => (
               <Fragment key={i}>
                 {i > 0 && <li aria-hidden className="cue-arrow"><ArrowRight size={12} /></li>}
-                <li className={`cue-item${i === 0 ? ' is-now' : ''}`} aria-label={i === 0 ? `Şimdi: ${c?.label ?? 'es'}` : `Sonra: ${c?.label}`}>
+                <li className={`cue-item${i === 0 ? ' is-now' : ''}`} aria-label={i === 0 ? `Now: ${c?.label ?? 'rest'}` : `Then: ${c?.label}`}>
                   <span className="cue-frets num">{c?.label ?? '—'}</span>
                   {c?.chord && <span className="cue-chord">{c.chord}</span>}
                 </li>
@@ -72,15 +72,15 @@ export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCou
         )}
         {listen && (
           <span className="cue-listen" role="status" aria-live="polite">
-            {fb === 'hit' && <Check size={14} aria-label="Doğru" />}
-            {fb === 'miss' && <X size={14} aria-label="Yanlış nota" />}
+            {fb === 'hit' && <Check size={14} aria-label="Correct" />}
+            {fb === 'miss' && <X size={14} aria-label="Wrong note" />}
             <span className="num">{listen.status || `${listen.firstTry}/${listen.hits}`}</span>
           </span>
         )}
       </div>
 
       {sections.length > 1 && (
-        <div className="cue-sections" role="group" aria-label="Bölümler (tıkla: atla, Shift+tıkla: döngü)">
+        <div className="cue-sections" role="group" aria-label="Sections (click: jump, Shift+click: loop)">
           {sections.map((s, i) => {
             const looped = !!loop && loop[0] === s.startBar && loop[1] === s.endBar;
             const range = s.startBar === s.endBar ? `${s.startBar + 1}` : `${s.startBar + 1}–${s.endBar + 1}`;
@@ -91,8 +91,8 @@ export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCou
                 className={`sec-chip${i === activeSection ? ' is-active' : ''}${looped ? ' is-looped' : ''}`}
                 aria-current={i === activeSection ? 'true' : undefined}
                 aria-pressed={looped}
-                title={`${s.name ? `${s.name} · ` : ''}Ölçü ${range} — Shift+tıkla: döngü`}
-                aria-label={`Bölüm ${s.label}${s.name ? ` (${s.name})` : ''}, ölçü ${range}`}
+                title={`${s.name ? `${s.name} · ` : ''}Bars ${range} — Shift+click: loop`}
+                aria-label={`Section ${s.label}${s.name ? ` (${s.name})` : ''}, bars ${range}`}
                 onClick={(e) => onSection(i, e.shiftKey)}
               >
                 {s.label}
@@ -102,13 +102,13 @@ export const CueStrip = memo(function CueStrip({ beat, track, currentBar, barCou
         </div>
       )}
 
-      <div className="cue-bar num" aria-label={`Ölçü ${currentBar + 1} / ${barCount}`}>
+      <div className="cue-bar num" aria-label={`Bar ${currentBar + 1} / ${barCount}`}>
         <span
           key={pulse?.n ?? -1}
           className={`pulse${pulse ? ' is-on' : ''}${pulse?.beat === 0 ? ' is-down' : ''}`}
           aria-hidden
         />
-        Ölçü <b>{barCount ? currentBar + 1 : '–'}</b>
+        Bar <b>{barCount ? currentBar + 1 : '–'}</b>
         <span className="subtle"> / {barCount || '–'}</span>
       </div>
     </div>

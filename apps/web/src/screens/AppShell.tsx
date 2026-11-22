@@ -9,39 +9,39 @@ export interface NavGroup { label: string; items: NavEntry[] }
 /** Left navigation, grouped. On phones the first PRIMARY entries form the bottom bar. */
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Çal',
+    label: 'Play',
     items: [
-      { route: 'library', label: 'Kütüphane', icon: <Library size={18} /> },
-      { route: 'progress', label: 'İlerleme', icon: <Activity size={18} /> },
+      { route: 'library', label: 'Library', icon: <Library size={18} /> },
+      { route: 'progress', label: 'Progress', icon: <Activity size={18} /> },
     ],
   },
   {
-    label: 'Öğren',
+    label: 'Learn',
     items: [
-      { route: 'chords', label: 'Akorlar', icon: <Grid3x3 size={18} /> },
-      { route: 'scales', label: 'Gamlar', icon: <Music2 size={18} /> },
+      { route: 'chords', label: 'Chords', icon: <Grid3x3 size={18} /> },
+      { route: 'scales', label: 'Scales', icon: <Music2 size={18} /> },
     ],
   },
   {
-    label: 'Araçlar',
+    label: 'Tools',
     items: [
-      { route: 'tuner', label: 'Akort', icon: <Gauge size={18} /> },
-      { route: 'editor', label: 'Tab editörü', icon: <PencilLine size={18} /> },
-      { route: 'guitar', label: 'Gitarım', icon: <Guitar size={18} /> },
-      { route: 'settings', label: 'Ayarlar', icon: <Settings size={18} /> },
+      { route: 'tuner', label: 'Tuner', icon: <Gauge size={18} /> },
+      { route: 'editor', label: 'Tab editor', icon: <PencilLine size={18} /> },
+      { route: 'guitar', label: 'My guitars', icon: <Guitar size={18} /> },
+      { route: 'settings', label: 'Settings', icon: <Settings size={18} /> },
     ],
   },
 ];
 
-/** Nav entry a route belongs to (a song opened from the library keeps "Kütüphane" highlighted). */
+/** Nav entry a route belongs to (a song opened from the library keeps "Library" highlighted). */
 const navOf = (route: Route) => (route.name === 'song' ? 'library' : route.name);
 
 /** Shell for the non-player screens: sidebar on wide screens, bottom tab bar on phones. */
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {
   return (
     <div className="shell">
-      <nav className="shell-nav" aria-label="Ana menü">
-        <a className="brand" href={routeHref({ name: 'library' })} aria-label="Guitar3D, kütüphane">
+      <nav className="shell-nav" aria-label="Main menu">
+        <a className="brand" href={routeHref({ name: 'library' })} aria-label="Guitar3D, library">
           <span className="brand-mark" aria-hidden>
             <svg viewBox="0 0 24 24" width="22" height="22">
               <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.6" />
@@ -75,7 +75,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
   );
 }
 
-/** Phone tab bar: the most used destinations plus a "Menü" sheet with every screen, grouped. */
+/** Phone tab bar: the most used destinations plus a "Menu" sheet with every screen, grouped. */
 export const PRIMARY: SimpleRouteName[] = ['library', 'chords', 'tuner', 'progress'];
 
 function BottomNav({ route }: { route: Route }) {
@@ -84,7 +84,7 @@ function BottomNav({ route }: { route: Route }) {
   const primary = PRIMARY.map((r) => all.find((n) => n.route === r)!);
   const inMenu = !PRIMARY.includes(navOf(route) as SimpleRouteName);
   return (
-    <nav className="bottom-nav" aria-label="Alt menü">
+    <nav className="bottom-nav" aria-label="Bottom menu">
       {primary.map((n) => {
         const active = n.route === navOf(route);
         return (
@@ -96,9 +96,9 @@ function BottomNav({ route }: { route: Route }) {
       })}
       <button type="button" className={`bn-item${inMenu ? ' active' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
         <span aria-hidden className="nav-ic"><Menu size={18} /></span>
-        <span>Menü</span>
+        <span>Menu</span>
       </button>
-      <Sheet open={open} onOpenChange={setOpen} title="Tüm ekranlar">
+      <Sheet open={open} onOpenChange={setOpen} title="All screens">
         <div className="bn-sheet">
           {NAV_GROUPS.map((g) => (
             <section key={g.label}>

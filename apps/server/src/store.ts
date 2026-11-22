@@ -188,10 +188,10 @@ export class Store {
 
   /** Replaces all data with a backup. Throws on a malformed backup (nothing is changed then). */
   importAll(b: ServerBackup) {
-    if (!b || b.version !== 1 || typeof b.db !== 'object' || !b.db || typeof b.files !== 'object') throw new Error('Geçersiz yedek dosyası.');
+    if (!b || b.version !== 1 || typeof b.db !== 'object' || !b.db || typeof b.files !== 'object') throw new Error('Invalid backup file.');
     const entries = Object.entries(b.files ?? {});
     for (const [rel, data] of entries) {
-      if (!/^(tabs|guitars)\/[\w.\-/]+$/.test(rel) || rel.split('/').includes('..') || typeof data !== 'string') throw new Error(`Geçersiz dosya yolu: ${rel}`);
+      if (!/^(tabs|guitars)\/[\w.\-/]+$/.test(rel) || rel.split('/').includes('..') || typeof data !== 'string') throw new Error(`Invalid file path: ${rel}`);
     }
     const d = b.db as Partial<DbShape>;
     fs.rmSync(this.tabsDir, { recursive: true, force: true });

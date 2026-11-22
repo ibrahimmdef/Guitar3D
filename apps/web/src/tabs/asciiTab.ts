@@ -115,10 +115,10 @@ export function findTabSystems(text: string, warnings: string[] = []): TabSystem
   let run: { line: TabLine; idx: number }[] = [];
   const flush = () => {
     if (run.length === 0) return;
-    if (run.length < 6) warnings.push(`${run[0].idx + 1}. satırdaki ${run.length} satırlık blok 6 telli tab değil, atlandı.`);
+    if (run.length < 6) warnings.push(`The ${run.length}-line block at line ${run[0].idx + 1} isn't a 6-string tab; skipped.`);
     else {
       for (let i = 0; i + 6 <= run.length; i += 6) out.push({ lines: run.slice(i, i + 6).map((r) => r.line), startLine: run[i].idx });
-      if (run.length % 6) warnings.push(`${run[0].idx + 1}. satırdaki blokta ${run.length % 6} fazla satır atlandı.`);
+      if (run.length % 6) warnings.push(`Skipped ${run.length % 6} extra lines in the block at line ${run[0].idx + 1}.`);
     }
     run = [];
   };
@@ -160,7 +160,7 @@ export function orientSystem(sys: TabSystem, warnings: string[] = []): TabSystem
   if (labels.some((l) => !l)) return sys;
   const rev = [...labels].reverse();
   if (labelCost(rev) + 2 < labelCost(labels)) {
-    warnings.push(`${sys.startLine + 1}. satırdaki sistem kalın telden başlıyor; tel sırası çevrildi.`);
+    warnings.push(`The system at line ${sys.startLine + 1} starts with the low string; string order was flipped.`);
     return { ...sys, lines: [...sys.lines].reverse() };
   }
   return sys;
@@ -282,7 +282,7 @@ function quantise(groups: { col: number; notes: ParsedNote[] }[], toUnit: (col: 
     if (last && pos <= last.pos) pos = last.pos + 1;
     if (pos >= units) {
       if (last && !g.notes.some((n) => last.notes.some((m) => m.string === n.string))) last.notes.push(...g.notes);
-      else warnings.push('Ölçüye sığmayan bir nota atlandı; ızgarayı 16’lık yapmayı ya da tempo/ölçü ayarını dene.');
+      else warnings.push('Skipped a note that doesn\'t fit in the bar; try a 16th-note grid or adjusting the tempo/time signature.');
       continue;
     }
     beats.push({ pos, notes: g.notes });
@@ -365,7 +365,7 @@ function headerValue(text: string, keys: string) {
 export function asciiTabToAlphaTex(text: string, opts: AsciiTabOptions = {}): AsciiTabResult {
   const warnings: string[] = [];
   const systems = findTabSystems(text, warnings).map((s) => orientSystem(s, warnings));
-  if (!systems.length) throw new Error('Metinde 6 telli bir ASCII tab bulunamadı (ör. "e|--0--3--|" satırları).');
+  if (!systems.length) throw new Error('No 6-string ASCII tab found in the text (e.g. lines like "e|--0--3--|").');
 
   const [num, den] = opts.timeSignature ?? [4, 4];
   const q = opts.quantize ?? 16;
@@ -373,8 +373,8 @@ export function asciiTabToAlphaTex(text: string, opts: AsciiTabOptions = {}): As
   const unitLen = 16 / q;
   const textTempo = Number(/(?:tempo|bpm)\s*[:=]?\s*(\d{2,3})/i.exec(text)?.[1] ?? /(\d{2,3})\s*bpm/i.exec(text)?.[1]);
   const tempo = Math.round(opts.tempo ?? (textTempo >= 30 && textTempo <= 300 ? textTempo : 90));
-  const title = opts.title ?? headerValue(text, 'title|song|şarkı|başlık');
-  const artist = opts.artist ?? headerValue(text, 'artist|band|by|sanatçı|grup');
+  const title = opts.title ?? headerValue(text, 'title|song');
+  const artist = opts.artist ?? headerValue(text, 'artist|band|by');
 
   let tuning = STANDARD_TUNING;
   const labelled = systems.map((s) => tuningFromLabels(s.lines.map((l) => l.label))).find(Boolean);
@@ -441,13 +441,13 @@ export function asciiTabToAlphaTex(text: string, opts: AsciiTabOptions = {}): As
       pushMeasure(placed.filter((b) => b.pos >= m * units && b.pos < (m + 1) * units).map((b) => ({ ...b, pos: b.pos - m * units })));
     }
   }
-  if (!noteCount) warnings.push('Tabda hiç nota bulunamadı.');
+  if (!noteCount) warnings.push('No notes found in the tab.');
 
   const head = [
     title ? `\\title "${escapeTex(title)}"` : '',
     artist ? `\\artist "${escapeTex(artist)}"` : '',
     `\\tempo ${tempo}`,
-    `\\track "${escapeTex(opts.trackName ?? 'Gitar')}"`,
+    `\\track "${escapeTex(opts.trackName ?? 'Guitar')}"`,
     '\\staff {tabs}',
     `\\tuning (${tuning.join(' ')})`,
   ].filter(Boolean);

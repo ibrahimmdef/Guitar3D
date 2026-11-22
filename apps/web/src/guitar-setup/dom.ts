@@ -31,7 +31,7 @@ export function rgbaToCanvas(img: RGBAImage): HTMLCanvasElement {
 }
 
 export function canvasToBlob(c: HTMLCanvasElement, type: 'image/png' | 'image/jpeg' | 'image/webp' = 'image/png', quality = 0.9): Promise<Blob> {
-  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Görsel kodlanamadı.'))), type, quality));
+  return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Couldn\'t encode the image.'))), type, quality));
 }
 
 /** Semi-transparent coloured overlay of a mask (drawn stretched over the photo). */

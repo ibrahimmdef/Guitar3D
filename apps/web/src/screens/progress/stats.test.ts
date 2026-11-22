@@ -15,7 +15,7 @@ describe('practice stats', () => {
     expect(todayMinutes(list, NOW)).toBe(15);
     const w = weeklyMinutes(list, NOW);
     expect(w).toHaveLength(7);
-    expect(w[6]).toMatchObject({ minutes: 15, today: true, label: 'Cum' });
+    expect(w[6]).toMatchObject({ minutes: 15, today: true, label: 'Fri' });
     expect(w[5].minutes).toBe(20);
     expect(w.reduce((a, d) => a + d.minutes, 0)).toBe(35);
   });
@@ -35,18 +35,18 @@ describe('practice stats', () => {
   it('keeps the best tempo and accuracy per tab', () => {
     const list = [
       s(at(2026, 11, 10), 100, { bestCleanSpeed: 0.7, accuracy: 80, endedAt: at(2026, 11, 10) }),
-      s(at(2026, 11, 12), 100, { bestCleanSpeed: 0.85, endedAt: at(2026, 11, 12), title: 'Riff (yeni ad)' }),
-      s(at(2026, 11, 11), 50, { refId: 't2', title: 'Etüt', accuracy: 95, endedAt: at(2026, 11, 11) }),
+      s(at(2026, 11, 12), 100, { bestCleanSpeed: 0.85, endedAt: at(2026, 11, 12), title: 'Riff (new name)' }),
+      s(at(2026, 11, 11), 50, { refId: 't2', title: 'Etude', accuracy: 95, endedAt: at(2026, 11, 11) }),
     ];
     const r = statsByRef(list);
     expect(r.map((x) => x.refId)).toEqual(['t1', 't2']);
-    expect(r[0]).toMatchObject({ seconds: 200, sessions: 2, bestCleanSpeed: 0.85, bestAccuracy: 80, title: 'Riff (yeni ad)' });
+    expect(r[0]).toMatchObject({ seconds: 200, sessions: 2, bestCleanSpeed: 0.85, bestAccuracy: 80, title: 'Riff (new name)' });
     expect(r[1]).toMatchObject({ bestCleanSpeed: null, bestAccuracy: 95 });
   });
 
   it('formats durations', () => {
-    expect(formatDuration(40)).toBe('40 sn');
-    expect(formatDuration(720)).toBe('12 dk');
-    expect(formatDuration(3900)).toBe('1 sa 5 dk');
+    expect(formatDuration(40)).toBe('40 s');
+    expect(formatDuration(720)).toBe('12 min');
+    expect(formatDuration(3900)).toBe('1 h 5 min');
   });
 });

@@ -20,7 +20,7 @@ export function texHeader({ tempo = 90, tuning = STANDARD, program = 25, capo = 
   return [
     `\\tempo ${tempo}`,
     '.',
-    '\\track "Gitar"',
+    '\\track "Guitar"',
     '\\staff {tabs}',
     `\\instrument ${program}`,
     `\\tuning ${tuning.midi.map(texPitch).join(' ')}`,

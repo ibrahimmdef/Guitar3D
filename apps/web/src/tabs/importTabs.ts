@@ -21,7 +21,7 @@ export interface ImportOptions {
 }
 
 export interface ImportedTab {
-  /** File name, or 'Yapıştırılan tab' for pasted text. */
+  /** File name, or 'Pasted tab' for pasted text. */
   name: string;
   format: TabFormat | 'unknown';
   ok: boolean;
@@ -68,7 +68,7 @@ export function inspectAlphaTex(tex: string) {
     const inner = (e as { inner?: { diagnostics?: { message?: string }[] }; diagnostics?: { message?: string }[] });
     const diags = inner.diagnostics ?? inner.inner?.diagnostics;
     const first = Array.isArray(diags) ? diags.find((d) => d?.message)?.message : undefined;
-    throw new Error(`alphaTex okunamadı${first ? `: ${first}` : ''}`);
+    throw new Error(`Couldn't read the alphaTex${first ? `: ${first}` : ''}`);
   }
 }
 
@@ -102,11 +102,11 @@ async function importFile(file: File, opts: ImportOptions): Promise<ImportedTab>
     if (e === 'txt' || e === '') {
       const text = await file.text();
       const kind = sniffText(text);
-      if (kind === 'unknown') throw new Error('Metin dosyasında ASCII tab ya da alphaTex bulunamadı.');
+      if (kind === 'unknown') throw new Error('No ASCII tab or alphaTex found in the text file.');
       return await importText(file.name, text, kind, opts);
     }
     const format = BINARY_EXT[e];
-    if (!format) throw new Error(`Desteklenmeyen dosya türü: .${e}`);
+    if (!format) throw new Error(`Unsupported file type: .${e}`);
     const res: ImportedTab = { name: file.name, format, ok: false, warnings: [] };
     if (opts.validate !== false) {
       try {
@@ -114,7 +114,7 @@ async function importFile(file: File, opts: ImportOptions): Promise<ImportedTab>
         res.title = info.title;
         res.artist = info.artist;
       } catch (err) {
-        throw new Error(`Dosya okunamadı (${(err as Error).message ?? 'bilinmeyen hata'}).`);
+        throw new Error(`Couldn't read the file (${(err as Error).message ?? 'unknown error'}).`);
       }
     }
     if (opts.upload !== false) {
@@ -135,9 +135,9 @@ async function importFile(file: File, opts: ImportOptions): Promise<ImportedTab>
  */
 export async function importTabs(input: File[] | FileList | string, opts: ImportOptions = {}): Promise<ImportedTab[]> {
   if (typeof input === 'string') {
-    const name = 'Yapıştırılan tab';
+    const name = 'Pasted tab';
     const kind = sniffText(input);
-    if (kind === 'unknown') return [{ name, format: 'unknown', ok: false, error: 'Metinde ASCII tab ya da alphaTex bulunamadı.', warnings: [] }];
+    if (kind === 'unknown') return [{ name, format: 'unknown', ok: false, error: 'No ASCII tab or alphaTex found in the text.', warnings: [] }];
     try {
       return [await importText(name, input, kind, opts)];
     } catch (err) {

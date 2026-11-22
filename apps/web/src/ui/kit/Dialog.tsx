@@ -34,7 +34,7 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
               {description ? <RD.Description className="dialog-desc">{description}</RD.Description> : <RD.Description className="sr-only">{title}</RD.Description>}
             </div>
             <RD.Close asChild>
-              <IconButton label="Kapat" icon={<X size={18} />} tooltip={false} />
+              <IconButton label="Close" icon={<X size={18} />} tooltip={false} />
             </RD.Close>
           </header>
           <div className="dialog-body">{children}</div>

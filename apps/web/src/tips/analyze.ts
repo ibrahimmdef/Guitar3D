@@ -15,21 +15,21 @@ export type IssueKind =
   | 'deadNote'
   | 'stringSkip';
 
-/** Turkish display label of every issue kind. */
+/** Display label of every issue kind. */
 export const ISSUE_LABELS: Record<IssueKind, string> = {
-  shift: 'Pozisyon kayması',
-  stretch: 'Açılım',
+  shift: 'Position shift',
+  stretch: 'Stretch',
   barre: 'Barre',
-  speed: 'Hız',
+  speed: 'Speed',
   hammer: 'Hammer-on',
   pull: 'Pull-off',
   slide: 'Slide',
   bend: 'Bend',
   palmMute: 'Palm mute',
-  harmonic: 'Flajöle',
-  deadNote: 'Ölü nota',
-  chordChange: 'Akor geçişi',
-  stringSkip: 'Tel atlama',
+  harmonic: 'Harmonic',
+  deadNote: 'Dead note',
+  chordChange: 'Chord change',
+  stringSkip: 'String skip',
 };
 
 export interface Issue {
@@ -80,8 +80,8 @@ export interface Report {
 // Hand model
 // ---------------------------------------------------------------------------------------------
 
-const FINGER = ['', 'işaret', 'orta', 'yüzük', 'serçe'];
-
+const FINGER = ['', 'index', 'middle', 'ring', 'pinky'];
+const ord = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 /** Frets the hand covers beyond the index finger without stretching: one finger per fret, a bit more high up. */
 export const reach = (position: number) => (position >= 9 ? 4 : 3);
 /** Largest comfortable fret distance inside one chord; frets are wider near the nut. */
@@ -319,7 +319,7 @@ function fingering(shape: Shape, barre: Barre | null): string {
   return frettedOf(shape)
     .filter((n) => !(barre && n.fret === barre.fret && n.string >= barre.fromString && n.string <= barre.toString))
     .sort((a, b) => b.string - a.string)
-    .map((n) => `${n.string}. tel ${n.fret}. perde ${FINGER[fingers.get(n.string)!]}`)
+    .map((n) => `${ord(n.string)} string ${ord(n.fret)} fret ${FINGER[fingers.get(n.string)!]}`)
     .join(', ');
 }
 
@@ -328,24 +328,24 @@ function fingering(shape: Shape, barre: Barre | null): string {
 // ---------------------------------------------------------------------------------------------
 
 const ADVICE = {
-  shift: 'Kaymayı sadece iki nota (kalkış ve varış) olarak ayrıca çalış; önce gözünü hedef perdeye çevir, el sonra gelsin.',
-  stretch: 'Başparmağı sapın arkasında ortaya indir ve bileği öne it; parmaklar perde telinin hemen arkasına bassın. Elin gerilirse bırak, zorlama.',
-  barre: 'İşaret parmağını perde teline çok yakın ve hafif yan yatırarak bas; güç parmaktan değil kolun ağırlığından gelsin. Telleri tek tek çalıp cızırdayanı bul.',
-  chordChange: 'Geçişi tek başına çalış: dört vuruş eski akor, dört vuruş yeni akor. Parmakları birlikte kaldır, birlikte indir.',
-  speed: 'Her üç temiz turda hızı %5 artır. Parmakları tellerin hemen üstünde tut, pena hareketini küçült.',
-  stringSkip: 'İnce tele geçerken yeni teli aşağı (↓), kalın tele dönerken yukarı (↑) vuruşla al. Bileği sabit tut ve atladığın tele bakma.',
-  hammer: 'İkinci notayı penayla vurma: parmağı perdenin hemen arkasına çekiç gibi, hızlı ve kararlı indir.',
-  pull: 'Parmağı düz kaldırma; teli hafifçe aşağı doğru çekerek bırak ki ikinci nota da duyulsun. Alttaki parmak önceden basılı olsun.',
-  slide: 'Kayarken baskıyı biraz azalt ama parmağı telden kaldırma; hedef perdede dur ve yeniden bastır.',
-  bend: 'Teli tek parmakla değil, arkasına bir-iki parmak daha koyarak bük; önce hedef perdenin sesini çalıp kulağında tut.',
-  palmMute: 'Sağ elin etli yan kenarını köprünün hemen önüne hafifçe koy; ses boğuk ama perdesi duyulur olmalı.',
-  harmonic: 'Parmağı bastırma: perde telinin tam üstünde tele sadece dokun, vurduktan hemen sonra parmağı çek.',
-  deadNote: 'Sol el parmağını tele dokundur ama bastırma; pena vurunca sadece tok bir "tık" sesi çıkmalı.',
+  shift: 'Practice the shift on its own as just two notes (departure and arrival); look at the target fret first and let the hand follow.',
+  stretch: 'Drop your thumb to the middle of the back of the neck and push the wrist forward; press just behind the fret wire. If your hand strains, stop; don\'t force it.',
+  barre: 'Press the index finger very close to the fret wire, rolled slightly onto its side; the force should come from the weight of the arm, not the finger. Play the strings one by one to find the buzzing one.',
+  chordChange: 'Practice the change on its own: four beats of the old chord, four beats of the new one. Lift the fingers together, put them down together.',
+  speed: 'Raise the speed by 5% after every three clean passes. Keep your fingers just above the strings and make the picking motion smaller.',
+  stringSkip: 'Moving to a higher string, take it with a downstroke (↓); coming back to a lower string, with an upstroke (↑). Keep the wrist still and don\'t look at the string you skip.',
+  hammer: 'Don\'t pick the second note: bring the finger down just behind the fret like a hammer, fast and firm.',
+  pull: 'Don\'t lift the finger straight up; release it with a slight downward pull so the second note sounds too. Have the lower finger already pressed.',
+  slide: 'Ease the pressure a little while sliding but don\'t lift the finger off the string; stop at the target fret and press again.',
+  bend: 'Don\'t bend with one finger; put one or two more fingers behind it. Play the target fret first and keep its pitch in your ear.',
+  palmMute: 'Rest the fleshy edge of your picking hand lightly just in front of the bridge; the sound should be muffled but the pitch still audible.',
+  harmonic: 'Don\'t press down: just touch the string right above the fret wire and lift the finger right after picking.',
+  deadNote: 'Touch the string with a fretting finger but don\'t press; picking should give only a dull "click".',
 } satisfies Record<IssueKind, string>;
 
 const SUBDIVISION: [number, string][] = [
-  [1 / 8, 'otuzikilik notalar'], [1 / 6, 'onaltılık altılamalar'], [1 / 4, 'onaltılık notalar'],
-  [1 / 3, 'sekizlik üçlemeler'], [1 / 2, 'sekizlik notalar'], [1, 'dörtlük notalar'],
+  [1 / 8, 'thirty-second notes'], [1 / 6, 'sixteenth-note sextuplets'], [1 / 4, 'sixteenth notes'],
+  [1 / 3, 'eighth-note triplets'], [1 / 2, 'eighth notes'], [1, 'quarter notes'],
 ];
 
 interface Context {
@@ -407,18 +407,18 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
     const start = clamp(round5(350 / peak), 40, 85);
     const shortest = Math.min(...bar.beats.filter((b) => b.quarters > 0 && b.notes.length > 0).map((b) => b.quarters));
     const sub = SUBDIVISION.find(([q]) => Math.abs(q - shortest) < 0.02)?.[1];
-    const picking = crossings >= 3 ? ' Tel değişimlerinde de aşağı-yukarı (↓↑) pena sırasını bozma.' : '';
+    const picking = crossings >= 3 ? ' Keep the down-up (↓↑) picking order across string changes too.' : '';
     add('speed', Math.min(3, 0.8 + (peak - 5) * 0.45),
-      `Hızlı pasaj: saniyede ~${peak.toFixed(1)} nota (${Math.round(bar.tempo)} bpm'de ${sub ?? 'kısa notalar'}). Önce %${start} hızda (≈${Math.round((bar.tempo * start) / 100)} bpm) döngüye al.${picking}`);
+      `Fast passage: ~${peak.toFixed(1)} notes per second (${sub ?? 'short notes'} at ${Math.round(bar.tempo)} bpm). Loop it at ${start}% speed (≈${Math.round((bar.tempo * start) / 100)} bpm) first.${picking}`);
   }
 
   // --- Right hand: string skips ----------------------------------------------------------------
   skipWeight = Math.min(2, skipWeight);
   if (worstSkip && skipWeight >= 0.45) {
     const dir = worstSkip.to < worstSkip.from
-      ? `${worstSkip.from}. teli vurduktan sonra ${worstSkip.to}. teli aşağı (↓) vuruşla al`
-      : `${worstSkip.from}. teli vurduktan sonra ${worstSkip.to}. teli yukarı (↑) vuruşla al`;
-    add('stringSkip', skipWeight, `Tel atlama: ${skips > 1 ? `${skips} kez, en genişi ` : ''}${worstSkip.from}. telden ${worstSkip.to}. tele; ${dir}.`);
+      ? `after the ${ord(worstSkip.from)} string, take the ${ord(worstSkip.to)} string with a downstroke (↓)`
+      : `after the ${ord(worstSkip.from)} string, take the ${ord(worstSkip.to)} string with an upstroke (↑)`;
+    add('stringSkip', skipWeight, `String skip: ${skips > 1 ? `${skips} times, the widest ` : ''}from the ${ord(worstSkip.from)} string to the ${ord(worstSkip.to)}; ${dir}.`);
   }
 
   // --- Left hand: span per beat --------------------------------------------------------------
@@ -430,7 +430,7 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
     const over = span - chordComfort(e.lo);
     if (over > 0) {
       add('stretch', Math.min(3, (0.3 + 0.6 * over) * nutFactor(e.lo)),
-        `Geniş açılım: ${e.lo}–${e.hi}. perdeler aynı anda basılıyor (${e.lo}. perdeye işaret, ${e.hi}. perdeye serçe parmak).`);
+        `Wide stretch: frets ${e.lo}–${e.hi} are held at the same time (index on fret ${e.lo}, pinky on fret ${e.hi}).`);
     }
   }
 
@@ -454,7 +454,7 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
     }
     if (seen > 0 && hi - lo === reach(lo) + 1 && e.hi - e.lo <= chordComfort(e.lo)) {
       add('stretch', 0.7 * nutFactor(lo),
-        `Hızlı geçişte ${lo}–${hi}. perdeler: eli kaydırmak yerine ${lo}. perdede işaret parmağını tut, ${hi}. perdeye serçe parmağını uzat.`);
+        `Fast change at frets ${lo}–${hi}: instead of shifting your hand, keep the index finger on fret ${lo} and reach fret ${hi} with the pinky.`);
     }
   }
 
@@ -481,13 +481,13 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
     const from = events[s.prev];
     const sameString = from.notes.length === 1 && worst.notes.length === 1 && from.notes[0].string === worst.notes[0].string;
     const how = s.free
-      ? ' Hemen önceki açık tel ya da sus sırasında eli taşı.'
+      ? ' Move your hand during the open string or rest just before.'
       : sameString
-        ? ' Parmağı telden kaldırmadan, baskıyı gevşeterek kaydır (kılavuz parmak).'
+        ? ' Slide without lifting the finger off the string, easing the pressure (guide finger).'
         : '';
     add('shift', Math.min(3, worstW + 0.25 * (shiftWeight - worstW)),
-      `Pozisyon kayması: ${s.from}. pozisyondan ${s.to}. pozisyona, ${s.dist} perde ${s.to > s.from ? 'gövdeye' : 'burguya'} doğru. ` +
-      `Varışta ${target.string}. tel ${target.fret}. perdeye ${finger} parmağınla in.${how}${count > 1 ? ` Bu ölçüde ${count} kayma var.` : ''}`);
+      `Position shift: from position ${s.from} to position ${s.to}, ${s.dist} frets toward the ${s.to > s.from ? 'body' : 'headstock'}. ` +
+      `Land with your ${finger} finger on the ${ord(target.string)} string, ${ord(target.fret)} fret.${how}${count > 1 ? ` ${count} shifts in this bar.` : ''}`);
   }
 
   // --- Chord shapes: barre and chord changes ---------------------------------------------------
@@ -499,13 +499,13 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
     const barre = barreOf(shape);
     const fingers = fingering(shape, barre);
     if (barre) {
-      const rest = fingers ? ` Diğer parmaklar: ${fingers}.` : '';
+      const rest = fingers ? ` Other fingers: ${fingers}.` : '';
       if (barre.full) {
         add('barre', 1.6 + (barre.fret <= 2 ? 0.4 : 0),
-          `Barre: ${barre.fret}. perdede işaret parmağıyla ${barre.toString}. telden ${barre.fromString}. tele kadar bütün telleri kapat.${rest}`);
+          `Barre: cover all strings from the ${ord(barre.toString)} to the ${ord(barre.fromString)} string with the index finger at the ${ord(barre.fret)} fret.${rest}`);
       } else {
         add('barre', 0.7,
-          `Mini barre: ${barre.fret}. perdede işaret parmağının ucunu yatırıp ${barre.toString}. ve ${barre.fromString}. teli birlikte bas.${rest}`);
+          `Mini barre: at the ${ord(barre.fret)} fret, roll the tip of the index finger flat and press the ${ord(barre.toString)} and ${ord(barre.fromString)} strings together.${rest}`);
       }
     }
 
@@ -536,25 +536,25 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
 
     const a = chordName(prev);
     const b = chordName(shape);
-    const title = a && b ? `Akor geçişi ${a} → ${b}` : b ? `${b} akoruna geçiş` : 'Şekil değişimi';
+    const title = a && b ? `Chord change ${a} → ${b}` : b ? `Change to ${b}` : 'Shape change';
     let how: string;
     if (anchors.length > 0) {
-      const anchor = anchors.map((n) => `${n.string}. tel ${n.fret}. perde`).join(' ve ');
-      how = `Çapa parmak: ${anchor} yerinde kalıyor, kaldırma; diğer parmakları onun çevresine yerleştir.`;
+      const anchor = anchors.map((n) => `${ord(n.string)} string ${ord(n.fret)} fret`).join(' and ');
+      how = `Anchor finger: ${anchor} stays in place, don't lift it; place the other fingers around it.`;
     } else {
       const bass = now.reduce((x, y) => (y.string > x.string ? y : x));
-      how = `Ortak parmak yok; önce en kalın teldeki parmağı (${bass.string}. tel ${bass.fret}. perde) yerleştir, ötekiler onu izlesin.`;
+      how = `No common finger; place the finger on the lowest string first (${ord(bass.string)} string ${ord(bass.fret)} fret) and let the others follow.`;
     }
-    worstChange = { w, detail: `${title}: ${moved} parmak yer değiştiriyor. ${how}${!barre && fingers ? ` Yeni şekil: ${fingers}.` : ''}` };
+    worstChange = { w, detail: `${title}: ${moved} fingers move. ${how}${!barre && fingers ? ` New shape: ${fingers}.` : ''}` };
   });
   if (worstChange) {
     const wc = worstChange as { w: number; detail: string };
-    add('chordChange', Math.min(2.2, wc.w + 0.2 * (changeWeight - wc.w)), `${wc.detail}${changes > 1 ? ` Bu ölçüde ${changes} geçiş var.` : ''}`);
+    add('chordChange', Math.min(2.2, wc.w + 0.2 * (changeWeight - wc.w)), `${wc.detail}${changes > 1 ? ` ${changes} changes in this bar.` : ''}`);
   }
 
   // --- Techniques ------------------------------------------------------------------------------
   const tech = (kind: IssueKind, base: number, per: number, cap: number, count: number, detail: string) => {
-    if (count > 0) add(kind, Math.min(cap, base + per * (count - 1)), `${detail}${count > 1 ? ` Bu ölçüde ${count} kez.` : ''}`);
+    if (count > 0) add(kind, Math.min(cap, base + per * (count - 1)), `${detail}${count > 1 ? ` ${count} times in this bar.` : ''}`);
   };
   const legato: { pull: boolean; string: number; from: number; to: number | null }[] = [];
   for (const i of idx) {
@@ -569,33 +569,33 @@ function analyzeOne(bar: SimpleBar, bi: number, ctx: Context): BarReport {
       legato.push({ pull: n.pull ?? (to !== null && to < n.fret), string: n.string, from: n.fret, to });
     }
   }
-  const fretName = (f: number) => (f === 0 ? 'açık tel' : `${f}. perde`);
+  const fretName = (f: number) => (f === 0 ? 'open string' : `${ord(f)} fret`);
   const hammers = legato.filter((l) => !l.pull);
   const pulls = legato.filter((l) => l.pull);
   if (hammers.length) {
     const h = hammers[0];
     tech('hammer', 0.5, 0.1, 1.2, hammers.length,
-      `Hammer-on: ${h.string}. telde ${fretName(h.from)}${h.to !== null ? ` → ${fretName(h.to)}` : ''}; sadece ilk notayı penayla vur.`);
+      `Hammer-on: ${ord(h.string)} string, ${fretName(h.from)}${h.to !== null ? ` → ${fretName(h.to)}` : ''}; pick only the first note.`);
   }
   if (pulls.length) {
     const p = pulls[0];
     tech('pull', 0.6, 0.1, 1.3, pulls.length,
-      `Pull-off: ${p.string}. telde ${fretName(p.from)}${p.to !== null ? ` → ${fretName(p.to)}` : ''}; ${p.to ? 'iki parmağı da önceden bas, üsttekini çekerek bırak' : 'parmağı çekerek bırak, açık tel çınlasın'}.`);
+      `Pull-off: ${ord(p.string)} string, ${fretName(p.from)}${p.to !== null ? ` → ${fretName(p.to)}` : ''}; ${p.to ? 'fret both fingers in advance and release the upper one with a pull' : 'release the finger with a pull and let the open string ring'}.`);
   }
   const all = evs.flatMap((e) => e.notes);
   const first = (pred: (n: SimpleNote) => boolean | undefined) => all.find(pred);
   const count = (pred: (n: SimpleNote) => boolean | undefined) => all.filter(pred).length;
-  const where = (n: SimpleNote) => `${n.string}. tel ${fretName(n.fret)}`;
+  const where = (n: SimpleNote) => `${ord(n.string)} string ${fretName(n.fret)}`;
   const slide = first((n) => n.slide);
-  if (slide) tech('slide', 0.6, 0.1, 1.2, count((n) => n.slide), `Slide: ${where(slide)} notasından aynı parmakla kay.`);
+  if (slide) tech('slide', 0.6, 0.1, 1.2, count((n) => n.slide), `Slide: slide from ${where(slide)} with the same finger.`);
   const bend = first((n) => n.bend);
-  if (bend) tech('bend', 1.2, 0.2, 2, count((n) => n.bend), `Bend: ${where(bend)}; yüzük parmağıyla bük, işaret ve orta parmak arkasından desteklesin.`);
+  if (bend) tech('bend', 1.2, 0.2, 2, count((n) => n.bend), `Bend: ${where(bend)}; bend with the ring finger, supported by the index and middle fingers behind it.`);
   const pm = first((n) => n.palmMute);
-  if (pm) add('palmMute', 0.3, `Palm mute: ${count((n) => n.palmMute)} nota boğuk çalınıyor (${pm.string}. telden başlayarak).`);
+  if (pm) add('palmMute', 0.3, `Palm mute: ${count((n) => n.palmMute)} notes played muted (starting on the ${ord(pm.string)} string).`);
   const harm = first((n) => n.harmonic);
-  if (harm) tech('harmonic', 0.7, 0.1, 1.2, count((n) => n.harmonic), `Flajöle: ${where(harm)} üzerinde.`);
+  if (harm) tech('harmonic', 0.7, 0.1, 1.2, count((n) => n.harmonic), `Harmonic: on the ${where(harm)}.`);
   const dead = first((n) => n.dead);
-  if (dead) tech('deadNote', 0.3, 0.05, 0.6, count((n) => n.dead), `Ölü nota: ${dead.string}. telde.`);
+  if (dead) tech('deadNote', 0.3, 0.05, 0.6, count((n) => n.dead), `Dead note: on the ${ord(dead.string)} string.`);
 
   // --- Score -----------------------------------------------------------------------------------
   const list = [...issues.values()].sort((a, b) => b.weight - a.weight);
@@ -636,13 +636,13 @@ export function analyzeBar(bar: SimpleBar, prevLastNotes: SimpleNote[] | null = 
 }
 
 const PRACTICE: Partial<Record<IssueKind, string>> = {
-  barre: 'Barre akorlar var: her gün iki dakika sadece barre şeklini bas, telleri tek tek çalıp temiz çıkmayanı düzelt.',
-  shift: 'Pozisyon kaymaları var: her kaymayı metronomla, sadece kalkış ve varış notasıyla ayrıca çalış.',
-  stretch: 'Geniş açılımlar var: çalışmadan önce 1-2-3-4 kromatik ısınma yap, aynı şekli önce 7. perde civarında dene, sonra yerine in.',
-  chordChange: 'Akor geçişleri için "bir dakika" çalışması yap: iki akor arasında bir dakikada kaç temiz geçiş yaptığını say ve her gün artır.',
-  stringSkip: 'Tel atlamalar var: sağ eli ayrıca çalıştır; sol eli tellerin üstüne koyup susturarak sadece pena desenini çal.',
-  hammer: 'Hammer-on ve pull-off notalarının sesi penayla vurulanlar kadar güçlü çıkmalı; kendini kaydedip dinle.',
-  bend: 'Bend\'lerin perdesini kontrol et: önce hedef notayı normal bas ve dinle, sonra bükerek aynı sese ulaş.',
+  barre: 'There are barre chords: every day spend two minutes just fretting the barre shape, playing the strings one by one and fixing the ones that don\'t ring clean.',
+  shift: 'There are position shifts: practice each shift separately with the metronome, using only the departure and arrival notes.',
+  stretch: 'There are wide stretches: warm up with a 1-2-3-4 chromatic exercise first, try the same shape around the 7th fret, then move it back down.',
+  chordChange: 'For chord changes, do the "one-minute" drill: count how many clean changes between two chords you make in one minute and beat it every day.',
+  stringSkip: 'There are string skips: practice the picking hand separately; mute the strings with your fretting hand and play only the picking pattern.',
+  hammer: 'Hammer-on and pull-off notes should sound as strong as picked notes; record yourself and listen.',
+  bend: 'Check the pitch of your bends: first fret and listen to the target note normally, then bend to reach the same pitch.',
 };
 
 export function analyze(bars: SimpleBar[]): Report {
@@ -675,13 +675,13 @@ export function analyze(bars: SimpleBar[]): Report {
 
   const summary: string[] = [];
   if (hardestBars.length) {
-    summary.push(`Önce şu ölçülere odaklan: ${hardestBars.map((b) => b + 1).join(', ')}. Her birini ayrı ayrı döngüye al.`);
+    summary.push(`Focus on these bars first: ${hardestBars.map((b) => b + 1).join(', ')}. Loop each one separately.`);
   } else if (reports.length) {
-    summary.push('Bu parçada belirgin bir zorluk yok: baştan sona düzgün ritim ve temiz ses hedefle.');
+    summary.push('No clear difficulty in this piece: aim for steady rhythm and clean tone from start to finish.');
   }
   const tempo = bars.find((b) => b.index === fastest?.bar)?.tempo ?? bars[0]?.tempo;
   const bpm = tempo ? ` (≈${Math.round(tempo * suggestedStartSpeed)} bpm)` : '';
-  summary.push(`Başlangıç hızı önerisi: %${Math.round(suggestedStartSpeed * 100)}${bpm}. Üst üste 3 temiz tur çalınca %5 artır.`);
+  summary.push(`Suggested starting speed: ${Math.round(suggestedStartSpeed * 100)}%${bpm}. Raise it by 5% after 3 clean passes in a row.`);
 
   const totals = new Map<IssueKind, number>();
   for (const r of reports) for (const i of r.issues) totals.set(i.kind, (totals.get(i.kind) ?? 0) + i.weight);

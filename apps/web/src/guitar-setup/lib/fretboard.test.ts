@@ -126,7 +126,7 @@ describe('fret-by-fret warp', () => {
     const out = warpFretboard(img, sparse, N, 1200, 32);
     const col = Math.round(tetFraction(5, N) * 1200 - 0.5);
     expect(Math.max(...[-1, 0, 1].map((d) => out.data[(16 * 1200 + col + d) * 4]))).toBeGreaterThan(150);
-    expect(() => warpFretboard(img, truth.slice(1), N)).toThrow(/Nut/);
+    expect(() => warpFretboard(img, truth.slice(1), N)).toThrow(/nut line/);
     expect(() => warpFretboard(img, truth.slice(0, 5), N)).toThrow(/12/);
   });
 

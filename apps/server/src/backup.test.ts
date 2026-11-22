@@ -16,8 +16,8 @@ beforeEach(() => {
 
 describe('backup api', () => {
   it('exports and restores tabs, files, sessions and notes into an empty server', async () => {
-    const tab = await request(app).post('/api/tabs').send({ alphaTex: '\\title "Yedek"\n:4 0.6 |' }).expect(201);
-    await request(app).post('/api/sessions').send({ kind: 'tab', refId: tab.body.id, title: 'Yedek', startedAt: '2026-11-10T10:00:00.000Z', seconds: 60 }).expect(201);
+    const tab = await request(app).post('/api/tabs').send({ alphaTex: '\\title "Backup"\n:4 0.6 |' }).expect(201);
+    await request(app).post('/api/sessions').send({ kind: 'tab', refId: tab.body.id, title: 'Backup', startedAt: '2026-11-10T10:00:00.000Z', seconds: 60 }).expect(201);
     await request(app).post('/api/notes').send({ tabKey: tab.body.id, bar: 0, text: 'not' }).expect(201);
     const backup = (await request(app).get('/api/backup').expect(200)).body;
     expect(Object.keys(backup.files)).toEqual([`tabs/${tab.body.fileName}`]);
@@ -28,7 +28,7 @@ describe('backup api', () => {
     expect((await request(other).get('/api/sessions')).body).toHaveLength(1);
     expect((await request(other).get(`/api/notes?tabKey=${tab.body.id}`)).body).toHaveLength(1);
     const file = await request(other).get(`/api/tabs/${tab.body.id}/file`).expect(200);
-    expect(file.text).toContain('Yedek');
+    expect(file.text).toContain('Backup');
   });
 
   it('rejects malformed backups and unsafe paths', async () => {

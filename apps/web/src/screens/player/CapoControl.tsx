@@ -20,22 +20,22 @@ export function CapoControl({ capo, onCapo, tuningId, onTuning, tabTuning }: Pro
   const [, setSettings] = useSettings();
   const own = findTuning(tabTuning);
   const effective = tuningId ? getTuning(tuningId) : own;
-  const label = capo ? `Kapo ${capo}` : 'Kapo yok';
+  const label = capo ? `Capo ${capo}` : 'No capo';
   return (
     <Popover
-      label="Kapo ve akort"
+      label="Capo and tuning"
       side="bottom"
       align="end"
       trigger={
-        <button type="button" className={`stage-capo${capo ? ' is-on' : ''}`} aria-label={`Kapo ve akort: ${label}, ${effective?.label ?? 'tab akordu'}`}>
+        <button type="button" className={`stage-capo${capo ? ' is-on' : ''}`} aria-label={`Capo and tuning: ${label}, ${effective?.label ?? 'tab tuning'}`}>
           <span className="num">{label}</span>
           {effective && effective.id !== 'standard' && <span className="stage-capo-tuning">{effective.label}</span>}
         </button>
       }
     >
       <div className="capo-pop">
-        <Slider label="Kapo" min={0} max={MAX_CAPO} step={1} value={capo} onChange={onCapo} format={(v) => (v ? `${v}. perde` : 'Yok')} />
-        <p className="subtle small">Tab kapoya göre okunur: 0 kapo perdesidir. Ses ve 3D işaretler kayar.</p>
+        <Slider label="Capo" min={0} max={MAX_CAPO} step={1} value={capo} onChange={onCapo} format={(v) => (v ? `fret ${v}` : 'None')} />
+        <p className="subtle small">The tab is read relative to the capo: 0 is the capo fret. Sound and 3D markers shift.</p>
         <TuningSelect
           allowTab
           value={tuningId}
@@ -44,7 +44,7 @@ export function CapoControl({ capo, onCapo, tuningId, onTuning, tabTuning }: Pro
             if (id) setSettings({ tuningId: id });
           }}
         />
-        <p className="subtle small">Tab'ın akordu: {own ? `${own.label} · ` : ''}{tuningNotes({ id: '', label: '', midi: tabTuning })}</p>
+        <p className="subtle small">Tab tuning: {own ? `${own.label} · ` : ''}{tuningNotes({ id: '', label: '', midi: tabTuning })}</p>
         <Button
           size="sm"
           icon={<Gauge size={15} />}
@@ -53,7 +53,7 @@ export function CapoControl({ capo, onCapo, tuningId, onTuning, tabTuning }: Pro
             navigate({ name: 'tuner' });
           }}
         >
-          Akort aletini aç
+          Open tuner
         </Button>
       </div>
     </Popover>

@@ -36,7 +36,7 @@ export function dayStreak(sessions: PracticeSession[], now = new Date(), minSeco
   return n;
 }
 
-const WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** The last `days` days, oldest first, with minutes and a short Turkish weekday label. */
 export function weeklyMinutes(sessions: PracticeSession[], now = new Date(), days = 7) {
@@ -79,10 +79,10 @@ export function statsByRef(sessions: PracticeSession[]): RefStats[] {
   return [...m.values()].sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 
-/** "1 sa 5 dk" / "12 dk" / "40 sn". */
+/** "1 h 5 min" / "12 min" / "40 s". */
 export function formatDuration(seconds: number) {
-  if (seconds < 60) return `${Math.round(seconds)} sn`;
+  if (seconds < 60) return `${Math.round(seconds)} s`;
   const min = Math.round(seconds / 60);
-  if (min < 60) return `${min} dk`;
-  return `${Math.floor(min / 60)} sa${min % 60 ? ` ${min % 60} dk` : ''}`;
+  if (min < 60) return `${min} min`;
+  return `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}`;
 }

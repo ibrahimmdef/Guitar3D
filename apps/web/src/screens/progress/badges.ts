@@ -17,13 +17,13 @@ export interface BadgeInput {
 const MINUTE_STEPS = [60, 300, 1000];
 
 export const ALL_BADGES: Badge[] = [
-  { id: 'first-song', title: 'İlk parça', description: 'Bir tabı ya da dersi ilk kez çaldın.' },
-  { id: 'streak-3', title: '3 gün seri', description: 'Üç gün üst üste çalıştın.' },
-  { id: 'streak-7', title: '7 gün seri', description: 'Bir hafta boyunca her gün çalıştın.' },
-  { id: 'tempo-100', title: 'Tam tempo', description: 'Bir bölümü %100 hızda temiz çaldın.' },
-  { id: 'accuracy-90', title: 'Kulak onayı', description: 'Dinleme modunda %90 doğruluğa ulaştın.' },
-  { id: 'week-goal', title: 'Haftalık hedef', description: 'Bir haftada hedef dakikana ulaştın.' },
-  ...MINUTE_STEPS.map((m) => ({ id: `minutes-${m}`, title: `${m} dakika`, description: `Toplam ${m} dakika çalıştın.` })),
+  { id: 'first-song', title: 'First piece', description: 'You played a tab or lesson for the first time.' },
+  { id: 'streak-3', title: '3-day streak', description: 'You practiced three days in a row.' },
+  { id: 'streak-7', title: '7-day streak', description: 'You practiced every day for a week.' },
+  { id: 'tempo-100', title: 'Full tempo', description: 'You played a section cleanly at 100% speed.' },
+  { id: 'accuracy-90', title: 'Ear approved', description: 'You reached 90% accuracy in listen mode.' },
+  { id: 'week-goal', title: 'Weekly goal', description: 'You reached your goal minutes in a week.' },
+  ...MINUTE_STEPS.map((m) => ({ id: `minutes-${m}`, title: `${m} minutes`, description: `You practiced ${m} minutes in total.` })),
 ];
 
 /** Longest run of consecutive days with at least `minSeconds` of practice. */

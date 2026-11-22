@@ -39,9 +39,9 @@ export function parseBundle(text: string): BackupBundle {
   try {
     b = JSON.parse(text);
   } catch {
-    throw new Error('Dosya okunamadı (JSON değil).');
+    throw new Error('Couldn\'t read the file (not JSON).');
   }
-  if (b?.format !== 'guitar3d-backup' || !b.server) throw new Error('Bu bir Guitar3D yedeği değil.');
+  if (b?.format !== 'guitar3d-backup' || !b.server) throw new Error('This isn\'t a Guitar3D backup.');
   return { format: 'guitar3d-backup', server: b.server, local: (b.local ?? {}) as Record<string, string> };
 }
 

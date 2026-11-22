@@ -33,10 +33,10 @@ export function BackupSection() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(b)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = `guitar3d-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `guitar3d-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, 'Dışa aktarılamadı.');
+  }, 'Couldn\'t export.');
 
   const restore = () => {
     const b = pending;
@@ -44,22 +44,22 @@ export function BackupSection() {
     if (!b) return;
     void run(async () => {
       await restoreBundle(b);
-      toast({ tone: 'success', title: 'Yedek geri yüklendi.', description: 'Sayfa yenileniyor…' });
+      toast({ tone: 'success', title: 'Backup restored.', description: 'Reloading the page…' });
       setTimeout(() => location.reload(), 800);
-    }, 'Geri yüklenemedi.');
+    }, 'Couldn\'t restore.');
   };
 
   return (
     <section className="settings-sec" aria-labelledby="set-backup">
-      <h2 id="set-backup" className="eyebrow">Yedekleme ve taşıma</h2>
+      <h2 id="set-backup" className="eyebrow">Backup and transfer</h2>
       <Card className="settings-card">
         <p className="setting-desc">
-          Gitarlar, tablar, pratik geçmişi, notlar, ödevler ve bu cihazdaki ayarlar tek bir dosyada. Ses kayıtları dahil değil.
-          Başka bir cihaza taşımak için dosyayı orada içe aktar. Hesap ve otomatik çok cihazlı eşitleme ileride gelecek.
+          Guitars, tabs, practice history, notes, assignments and this device's settings in a single file. Audio recordings aren't included.
+          To move to another device, import the file there. Accounts and automatic multi-device sync are coming later.
         </p>
         <div className="ti-row">
-          <Button icon={<Download size={15} />} onClick={exportFile} disabled={busy}>Dosyaya aktar</Button>
-          <Button icon={<Upload size={15} />} onClick={() => file.current?.click()} disabled={busy}>Dosyadan geri yükle</Button>
+          <Button icon={<Download size={15} />} onClick={exportFile} disabled={busy}>Export to file</Button>
+          <Button icon={<Upload size={15} />} onClick={() => file.current?.click()} disabled={busy}>Restore from file</Button>
           <input
             ref={file}
             type="file"
@@ -72,7 +72,7 @@ export function BackupSection() {
               try {
                 setPending(parseBundle(await f.text()));
               } catch (err) {
-                toast({ tone: 'danger', title: 'Yedek okunamadı.', description: (err as Error).message });
+                toast({ tone: 'danger', title: 'Couldn\'t read the backup.', description: (err as Error).message });
               }
             }}
           />
@@ -82,9 +82,9 @@ export function BackupSection() {
           <Button icon={<CloudUpload size={15} />} disabled={busy} onClick={() => run(async () => {
             await saveSnapshot();
             await refresh();
-            toast({ tone: 'success', title: 'Sunucuya yedeklendi.' });
-          }, 'Yedeklenemedi.')}>Sunucuya yedekle</Button>
-          <span className="subtle small">Son 10 yedek sunucuda saklanır.</span>
+            toast({ tone: 'success', title: 'Backed up to the server.' });
+          }, 'Couldn\'t back up.')}>Back up to server</Button>
+          <span className="subtle small">The last 10 backups are kept on the server.</span>
         </div>
         {snaps.length > 0 && (
           <ul className="rec-list">
@@ -94,8 +94,8 @@ export function BackupSection() {
                   <span>{relativeTime(s.createdAt) ?? s.createdAt}</span>
                   <span className="subtle small num">{(s.size / 1024 / 1024).toFixed(1)} MB</span>
                 </span>
-                <Button size="sm" variant="ghost" icon={<CloudDownload size={14} />} disabled={busy} onClick={() => run(async () => setPending(await loadSnapshot(s.name)), 'Yedek alınamadı.')}>
-                  Geri yükle
+                <Button size="sm" variant="ghost" icon={<CloudDownload size={14} />} disabled={busy} onClick={() => run(async () => setPending(await loadSnapshot(s.name)), 'Couldn\'t load the backup.')}>
+                  Restore
                 </Button>
               </li>
             ))}
@@ -105,13 +105,13 @@ export function BackupSection() {
       <Dialog
         open={!!pending}
         onOpenChange={(o) => !o && setPending(null)}
-        title="Yedek geri yüklensin mi?"
-        description="Sunucudaki tüm tablar, gitarlar, geçmiş ve bu cihazdaki ayarlar yedektekilerle değiştirilir. Bu işlem geri alınamaz."
+        title="Restore this backup?"
+        description="All tabs, guitars and history on the server, plus this device's settings, will be replaced with the ones in the backup. This can't be undone."
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setPending(null)}>Vazgeç</Button>
-            <Button variant="danger" onClick={restore}>Geri yükle</Button>
+            <Button variant="ghost" onClick={() => setPending(null)}>Cancel</Button>
+            <Button variant="danger" onClick={restore}>Restore</Button>
           </>
         }
       />

@@ -71,7 +71,7 @@ export function worstBars(bars: BarFeedback[], max = 3, threshold = 100): BarFee
 }
 
 /**
- * The loop for "zor ölçüleri döngüye al": the contiguous window of up to `maxLen` bars with the most
+ * The loop for "Loop the hard bars": the contiguous window of up to `maxLen` bars with the most
  * non-clean notes (ties: the shorter, then earlier window). Null when everything was clean.
  */
 export function hardestRange(bars: BarFeedback[], maxLen = 2): [number, number] | null {

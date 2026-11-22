@@ -60,7 +60,7 @@ describe('outline generators', () => {
 describe('templates', () => {
   const index = readJson('index.json') as ReturnType<typeof templateIndexEntry>[];
 
-  it('index lists every template with Turkish names', () => {
+  it('index lists every template with names', () => {
     expect(index.map((t) => t.id)).toEqual(TEMPLATE_SPECS.map((s) => s.id));
     for (const t of index) {
       expect(t.name.length).toBeGreaterThan(3);

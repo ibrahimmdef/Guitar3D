@@ -5,7 +5,7 @@ import { SESSION_SAVED_EVENT } from './badges';
 export async function listSessions(since?: Date): Promise<PracticeSession[]> {
   const q = since ? `?since=${encodeURIComponent(since.toISOString())}` : '';
   const r = await fetch(`/api/sessions${q}`);
-  if (!r.ok) throw new Error(`Seanslar alınamadı (HTTP ${r.status}).`);
+  if (!r.ok) throw new Error(`Couldn't load sessions (HTTP ${r.status}).`);
   return r.json();
 }
 

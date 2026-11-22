@@ -21,7 +21,7 @@ export function Drawer({ open, onClose, title, shortcut, children, className }: 
     <aside className={`drawer${open ? ' open' : ''}${className ? ` ${className}` : ''}`} aria-label={title} aria-hidden={!open} inert={!open}>
       <header className="drawer-head">
         <h2 className="drawer-title">{title}</h2>
-        <IconButton label="Paneli kapat" shortcut={shortcut} icon={<X size={18} />} onClick={onClose} />
+        <IconButton label="Close panel" shortcut={shortcut} icon={<X size={18} />} onClick={onClose} />
       </header>
       <div className="drawer-body">{children}</div>
     </aside>

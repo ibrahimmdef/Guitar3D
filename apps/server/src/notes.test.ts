@@ -16,11 +16,11 @@ beforeEach(() => {
 
 describe('bar notes api', () => {
   it('adds, filters and deletes bar notes', async () => {
-    const a = await request(app).post('/api/notes').send({ tabKey: 'lesson:twinkle', bar: 3, text: 'Bileği gevşet' }).expect(201);
+    const a = await request(app).post('/api/notes').send({ tabKey: 'lesson:twinkle', bar: 3, text: 'Relax the wrist' }).expect(201);
     await request(app).post('/api/notes').send({ tabKey: 'tab1', bar: 0, text: 'x' }).expect(201);
     const list = await request(app).get('/api/notes?tabKey=lesson:twinkle').expect(200);
     expect(list.body).toHaveLength(1);
-    expect(list.body[0]).toMatchObject({ bar: 3, text: 'Bileği gevşet' });
+    expect(list.body[0]).toMatchObject({ bar: 3, text: 'Relax the wrist' });
     await request(app).delete(`/api/notes/${a.body.id}`).expect(204);
     await request(app).delete(`/api/notes/${a.body.id}`).expect(404);
     await request(app).post('/api/notes').send({ tabKey: 'tab1', bar: -1, text: 'x' }).expect(400);

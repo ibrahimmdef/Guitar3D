@@ -10,7 +10,7 @@ import { ScreenHeader } from '../AppShell';
 import { listSessions } from './sessions';
 import { dayStreak, formatDuration, statsByRef, todayMinutes, weeklyMinutes } from './stats';
 
-const KIND_LABEL: Record<PracticeSession['kind'], string> = { tab: 'Tab', lesson: 'Ders', routine: 'Rutin', chords: 'Akorlar', scales: 'Gamlar' };
+const KIND_LABEL: Record<PracticeSession['kind'], string> = { tab: 'Tab', lesson: 'Lesson', routine: 'Routine', chords: 'Chords', scales: 'Scales' };
 
 export function ProgressScreen() {
   const [sessions, setSessions] = useState<PracticeSession[] | null>(null);
@@ -38,46 +38,46 @@ export function ProgressScreen() {
 
   return (
     <div className="screen">
-      <ScreenHeader title="İlerleme" description="Çalıştığın süre, gün serin ve her parçada ulaştığın tempo." />
-      {error && <EmptyState tone="danger" title="İlerleme yüklenemedi" description={error} />}
-      {!sessions && !error && <div className="lib-loading"><Spinner label="Yükleniyor" /></div>}
+      <ScreenHeader title="Progress" description="Your practice time, day streak and the tempo you've reached on each piece." />
+      {error && <EmptyState tone="danger" title="Couldn't load progress" description={error} />}
+      {!sessions && !error && <div className="lib-loading"><Spinner label="Loading" /></div>}
       {sessions && (
         <>
-          <section className="stat-row" aria-label="Özet">
+          <section className="stat-row" aria-label="Summary">
             <div className="stat">
-              <span className="stat-label">Bugün</span>
-              <span className="stat-value num">{todayMinutes(sessions, now)}<small>dk</small></span>
+              <span className="stat-label">Today</span>
+              <span className="stat-value num">{todayMinutes(sessions, now)}<small>min</small></span>
             </div>
             <div className={`stat${streak > 0 ? ' stat-accent' : ''}`}>
-              <span className="stat-label"><Flame size={14} aria-hidden /> Gün serisi</span>
-              <span className="stat-value num">{streak}<small>gün</small></span>
+              <span className="stat-label"><Flame size={14} aria-hidden /> Day streak</span>
+              <span className="stat-value num">{streak}<small>days</small></span>
             </div>
             <div className="stat">
-              <span className="stat-label">Son 7 gün</span>
-              <span className="stat-value num">{weekTotal}<small>dk</small></span>
+              <span className="stat-label">Last 7 days</span>
+              <span className="stat-value num">{weekTotal}<small>min</small></span>
             </div>
             <div className="stat">
-              <span className="stat-label">Toplam seans</span>
+              <span className="stat-label">Total sessions</span>
               <span className="stat-value num">{sessions.length}</span>
             </div>
           </section>
 
           <section className="progress-card goal-card" aria-labelledby="goal-title">
             <div className="goal-head">
-              <h2 id="goal-title" className="eyebrow">Haftalık hedef</h2>
+              <h2 id="goal-title" className="eyebrow">Weekly goal</h2>
               <label className="field goal-field">
-                Hedef
+                Goal
                 <select className="select" value={goal} onChange={(e) => setSettings({ weeklyGoalMinutes: Number(e.target.value) })}>
-                  {[30, 60, 90, 120, 180, 300, 420].map((m) => <option key={m} value={m}>{m} dk</option>)}
+                  {[30, 60, 90, 120, 180, 300, 420].map((m) => <option key={m} value={m}>{m} min</option>)}
                 </select>
               </label>
             </div>
-            <Meter value={thisWeek / Math.max(1, goal)} label={`${thisWeek} / ${goal} dk`} />
-            <p className="subtle small">{thisWeek >= goal ? 'Bu haftanın hedefi tamam.' : `Bu hafta (Pazartesiden beri) ${goal - thisWeek} dk kaldı.`}</p>
+            <Meter value={thisWeek / Math.max(1, goal)} label={`${thisWeek} / ${goal} min`} />
+            <p className="subtle small">{thisWeek >= goal ? 'This week\'s goal is done.' : `${goal - thisWeek} min left this week (since Monday).`}</p>
           </section>
 
           <section className="progress-card" aria-labelledby="badge-title">
-            <h2 id="badge-title" className="eyebrow">Rozetler · {earned.size}/{ALL_BADGES.length}</h2>
+            <h2 id="badge-title" className="eyebrow">Badges · {earned.size}/{ALL_BADGES.length}</h2>
             <ul className="badge-grid">
               {ALL_BADGES.map((b) => {
                 const on = earned.has(b.id);
@@ -85,7 +85,7 @@ export function ProgressScreen() {
                   <li key={b.id} className={`badge${on ? ' is-on' : ''}`} title={b.description}>
                     <Award size={18} aria-hidden />
                     <span className="badge-title">{b.title}</span>
-                    <span className="sr-only">{on ? 'kazanıldı' : 'henüz kazanılmadı'}: {b.description}</span>
+                    <span className="sr-only">{on ? 'earned' : 'not earned yet'}: {b.description}</span>
                   </li>
                 );
               })}
@@ -93,28 +93,28 @@ export function ProgressScreen() {
           </section>
 
           <section className="progress-card" aria-labelledby="week-title">
-            <h2 id="week-title" className="eyebrow">Haftalık dakika</h2>
+            <h2 id="week-title" className="eyebrow">Minutes per week</h2>
             <WeekChart days={week} />
           </section>
 
           <section aria-labelledby="pieces-title">
-            <h2 id="pieces-title" className="eyebrow">Parçalar</h2>
+            <h2 id="pieces-title" className="eyebrow">Pieces</h2>
             {refs.length === 0 ? (
               <EmptyState
                 icon={<Activity size={22} />}
-                title="Henüz kayıt yok"
-                description="Bir tab ya da ders çaldığında süre, en iyi temiz tempo ve dinleme doğruluğu burada birikir."
-                action={<Button variant="primary" onClick={() => navigate({ name: 'library' })}>Kütüphaneye git</Button>}
+                title="Nothing recorded yet"
+                description="When you play a tab or lesson, your time, best clean tempo and listening accuracy build up here."
+                action={<Button variant="primary" onClick={() => navigate({ name: 'library' })}>Go to library</Button>}
               />
             ) : (
               <table className="progress-table">
                 <thead>
                   <tr>
-                    <th scope="col">Parça</th>
-                    <th scope="col">Süre</th>
-                    <th scope="col">En iyi temiz tempo</th>
-                    <th scope="col">En iyi doğruluk</th>
-                    <th scope="col">Son</th>
+                    <th scope="col">Piece</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">Best clean tempo</th>
+                    <th scope="col">Best accuracy</th>
+                    <th scope="col">Last</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -125,8 +125,8 @@ export function ProgressScreen() {
                         <span className="subtle small"> · {KIND_LABEL[r.kind]}</span>
                       </th>
                       <td className="num">{formatDuration(r.seconds)}</td>
-                      <td className="num">{r.bestCleanSpeed != null ? <Meter value={r.bestCleanSpeed / 1.5} label={`%${Math.round(r.bestCleanSpeed * 100)}`} /> : '–'}</td>
-                      <td className="num">{r.bestAccuracy != null ? <Meter value={r.bestAccuracy / 100} label={`%${r.bestAccuracy}`} /> : '–'}</td>
+                      <td className="num">{r.bestCleanSpeed != null ? <Meter value={r.bestCleanSpeed / 1.5} label={`${Math.round(r.bestCleanSpeed * 100)}%`} /> : '–'}</td>
+                      <td className="num">{r.bestAccuracy != null ? <Meter value={r.bestAccuracy / 100} label={`${r.bestAccuracy}%`} /> : '–'}</td>
                       <td className="subtle">{relativeTime(r.lastAt) ?? ''}</td>
                     </tr>
                   ))}
@@ -161,7 +161,7 @@ function WeekChart({ days }: { days: { key: string; label: string; minutes: numb
   const [hover, setHover] = useState<number | null>(null);
   return (
     <figure className="week-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Son 7 gün: ${days.map((d) => `${d.label} ${d.minutes} dk`).join(', ')}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Last 7 days: ${days.map((d) => `${d.label} ${d.minutes} min`).join(', ')}`}>
         <line x1={0} x2={W} y1={base} y2={base} className="wc-base" />
         {days.map((d, i) => {
           const h = d.minutes ? Math.max(4, ((base - top) * d.minutes) / max) : 0;
@@ -172,7 +172,7 @@ function WeekChart({ days }: { days: { key: string; label: string; minutes: numb
               <rect x={i * step} y={top - 16} width={step} height={base - top + 40} fill="transparent" />
               {h > 0 && <path d={roundedTop(x, base, bw, h)} className={`wc-bar${d.today ? ' is-today' : ''}`} />}
               {showValue && <text x={x + bw / 2} y={base - h - 6} textAnchor="middle" className="wc-value">{d.minutes} dk</text>}
-              <text x={x + bw / 2} y={H - 8} textAnchor="middle" className={`wc-label${d.today ? ' is-today' : ''}`}>{d.today ? 'Bugün' : d.label}</text>
+              <text x={x + bw / 2} y={H - 8} textAnchor="middle" className={`wc-label${d.today ? ' is-today' : ''}`}>{d.today ? 'Today' : d.label}</text>
             </g>
           );
         })}

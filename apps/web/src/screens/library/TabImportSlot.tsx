@@ -65,10 +65,10 @@ export function TabImportSlot({ onImported, onError, onReadable }: TabImportSlot
     >
       <div className="dropzone-ic" aria-hidden>{busy ? <Spinner /> : <Upload size={20} />}</div>
       <div className="dropzone-text">
-        <p className="dropzone-title">{busy ? `${busy} dosya yükleniyor…` : 'Tab dosyalarını buraya bırak'}</p>
-        <p className="dropzone-desc">Guitar Pro (.gp, .gp3–.gp7, .gpx) ve MusicXML en doğru sonucu verir. PDF ve tab görselleri de okunur.</p>
+        <p className="dropzone-title">{busy ? `Uploading ${busy} files…` : 'Drop tab files here'}</p>
+        <p className="dropzone-desc">Guitar Pro (.gp, .gp3–.gp7, .gpx) and MusicXML give the most accurate results. PDFs and tab images can be read too.</p>
       </div>
-      <Button variant="secondary" onClick={() => input.current?.click()} disabled={!!busy}>Dosya seç</Button>
+      <Button variant="secondary" onClick={() => input.current?.click()} disabled={!!busy}>Choose files</Button>
       <input
         ref={input}
         type="file"

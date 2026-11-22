@@ -37,28 +37,28 @@ interface Props {
 /** Floating controls in the stage corner: neck/tab focus, zoom and fullscreen. */
 export function StageTools(p: Props) {
   return (
-    <div className="stage-tools" role="toolbar" aria-label="Sahne">
+    <div className="stage-tools" role="toolbar" aria-label="Stage">
       {p.extra}
       {p.extra && <span className="stage-tools-sep" aria-hidden />}
       <SegmentedControl<'neck' | 'tab'>
-        aria-label="Odak"
+        aria-label="Focus"
         size="sm"
         value={p.focus}
         onChange={p.onFocus}
         options={[
-          { value: 'neck', label: 'Sap', hint: 'Odak: gitar sapı büyük', shortcut: 'N' },
-          { value: 'tab', label: 'Tab', hint: 'Odak: tab şeridi büyük', shortcut: 'N' },
+          { value: 'neck', label: 'Neck', hint: 'Focus: large guitar neck', shortcut: 'N' },
+          { value: 'tab', label: 'Tab', hint: 'Focus: large tab strip', shortcut: 'N' },
         ]}
       />
       <span className="stage-tools-sep" aria-hidden />
-      <IconButton label="Uzaklaştır" shortcut="Shift+-" size="sm" icon={<ZoomOut size={16} />} onClick={() => p.onZoom(clampZoom(p.zoom - 0.15))} disabled={p.zoom <= ZOOM_MIN} />
-      <button type="button" className="stage-zoom num" onClick={() => p.onZoom(1)} title="Yakınlığı sıfırla" aria-label={`Yakınlık %${Math.round(p.zoom * 100)}, sıfırla`}>
-        %{Math.round(p.zoom * 100)}
+      <IconButton label="Zoom out" shortcut="Shift+-" size="sm" icon={<ZoomOut size={16} />} onClick={() => p.onZoom(clampZoom(p.zoom - 0.15))} disabled={p.zoom <= ZOOM_MIN} />
+      <button type="button" className="stage-zoom num" onClick={() => p.onZoom(1)} title="Reset zoom" aria-label={`Zoom ${Math.round(p.zoom * 100)}%, reset`}>
+        {Math.round(p.zoom * 100)}%
       </button>
-      <IconButton label="Yakınlaştır" shortcut="Shift++" size="sm" icon={<ZoomIn size={16} />} onClick={() => p.onZoom(clampZoom(p.zoom + 0.15))} disabled={p.zoom >= ZOOM_MAX} />
+      <IconButton label="Zoom in" shortcut="Shift++" size="sm" icon={<ZoomIn size={16} />} onClick={() => p.onZoom(clampZoom(p.zoom + 0.15))} disabled={p.zoom >= ZOOM_MAX} />
       {p.fullscreenSupported && (
         <IconButton
-          label={p.fullscreen ? 'Tam ekrandan çık' : 'Tam ekran'}
+          label={p.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           shortcut="F"
           size="sm"
           icon={p.fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}

@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <div className="toast-title">{t.title}</div>
                 {t.description && <div className="toast-desc">{t.description}</div>}
               </div>
-              <button className="toast-x" aria-label="Bildirimi kapat" onClick={() => dismiss(t.id)}><X size={16} /></button>
+              <button className="toast-x" aria-label="Dismiss notification" onClick={() => dismiss(t.id)}><X size={16} /></button>
             </div>
           );
         })}

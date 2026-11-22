@@ -26,7 +26,7 @@ export const MAX_TAKES_PER_TAB = 10;
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
-      reject(new Error('Bu tarayıcı kayıtları saklayamıyor.'));
+      reject(new Error('This browser can\'t store recordings.'));
       return;
     }
     const req = indexedDB.open(DB, 1);

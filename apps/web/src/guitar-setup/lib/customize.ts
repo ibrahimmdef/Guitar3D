@@ -17,10 +17,10 @@ export const proportionalScale = (base: Pick<GuitarProfile, 'totalLengthCm' | 's
 
 /** Turkish validation message for a size request, or null when it is usable. */
 export function sizeProblem(totalCm: number, scaleCm: number): string | null {
-  if (!Number.isFinite(totalCm) || totalCm < MIN_TOTAL_CM || totalCm > MAX_TOTAL_CM) return `Toplam boy ${MIN_TOTAL_CM}–${MAX_TOTAL_CM} cm arasında olmalı.`;
-  if (!Number.isFinite(scaleCm) || scaleCm < MIN_SCALE_CM || scaleCm > MAX_SCALE_CM) return `Tel boyu ${MIN_SCALE_CM}–${MAX_SCALE_CM} cm arasında olmalı.`;
-  if (scaleCm > totalCm * 0.72) return 'Tel boyu toplam boya göre çok uzun.';
-  if (scaleCm < totalCm * 0.5) return 'Tel boyu toplam boya göre çok kısa.';
+  if (!Number.isFinite(totalCm) || totalCm < MIN_TOTAL_CM || totalCm > MAX_TOTAL_CM) return `Total length must be between ${MIN_TOTAL_CM} and ${MAX_TOTAL_CM} cm.`;
+  if (!Number.isFinite(scaleCm) || scaleCm < MIN_SCALE_CM || scaleCm > MAX_SCALE_CM) return `Scale length must be between ${MIN_SCALE_CM} and ${MAX_SCALE_CM} cm.`;
+  if (scaleCm > totalCm * 0.72) return 'Scale length is too long for the total length.';
+  if (scaleCm < totalCm * 0.5) return 'Scale length is too short for the total length.';
   return null;
 }
 
@@ -83,6 +83,6 @@ export function customizeProfile(base: GuitarProfile, c: Customization): Omit<Gu
     headstock,
     finish: { ...base.finish, ...c.finish },
     textures: { ...base.textures },
-    source: `${base.name} şablonundan uyarlandı.`,
+    source: `Adapted from the ${base.name} template.`,
   };
 }

@@ -28,7 +28,7 @@ class MockTools implements SongTools {
     onProgress(0.5);
     await this.gate;
     if (signal.aborted) throw new Error('aborted');
-    if (this.fail) throw new Error('model patladı');
+    if (this.fail) throw new Error('model crashed');
     fs.mkdirSync(outDir, { recursive: true });
     const stems: StemName[] = ['guitar', 'vocals', 'bass', 'drums', 'piano', 'other'];
     for (const s of stems) fs.writeFileSync(path.join(outDir, `${s}.mp3`), `MP3-${s}`);
@@ -71,10 +71,10 @@ describe('songs api', () => {
   it('uses tags for title/artist and lets the client override', async () => {
     const tagged = await request(app).post('/api/songs').attach('file', Buffer.from('ID3!xx'), 'x.mp3').expect(201);
     expect(tagged.body).toMatchObject({ title: 'Tag Title', artist: 'Tag Artist' });
-    const own = await request(app).post('/api/songs').field('title', 'Benim').attach('file', wav, 'y.flac').expect(201);
-    expect(own.body.title).toBe('Benim');
-    const renamed = await request(app).patch(`/api/songs/${own.body.id}`).send({ artist: 'Grup' }).expect(200);
-    expect(renamed.body.artist).toBe('Grup');
+    const own = await request(app).post('/api/songs').field('title', 'Mine').attach('file', wav, 'y.flac').expect(201);
+    expect(own.body.title).toBe('Mine');
+    const renamed = await request(app).patch(`/api/songs/${own.body.id}`).send({ artist: 'Band' }).expect(200);
+    expect(renamed.body.artist).toBe('Band');
     await request(app).patch(`/api/songs/${own.body.id}`).send({ title: ' ' }).expect(400);
     await queue().idle();
   });
@@ -119,7 +119,7 @@ describe('songs api', () => {
     await queue().idle();
     const s = (await request(app).get(`/api/songs/${up.body.id}`)).body;
     expect(s.status).toBe('error');
-    expect(s.error).toMatch(/model patladı/);
+    expect(s.error).toMatch(/model crashed/);
   });
 
   it('runs one job at a time and deleting cancels and removes files', async () => {

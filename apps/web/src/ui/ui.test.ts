@@ -31,7 +31,7 @@ describe('router', () => {
   });
 
   it('round-trips ids with special characters', () => {
-    for (const r of [playTab('a b/ç?'), playLesson('x%y'), playSong('ş ?')]) expect(parseRoute(routeHref(r))).toEqual(r);
+    for (const r of [playTab('a b/é?'), playLesson('x%y'), playSong('ñ ?')]) expect(parseRoute(routeHref(r))).toEqual(r);
   });
 
   it('survives malformed escapes', () => {
@@ -61,14 +61,14 @@ describe('format', () => {
     expect(formatTime(65_400)).toBe('1:05');
     expect(formatTime(-10)).toBe('0:00');
     expect(formatTime(Number.NaN)).toBe('0:00');
-    expect(formatPercent(0.75)).toBe('%75');
+    expect(formatPercent(0.75)).toBe('75%');
   });
-  it('formats relative times in Turkish', () => {
+  it('formats relative times', () => {
     const now = Date.parse('2026-01-10T12:00:00Z');
     expect(relativeTime(undefined)).toBeNull();
     expect(relativeTime('garbage')).toBeNull();
-    expect(relativeTime('2026-01-10T11:59:30Z', now)).toBe('az önce');
-    expect(relativeTime('2026-01-09T12:00:00Z', now)).toBe('dün');
+    expect(relativeTime('2026-01-10T11:59:30Z', now)).toBe('just now');
+    expect(relativeTime('2026-01-09T12:00:00Z', now)).toBe('yesterday');
   });
 });
 

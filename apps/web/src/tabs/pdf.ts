@@ -57,7 +57,7 @@ export async function readPdf(file: Blob, onProgress?: (p: number) => void): Pro
       ctx.fillStyle = '#fff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: ctx, viewport }).promise;
-      const blob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('Sayfa görüntüye çevrilemedi.'))), 'image/png'));
+      const blob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('Couldn\'t render the page to an image.'))), 'image/png'));
       const at = 0.1 + ((i - 1) / pages) * 0.9;
       const out = await ocrImage(blob, (p) => onProgress?.(at + (p * 0.9) / pages));
       if (out.mode === 'layout' && out.text.trim()) {

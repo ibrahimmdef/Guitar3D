@@ -1,11 +1,11 @@
 import type { BuiltinLessonDef } from './types';
 
 /**
- * "Eserler" pack: well-known themes and openings of public-domain classical works and
+ * "Classics" pack: well-known themes and openings of public-domain classical works and
  * anonymous/traditional melodies, arranged for guitar in standard tuning. Short excerpts only,
  * no lyrics. Guitar sounds an octave below written pitch, so pitches here are the sounding ones
  * (e.g. Für Elise starts on E4 = open 1st string).
- * Levels: 3 = orta, 4 = orta üstü, 5 = zor; easiest first within each level.
+ * Levels: 3 = intermediate, 4 = upper intermediate, 5 = hard; easiest first within each level.
  */
 const e = (d: Omit<BuiltinLessonDef, 'source' | 'group'>): BuiltinLessonDef => ({ ...d, source: 'public-domain', group: 'eserler' });
 
@@ -19,12 +19,12 @@ const romanceBar = (frets: number[], inner: [string, string], bass: string) =>
 const LEVEL_3: BuiltinLessonDef[] = [
   e({
     id: 'eser-amazing-grace',
-    title: 'Amazing Grace (Geleneksel)',
+    title: 'Amazing Grace (Traditional)',
     level: 3,
     tempo: 80,
-    goal: '3/4 ölçüde melodiyi bas notalarıyla birlikte çalmak.',
-    description: 'Anonim ilahi ezgisi "New Britain" (Amazing Grace), Sol majörde. Melodi birinci pozisyonda, ölçü başlarında bas notası; ilk kıta, düzenleme.',
-    tip: 'Ölçü başındaki bas ile melodi notasını aynı anda başparmak ve işaret parmağıyla çek. Uzun notaları tam üç vuruş tut, "bir-iki-üç" diye say.',
+    goal: 'Play the melody together with bass notes in 3/4.',
+    description: 'Anonymous hymn tune "New Britain" (Amazing Grace) in G major. Melody in first position with a bass note on each downbeat; first verse, arrangement.',
+    tip: 'Pluck the downbeat bass and the melody note together with thumb and index finger. Hold long notes for a full three beats and count "one-two-three".',
     bars: `
 \\ts 3 4 r.2 0.4.4 | (0.3 3.6).2 0.2.8 0.3.8 | (0.2 3.6).2 2.3.4 | (0.3 3.5).2 2.4.4 | (0.4 3.6).2 0.4.4 |
 (0.3 3.6).2 0.2.8 0.3.8 | (0.2 0.6).2 2.3.4 | (3.2 3.6).2{d} | r.2 0.2.4 |
@@ -34,12 +34,12 @@ const LEVEL_3: BuiltinLessonDef[] = [
   }),
   e({
     id: 'eser-sakura',
-    title: 'Sakura Sakura (Japon halk ezgisi)',
+    title: 'Sakura Sakura (Japanese folk song)',
     level: 3,
     tempo: 72,
-    goal: 'Japon pentatonik dizisini (La-Si-Do-Mi-Fa) birinci pozisyonda çalmak.',
-    description: 'Anonim Japon halk ezgisi "Sakura Sakura", La minör renginde, gitarın birinci pozisyonunda. Tam ezgi, düzenleme.',
-    tip: 'Yarım notalarda sesi kesme; parmağı tel üzerinde tut. Sekizlik çiftlerini (Si-La) yumuşak bağla, acele etme.',
+    goal: 'Play the Japanese pentatonic scale (A-B-C-E-F) in first position.',
+    description: 'Anonymous Japanese folk song "Sakura Sakura" in an A minor color, in first position. Full melody, arrangement.',
+    tip: 'Don\'t cut off the half notes; keep your finger on the string. Connect the eighth-note pairs (B-A) smoothly, don\'t rush.',
     bars: `
 :4 2.3 2.3 0.2.2 | 2.3.4 2.3.4 0.2.2 | 2.3.4 0.2.4 1.2.4 0.2.4 | 2.3.4 0.2.8 2.3.8 3.4.2 |
 2.4.4 3.5.4 2.4.4 3.4.4 | 2.4.4 2.4.8 3.5.8 2.5.2 | 2.3.4 0.2.4 1.2.4 0.2.4 | 2.3.4 0.2.8 2.3.8 3.4.2 |
@@ -49,12 +49,12 @@ const LEVEL_3: BuiltinLessonDef[] = [
   }),
   e({
     id: 'eser-scarborough-fair',
-    title: 'Scarborough Fair (Geleneksel)',
+    title: 'Scarborough Fair (Traditional)',
     level: 3,
     tempo: 84,
-    goal: 'Re Dorian ezgisini iki oktavda çalmak; ikinci turda bas ekleyip pozisyon değiştirmek.',
-    description: 'Anonim İngiliz halk ezgisi, Re Dorian. İlk iki dize önce alçak oktavda tek ses, sonra bir oktav yukarıda baslarla. Düzenleme.',
-    tip: 'İkinci turda 5. ve 8.–10. perdeler arasında kayacaksın; kaymadan önce hedef perdeye bak. Noktalı dörtlükte "bir-ve" say.',
+    goal: 'Play the D Dorian melody in two octaves; add bass and shift position on the second pass.',
+    description: 'Anonymous English folk song in D Dorian. The first two lines as single notes in the low octave, then an octave higher with bass. Arrangement.',
+    tip: 'On the second pass you shift between the 5th and the 8th–10th frets; look at the target fret before shifting. Count "one-and" on the dotted quarter.',
     bars: `
 \\ts 3 4 0.4.2 0.4.4 | 2.3.2 2.3.4 | 2.4.4{d} 3.4.8 2.4.4 | 0.4.2{d} |
 r.4 2.3.4 1.2.4 | 3.2.2 1.2.4 | 2.3.4 0.2.4 0.3.4 | 2.3.2{d} |
@@ -64,12 +64,12 @@ r.4 5.1.4 8.1.4 | (10.1 0.4).2 8.1.4 | (5.1 3.6).4 7.1.4 3.1.4 | (5.1 0.5).2{d}
   }),
   e({
     id: 'eser-greensleeves',
-    title: 'Greensleeves (Geleneksel)',
+    title: 'Greensleeves (Traditional)',
     level: 3,
     tempo: 84,
-    goal: '3/4 ölçüde noktalı ritmi ve bas + melodi çalımını oturtmak.',
-    description: 'Anonim İngiliz ezgisi (16. yy), La minörde. Melodi 1.–4. tellerde, ölçü başlarında bas notaları. Ezginin ilk bölümü, düzenleme.',
-    tip: 'Noktalı dörtlük + sekizlik kalıbı ("daa-da") her ölçüde döner; önce sadece melodiyi çal, sonra basları ekle. Sol diyez (3. tel 1. perde) için parmağını hazır tut.',
+    goal: 'Lock in the dotted rhythm and bass + melody playing in 3/4.',
+    description: 'Anonymous English tune (16th century) in A minor. Melody on strings 1–4 with bass notes on the downbeats. First section of the tune, arrangement.',
+    tip: 'The dotted quarter + eighth pattern ("daa-da") comes back every bar; play only the melody first, then add the bass. Keep your finger ready for G# (3rd string, 1st fret).',
     bars: `
 \\ts 3 4 r.2 2.3.4 | (1.2 0.5).2 3.2.4 | (0.1 3.5).4{d} 1.1.8 0.1.4 | (3.2 3.6).2 0.2.4 |
 (0.3 0.6).4{d} 2.3.8 0.2.4 | (1.2 0.5).2 2.3.4 | (2.3 0.5).4{d} 1.3.8 2.3.4 | (0.2 0.6).2 1.3.4 |
@@ -79,12 +79,12 @@ r.4 5.1.4 8.1.4 | (10.1 0.4).2 8.1.4 | (5.1 3.6).4 7.1.4 3.1.4 | (5.1 0.5).2{d}
   }),
   e({
     id: 'eser-minuet-in-g',
-    title: 'Sol Majör Menuet (Petzold)',
+    title: 'Minuet in G (Petzold)',
     level: 3,
     tempo: 92,
-    goal: 'Barok menuette sekizlik dizileri ve bas notalarını birlikte çalmak.',
-    description: 'Christian Petzold, Menuet Sol majör (BWV Anh. 114, eskiden Bach\'a atfedilirdi). Sol majörde, birinci pozisyon; 16 ölçülük ilk bölüm, düzenleme.',
-    tip: 'Sekizlik dizilerinde (Sol-La-Si-Do) parmaklar perde başına bir parmak kuralıyla dursun. 7. ölçüdeki Fa diyez 4. telin 4. perdesinde; serçe parmakla bas.',
+    goal: 'Play Baroque minuet eighth-note runs together with bass notes.',
+    description: 'Christian Petzold, Minuet in G major (BWV Anh. 114, formerly attributed to Bach). G major, first position; the 16-bar first section, arrangement.',
+    tip: 'In the eighth-note runs (G-A-B-C) keep one finger per fret. The F# in bar 7 is on the 4th string, 4th fret; fret it with your pinky.',
     bars: `
 \\ts 3 4 (3.2 3.6).4 0.3.8 2.3.8 0.2.8 1.2.8 | (3.2 2.5).4 0.3.4 0.3.4 | (0.1 3.5).4 1.2.8 3.2.8 0.1.8 2.1.8 | (3.1 2.5).4 0.3.4 0.3.4 |
 (1.2 0.5).4 3.2.8 1.2.8 0.2.8 2.3.8 | (0.2 3.6).4 1.2.8 0.2.8 2.3.8 0.3.8 | 4.4.4 0.3.8 2.3.8 0.2.8 0.3.8 | (2.3 0.4).2{d} |
@@ -94,12 +94,12 @@ r.4 5.1.4 8.1.4 | (10.1 0.4).2 8.1.4 | (5.1 3.6).4 7.1.4 3.1.4 | (5.1 0.5).2{d}
   }),
   e({
     id: 'eser-pachelbel-canon',
-    title: 'Kanon Re Majör (Pachelbel)',
+    title: 'Canon in D (Pachelbel)',
     level: 3,
     tempo: 66,
-    goal: 'Tekrarlanan bas çizgisi üzerinde melodi çalmak (bas + melodi bağımsızlığı).',
-    description: 'Johann Pachelbel, Kanon Re majör. Önce sekiz notalık bas (Re-La-Si-Fa#-Sol-Re-Sol-La), sonra üzerinde ünlü ana melodinin ilk üç çeşitlemesi. Re majörde, düzenleme.',
-    tip: 'İlk iki ölçüde bası ezberle; melodi girince bas aynı kalır. 6. ölçüde Fa diyez ile Re bası (4. tel 4. perde + 5. tel 5. perde) için elini 4. pozisyona hazırla.',
+    goal: 'Play a melody over a repeating bass line (bass + melody independence).',
+    description: 'Johann Pachelbel, Canon in D major. First the eight-note bass (D-A-B-F#-G-D-G-A), then the first three variations of the famous melody on top. D major, arrangement.',
+    tip: 'Memorize the bass in the first two bars; it stays the same when the melody comes in. In bar 6 get your hand ready in 4th position for the F# with the D bass (4th string 4th fret + 5th string 5th fret).',
     bars: `
 :4 0.4 0.5 2.5 2.6 | 3.6 0.4 3.6 0.5 |
 (2.1 0.4).4 (0.1 0.5).4 (3.2 2.5).4 (2.2 2.6).4 | (0.2 3.6).4 (2.3 0.4).4 (0.2 3.6).4 (2.2 0.5).4 |
@@ -110,12 +110,12 @@ r.4 5.1.4 8.1.4 | (10.1 0.4).2 8.1.4 | (5.1 3.6).4 7.1.4 3.1.4 | (5.1 0.5).2{d}
   }),
   e({
     id: 'eser-mavi-tuna',
-    title: 'Mavi Tuna (Strauss II)',
+    title: 'The Blue Danube (Strauss II)',
     level: 3,
     tempo: 120,
-    goal: 'Vals ritmini (bas + iki vuruş) hissetmek; alçak ve tiz bölge arasında atlamak.',
-    description: 'Johann Strauss II, "An der schönen blauen Donau" ana vals teması. Re majörde; alçak tellerde tema, tiz tellerde "pam pam" cevapları. Düzenleme.',
-    tip: '"Bir-iki-üç" say: cevap ölçülerinde birinci vuruş bas (açık tel), iki ve üç tiz nota. 14. ölçüdeki Si notası 1. telin 7. perdesinde; elini önceden kaydır.',
+    goal: 'Feel the waltz rhythm (bass + two beats); jump between the low and high register.',
+    description: 'Johann Strauss II, main waltz theme of "An der schönen blauen Donau". D major; the theme on the low strings, "pam pam" answers on the high strings. Arrangement.',
+    tip: 'Count "one-two-three": in the answer bars beat one is the bass (open string), beats two and three are high notes. The B in bar 14 is on the 1st string, 7th fret; shift your hand early.',
     bars: `
 \\ts 3 4 r.4 r.4 0.4.4 | 0.4.4 4.4.4 2.3.4 | 2.3.2{d} | 0.4.4 5.1.4 5.1.4 | 0.4.4 2.1.4 2.1.4 |
 r.4 r.4 0.4.4 | 0.4.4 4.4.4 2.3.4 | 2.3.2{d} | 0.4.4 5.1.4 5.1.4 | 0.5.4 3.1.4 3.1.4 |
@@ -126,12 +126,12 @@ r.4 r.4 4.5.4 | 4.5.4 2.4.4 0.2.4 | 0.2.2{d} | 0.5.4 7.1.4 7.1.4 | 0.4.4 2.1.4 2
   }),
   e({
     id: 'eser-can-can',
-    title: 'Kan-kan (Offenbach)',
+    title: 'Can-Can (Offenbach)',
     level: 3,
     tempo: 92,
-    goal: '5. pozisyonda onaltılık notaları temiz ve eşit çalmak.',
-    description: 'Jacques Offenbach, "Cehennemdeki Orfeus" operetinden galop (Kan-kan) teması. Do majörde, 5. pozisyonda (5.–8. perdeler). Düzenleme.',
-    tip: 'Elini 5. perdede sabit tut: işaret 5, orta 6, yüzük 7, serçe 8. perdede. Önce 60 BPM\'de çal; hedef tempo 140 civarı.',
+    goal: 'Play sixteenth notes cleanly and evenly in 5th position.',
+    description: 'Jacques Offenbach, galop (Can-Can) theme from the operetta "Orpheus in the Underworld". C major, in 5th position (frets 5–8). Arrangement.',
+    tip: 'Keep your hand fixed at the 5th fret: index on 5, middle on 6, ring on 7, pinky on 8. Play it at 60 BPM first; the target tempo is around 140.',
     bars: `
 \\ts 2 4 5.3.4 7.3.16 6.2.16 5.2.16 7.3.16 | 8.2.8 8.2.8 8.2.16 5.1.16 5.2.16 6.2.16 | 7.3.8 7.3.8 7.3.16 6.2.16 5.2.16 7.3.16 | 5.3.16 8.1.16 7.1.16 5.1.16 8.2.16 6.2.16 5.2.16 7.3.16 |
 5.3.4 7.3.16 6.2.16 5.2.16 7.3.16 | 8.2.8 8.2.8 8.2.16 5.1.16 5.2.16 6.2.16 | 7.3.8 7.3.8 7.3.16 6.2.16 5.2.16 7.3.16 | 5.3.8 8.2.8 7.3.16 5.2.16 5.3.8
@@ -142,9 +142,9 @@ r.4 r.4 4.5.4 | 4.5.4 2.4.4 0.2.4 | 0.2.2{d} | 0.5.4 7.1.4 7.1.4 | 0.4.4 2.1.4 2
     title: 'Für Elise (Beethoven)',
     level: 3,
     tempo: 60,
-    goal: 'Onaltılık notalarda Mi-Re# salınımını ve bas arpejini birlikte çalmak.',
-    description: 'Ludwig van Beethoven, "Für Elise" (WoO 59) A bölümü, La minörde. Gitarda yazıldığı gibi bir oktav pes sesler (açık 1. tel Mi). Düzenleme.',
-    tip: 'Mi (açık 1. tel) ile Re diyez (2. tel 4. perde) arasında serçe parmağı hazır tut. Bas notalarını ölçü başında, melodiyle aynı anda çal. Bu tempo dörtlük; hedef 80 civarı.',
+    goal: 'Play the E-D# oscillation in sixteenths together with the bass arpeggio.',
+    description: 'Ludwig van Beethoven, "Für Elise" (WoO 59) A section in A minor. On guitar it sounds an octave lower as written (open 1st string E). Arrangement.',
+    tip: 'Keep your pinky ready between E (open 1st string) and D# (2nd string 4th fret). Play the bass notes on the downbeat together with the melody. This tempo is in quarters; the target is around 80.',
     bars: `
 \\ts 3 8 r.4 0.1.16 4.2.16 | 0.1.16 4.2.16 0.1.16 0.2.16 3.2.16 1.2.16 | (2.3 0.5).8 r.16 3.5.16 2.4.16 2.3.16 | (0.2 0.6).8 r.16 2.4.16 1.3.16 0.2.16 |
 (1.2 0.5).8 r.16 2.4.16 0.1.16 4.2.16 | 0.1.16 4.2.16 0.1.16 0.2.16 3.2.16 1.2.16 | (2.3 0.5).8 r.16 3.5.16 2.4.16 2.3.16 | (0.2 0.6).8 r.16 2.4.16 1.2.16 0.2.16 |
@@ -155,12 +155,12 @@ r.4 r.4 4.5.4 | 4.5.4 2.4.4 0.2.4 | 0.2.2{d} | 0.5.4 7.1.4 7.1.4 | 0.4.4 2.1.4 2
   }),
   e({
     id: 'eser-romance-anonimo',
-    title: 'Romance Anónimo (İspanyol Romansı)',
+    title: 'Romance Anónimo (Spanish Romance)',
     level: 3,
     tempo: 60,
-    goal: 'Üçleme arpejinde melodiyi 1. telde öne çıkarmak; 7. ve 12. pozisyona geçmek.',
-    description: 'Anonim İspanyol romansı ("Spanish Romance"), Mi minörde. Açılış bölümünün ilk sekiz ölçüsü ve kapanış akoru: üçleme arpej, melodi 1. telde. Düzenleme.',
-    tip: 'Her vuruş üç nota: melodi (a parmağı), açık 2. tel (m), açık 3. tel (i). Melodiyi biraz daha güçlü çal. 5. ölçüde 12. perdeye geçmeden önce elini 7. pozisyonda bırakma, tek hamlede kay.',
+    goal: 'Bring out the melody on the 1st string in a triplet arpeggio; shift to 7th and 12th position.',
+    description: 'Anonymous Spanish romance ("Spanish Romance") in E minor. The first eight bars of the opening section and the closing chord: triplet arpeggio, melody on the 1st string. Arrangement.',
+    tip: 'Three notes per beat: melody (a finger), open 2nd string (m), open 3rd string (i). Play the melody a little louder. In bar 5, don\'t stop in 7th position before going to the 12th fret; slide in one move.',
     bars: `
 \\ts 3 4 ${romanceBar([7, 7, 7], ['0.2', '0.3'], '0.6')} | ${romanceBar([7, 5, 3], ['0.2', '0.3'], '0.6')} | ${romanceBar([3, 2, 0], ['0.2', '0.3'], '0.6')} | ${romanceBar([0, 3, 7], ['0.2', '0.3'], '0.6')} |
 ${romanceBar([12, 12, 12], ['8.2', '9.3'], '0.6')} | ${romanceBar([12, 10, 8], ['8.2', '9.3'], '0.6')} | ${romanceBar([8, 7, 5], ['5.2', '5.3'], '0.5')} | ${romanceBar([5, 7, 8], ['5.2', '5.3'], '0.5')} |
@@ -178,9 +178,9 @@ const LEVEL_4: BuiltinLessonDef[] = [
     title: 'Gymnopédie No. 1 (Satie)',
     level: 4,
     tempo: 66,
-    goal: 'Yavaş tempoda bas, akor ve melodiyi dengeli çalmak; sesleri sürdürmek.',
-    description: 'Erik Satie, Gymnopédie No. 1. Sol maj7 – Re majör salınımı üzerinde ünlü melodinin ilk cümlesi; melodi bir oktav pes, akorlar sadeleştirildi. Düzenleme.',
-    tip: 'Her ölçüde bas birinci vuruşta, akor ikincide. Melodi notalarını akordan biraz daha yüksek sesle çal ve üç vuruş boyunca bırakma. Satie\'nin işareti: "yavaş ve acılı".',
+    goal: 'Balance bass, chord and melody at a slow tempo; let the notes ring.',
+    description: 'Erik Satie, Gymnopédie No. 1. The first phrase of the famous melody over the Gmaj7 – D major sway; melody an octave lower, chords simplified. Arrangement.',
+    tip: 'In each bar the bass is on beat one, the chord on beat two. Play melody notes a little louder than the chord and hold them for all three beats. Satie\'s marking: "slow and painful".',
     bars: `
 \\ts 3 4 3.6.4 (4.4 4.3).2 | 0.4.4 (4.4 2.3).2 | 3.6.4 (4.4 4.3).2 | 0.4.4 (4.4 2.3).2 |
 3.6.4 (2.1 4.4 4.3).4 5.1.4 | (3.1 0.4).4 (2.1 4.4 2.3).4 2.2.4 | (0.2 3.6).4 (2.2 4.4 4.3).4 3.2.4 | (2.3 0.4).4 4.4.2 |
@@ -190,12 +190,12 @@ const LEVEL_4: BuiltinLessonDef[] = [
   }),
   e({
     id: 'eser-dag-kralinin-salonu',
-    title: 'Dağ Kralının Salonunda (Grieg)',
+    title: 'In the Hall of the Mountain King (Grieg)',
     level: 4,
     tempo: 100,
-    goal: 'Sekizlik notalarla kromatik geçişleri temiz ve eşit çalmak; tema iki oktavda.',
-    description: 'Edvard Grieg, Peer Gynt\'ten "In the Hall of the Mountain King" teması. Si minörde; önce kalın tellerde, sonra bir oktav yukarıda. Düzenleme.',
-    tip: 'Notaları kısa (staccato) çal, sol eli her notadan sonra hafifçe gevşet. Eser giderek hızlanır: 100 BPM\'de temiz çalınca 120, sonra 160\'a çık.',
+    goal: 'Play the chromatic passages cleanly and evenly in eighth notes; the theme in two octaves.',
+    description: 'Edvard Grieg, the "In the Hall of the Mountain King" theme from Peer Gynt. B minor; first on the low strings, then an octave higher. Arrangement.',
+    tip: 'Play the notes short (staccato) and relax the fretting hand slightly after each note. The piece speeds up: once it\'s clean at 100 BPM go to 120, then 160.',
     bars: `
 :8 2.5 4.5 0.4 2.4 4.4 0.4 4.4.4 | 3.4.8 4.5.8 3.4.4 2.4.8 3.5.8 2.4.4 | 2.5.8 4.5.8 0.4.8 2.4.8 4.4.8 0.4.8 4.4.8 0.2.8 | 2.3.8 4.4.8 0.4.8 4.4.8 2.3.2 |
 0.2.8 2.2.8 3.2.8 0.1.8 2.1.8 3.2.8 2.1.4 | 1.1.8 2.2.8 1.1.4 0.1.8 1.2.8 0.1.4 | 0.2.8 2.2.8 3.2.8 0.1.8 2.1.8 3.2.8 2.1.8 7.1.8 | 5.1.8 2.1.8 3.2.8 2.1.8 5.1.2 |
@@ -207,9 +207,9 @@ const LEVEL_4: BuiltinLessonDef[] = [
     title: 'Habanera (Bizet, Carmen)',
     level: 4,
     tempo: 66,
-    goal: 'Habanera bas ritmini (noktalı sekizlik + onaltılık) tutarken kromatik inen melodiyi çalmak.',
-    description: 'Georges Bizet, Carmen operasından Habanera. Re minörde; melodi 1. telde 10. perdeden kromatik iner, açık Re ve La telleri habanera ritmini çalar. İlk cümle iki kez, sözsüz düzenleme.',
-    tip: 'Önce ilk iki ölçüdeki bas ritmini ezberle: "Re . La Fa La". Melodi 1. telde tek parmakla kayarak iner; üçlemelerde (Do-Do-Do) acele etme.',
+    goal: 'Play the chromatically descending melody while keeping the habanera bass rhythm (dotted eighth + sixteenth).',
+    description: 'Georges Bizet, Habanera from the opera Carmen. D minor; the melody descends chromatically on the 1st string from the 10th fret, the open D and A strings play the habanera rhythm. The first phrase twice, instrumental arrangement.',
+    tip: 'First memorize the bass rhythm in the first two bars: "D . A F A". The melody slides down the 1st string with one finger; don\'t rush the triplets (C-C-C).',
     bars: `
 \\ts 2 4 0.4.8 r.16 0.5.16 3.4.8 0.5.8 | 0.4.8 r.16 0.5.16 3.4.8 0.5.8 |
 0.4.8 r.16 0.5.16 (10.1 3.4).8 (9.1 0.5).8 | (8.1 0.4).8{tu 3} 8.1.8{tu 3} 8.1.8{tu 3} (7.1 3.4).8 (6.1 0.5).8 | (5.1 0.4).8 5.1.16 (5.1 0.5).16 (4.1 3.4).8 (3.1 0.5).8 | ${tri16('(1.1 0.4)', '3.1', '1.1')} 0.1.16 (1.1 0.5).16 (3.1 3.4).8 (1.1 0.5).8 |
@@ -223,9 +223,9 @@ const LEVEL_4: BuiltinLessonDef[] = [
     title: 'Lágrima (Tárrega)',
     level: 4,
     tempo: 60,
-    goal: 'Melodiyi açık Si teli ile dönüşümlü çalmak; IV. ve IX. pozisyona geçmek.',
-    description: 'Francisco Tárrega, Lágrima ("Gözyaşı") prelüdü, Mi majör bölümünün ilk sekiz ölçüsü. Melodi sekizliklerde açık 2. tel ile dönüşümlü, ölçü başlarında bas. Düzenleme.',
-    tip: 'Melodi notası (1. tel) ile açık Si tel arasında i-m parmaklarını dönüşümlü kullan. 5. ölçüde 9. perde barresine tek hamlede geç; melodiyi şarkı söyler gibi bağla.',
+    goal: 'Alternate the melody with the open B string; shift to IV and IX position.',
+    description: 'Francisco Tárrega, Lágrima ("Teardrop") prelude, the first eight bars of the E major section. Melody alternates with the open 2nd string in eighths, bass on the downbeats. Arrangement.',
+    tip: 'Alternate i-m between the melody note (1st string) and the open B string. In bar 5 move to the 9th-fret barre in one move; connect the melody as if singing.',
     bars: `
 \\ts 3 4 (4.1 2.4).8 0.2.8 (5.1 4.4).8 0.2.8 (7.1 6.4).8 0.2.8 | (2.1 1.4).8 0.2.8 2.3.8 0.2.8 2.5.8 0.2.8 |
 (4.1 2.4).8 0.2.8 (5.1 4.4).8 0.2.8 (7.1 6.4).8 0.2.8 | (2.1 1.4).8 0.2.8 2.3.8 0.2.8 2.5.8 0.2.8 |
@@ -237,9 +237,9 @@ const LEVEL_4: BuiltinLessonDef[] = [
     title: 'Adelita (Tárrega)',
     level: 4,
     tempo: 72,
-    goal: '12. perdeden inen mazurka melodisini baslarla birlikte, pozisyon değiştirerek çalmak.',
-    description: 'Francisco Tárrega, Adelita (mazurka), Mi minör bölümü (8 ölçü, tekrarlı). Süs notaları (appoggiatura) sadeleştirildi. Düzenleme.',
-    tip: 'İlk notada (12. perde) elini önceden yerleştir; Mi-Re# arasını bağlı (legato) çal. Mazurka ritmi: ikinci vuruşa hafif vurgu.',
+    goal: 'Play the mazurka melody descending from the 12th fret together with the bass, shifting positions.',
+    description: 'Francisco Tárrega, Adelita (mazurka), E minor section (8 bars, repeated). Ornaments (appoggiaturas) simplified. Arrangement.',
+    tip: 'Place your hand early for the first note (12th fret); play E-D# legato. Mazurka rhythm: a light accent on beat two.',
     bars: `
 \\ts 3 4 (12.1 0.6).8 11.1.8 8.1.2 | (10.1 0.5).8 8.1.8 7.2.2 | (8.1 7.6).8 7.1.8 8.3.4 8.2.4 | (7.2 0.6).8 9.3.8 0.2.8 9.3.8 8.2.8 7.1.8 |
 (12.1 0.6).8 11.1.8 8.1.2 | (10.1 0.5).8 8.1.8 7.2.2 | (8.1 7.6).8 7.1.8 8.3.4 8.2.4 | (0.3 0.2 0.1 2.4).2 r.4 |
@@ -249,12 +249,12 @@ const LEVEL_4: BuiltinLessonDef[] = [
   }),
   e({
     id: 'eser-bourree-mi-minor',
-    title: 'Bourrée Mi Minör (Bach)',
+    title: 'Bourrée in E Minor (Bach)',
     level: 4,
     tempo: 100,
-    goal: 'İki sesli Barok yazıda melodi ve bası bağımsız çalmak.',
-    description: 'Johann Sebastian Bach, Lavta Süiti BWV 996\'dan Bourrée, Mi minörde; ilk bölüm (bas ve melodi). Son ölçüdeki pes Re bir oktav yukarı alındı. Düzenleme.',
-    tip: 'Başparmak (p) sadece bası, i-m parmakları melodiyi çalsın. Önce yalnız bas sesini, sonra yalnız melodiyi çal, en son birleştir. Hedef tempo 120.',
+    goal: 'Play melody and bass independently in two-voice Baroque writing.',
+    description: 'Johann Sebastian Bach, Bourrée from Lute Suite BWV 996 in E minor; first section (bass and melody). The low D in the last bar is moved up an octave. Arrangement.',
+    tip: 'Let the thumb (p) play only the bass and i-m only the melody. First play the bass voice alone, then the melody alone, and finally combine them. Target tempo 120.',
     bars: `
 \\ts 2 2 r.2 r.4 (0.1 3.6).8 (2.1 2.6).8 | (3.1 0.6).4 (2.1 0.5).8 0.1.8 (4.2 2.5).4 (0.1 0.5).8 2.1.8 | (0.2 3.6).4 (2.2 2.6).8 4.2.8 (0.1 0.6).4 (3.2 2.6).8 1.2.8 |
 (0.2 3.6).4 (2.3 0.5).8 0.3.8 (4.4 2.5).4 (0.3 0.5).8 2.3.8 | (0.2 3.6).8 2.3.8 (0.3 2.5).8 4.4.8 (2.4 0.6).8 2.6.8 (0.1 3.6).8 (2.1 2.6).8 |
@@ -264,12 +264,12 @@ const LEVEL_4: BuiltinLessonDef[] = [
   }),
   e({
     id: 'eser-ay-isigi-sonati',
-    title: 'Ay Işığı Sonatı (Beethoven)',
+    title: 'Moonlight Sonata (Beethoven)',
     level: 4,
     tempo: 54,
-    goal: 'Üçleme arpejini eşit çalmak ve üstte giren melodiyi öne çıkarmak.',
-    description: 'Ludwig van Beethoven, Piyano Sonatı No. 14 ("Ay Işığı"), 1. bölüm açılışı: üçleme arpej ve melodinin girişi. Tárrega\'nın gitar düzenlemesindeki gibi Re minörde. Düzenleme.',
-    tip: 'Üçlemeleri "üç-le-me" diye say, her vuruş başı basla birlikte gelsin. 5. ölçünün son vuruşunda melodi (La, 1. tel 5. perde) girer: onu arpejden daha güçlü çal. Hedef tempo 60.',
+    goal: 'Play the triplet arpeggio evenly and bring out the melody entering on top.',
+    description: 'Ludwig van Beethoven, Piano Sonata No. 14 ("Moonlight"), 1st movement opening: triplet arpeggio and the entry of the melody. In D minor as in Tárrega\'s guitar arrangement. Arrangement.',
+    tip: 'Count the triplets "trip-a-let", with each beat landing together with the bass. The melody (A, 1st string 5th fret) enters on the last beat of bar 5: play it louder than the arpeggio. Target tempo 60.',
     bars: `
 :8 ${tri('(2.3 0.4)', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} |
 ${tri('(2.3 3.5)', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} ${tri('2.3', '3.2', '1.1')} |
@@ -286,9 +286,9 @@ ${tri('(5.1 0.4)', '7.3', '6.2')} ${tri('7.4', '7.3', '6.2')} ${tri('(6.1 3.6)',
     title: 'Eine kleine Nachtmusik (Mozart)',
     level: 4,
     tempo: 100,
-    goal: 'Sol majör üç sesli akorlardan 5. pozisyona geçerek hızlı ve net melodi çalmak.',
-    description: 'Wolfgang Amadeus Mozart, Serenat KV 525 "Eine kleine Nachtmusik", 1. bölümün ilk on ölçüsü (1. keman). Sol majörde, bir oktav pes; süs notaları sadeleştirildi. Düzenleme.',
-    tip: 'Açılıştaki "Sol-Re" sıçramalarını kesik ve canlı çal. 6. ölçüdeki dört otuzikilik bir trildir: önce sekizlik olarak çal, sonra hızlandır. Hedef tempo 132.',
+    goal: 'Play a fast, clear melody, moving from G major triads to 5th position.',
+    description: 'Wolfgang Amadeus Mozart, Serenade K. 525 "Eine kleine Nachtmusik", the first ten bars of the 1st movement (1st violin). G major, an octave lower; ornaments simplified. Arrangement.',
+    tip: 'Play the opening "G-D" leaps short and lively. The four thirty-second notes in bar 6 are a trill: play them as eighths first, then speed up. Target tempo 132.',
     bars: `
 :4 (3.1 0.2 0.4).4 r.8 3.2.8 3.1.4 r.8 3.2.8 | 3.1.8 3.2.8 3.1.8 7.1.8 10.1.4 r.4 | 8.1.4 r.8 5.1.8 8.1.4 r.8 5.1.8 | 8.1.8 5.1.8 7.2.8 5.1.8 7.3.4 r.4 |
 (3.1 0.2 0.4).8 r.8 8.2.4{d} 7.1.8 5.1.8 8.2.8 | 5.1.32 8.2.32 5.1.32 8.2.32 7.2.8 7.2.4{d} 5.1.8 8.1.8 7.2.8 | 5.1.8 8.2.8 8.2.4{d} 7.1.8 5.1.8 8.2.8 | 5.1.32 8.2.32 5.1.32 8.2.32 7.2.8 7.2.4{d} 5.1.8 8.1.8 7.2.8 |
@@ -298,12 +298,12 @@ ${tri('(5.1 0.4)', '7.3', '6.2')} ${tri('7.4', '7.3', '6.2')} ${tri('(6.1 3.6)',
   }),
   e({
     id: 'eser-rondo-alla-turca',
-    title: 'Türk Marşı (Mozart)',
+    title: 'Turkish March (Mozart)',
     level: 4,
     tempo: 80,
-    goal: 'Onaltılık süs figürlerini ve üçlü aralıklı çift sesleri hızlı çalmak.',
-    description: 'Wolfgang Amadeus Mozart, Piyano Sonatı KV 331\'in finali "Rondo alla Turca", ana tema (ilk 8 ölçü). La minörde, bir oktav pes; süs notaları sadeleştirildi. Düzenleme.',
-    tip: 'Si-La-Sol#-La figürü dönüş gibidir: parmaklar 4-2-1-2. 5.–7. ölçülerdeki çift sesleri (La/Fa#, Sol/Mi) 5. pozisyonda iki parmakla tut. Hedef tempo 120.',
+    goal: 'Play sixteenth-note ornament figures and double stops in thirds quickly.',
+    description: 'Wolfgang Amadeus Mozart, "Rondo alla Turca", the finale of Piano Sonata K. 331, main theme (first 8 bars). A minor, an octave lower; ornaments simplified. Arrangement.',
+    tip: 'The B-A-G#-A figure is like a turn: fingers 4-2-1-2. Hold the double stops in bars 5–7 (A/F#, G/E) with two fingers in 5th position. Target tempo 120.',
     bars: `
 \\ts 2 4 r.4 4.3.16 2.3.16 1.3.16 2.3.16 | (1.2 0.5).8 r.8 3.2.16 1.2.16 0.2.16 1.2.16 | (0.1 0.5).8 r.8 1.1.16 0.1.16 4.2.16 0.1.16 |
 (7.1 0.5).16 5.1.16 4.1.16 5.1.16 7.1.16 5.1.16 4.1.16 5.1.16 | (8.1 0.5).4 5.1.8 8.1.8 |
@@ -312,12 +312,12 @@ ${tri('(5.1 0.4)', '7.3', '6.2')} ${tri('7.4', '7.3', '6.2')} ${tri('(6.1 3.6)',
   }),
   e({
     id: 'eser-toccata-re-minor',
-    title: 'Tokata Re Minör (Bach)',
+    title: 'Toccata in D Minor (Bach)',
     level: 4,
     tempo: 60,
-    goal: 'Serbest açılış motifini ve onaltılık üçlemeli hızlı figürleri çalmak.',
-    description: 'Johann Sebastian Bach, Tokata ve Füg Re minör BWV 565, açılış: ünlü inen motif iki oktavda, eksik yedili akor ve "Prestissimo" üçleme figürleri. Org eserinden gitar için sadeleştirilmiş düzenleme.',
-    tip: 'Açılış motifini serbestçe, fermata gibi uzatarak çal. Üçleme figürlerinde (Re-Mi-Do#) sol el sabit kalsın, sadece sağ el hızlansın. Önce yavaş, sonra hedef 80.',
+    goal: 'Play the free opening motif and the fast sixteenth-note triplet figures.',
+    description: 'Johann Sebastian Bach, Toccata and Fugue in D minor BWV 565, opening: the famous descending motif in two octaves, the diminished seventh chord and the "Prestissimo" triplet figures. Simplified guitar arrangement of the organ work.',
+    tip: 'Play the opening motif freely, stretching it like a fermata. In the triplet figures (D-E-C#) keep the fretting hand still and speed up only the picking hand. Slow first, then target 80.',
     bars: `
 5.1.4 r.16 3.1.32 1.1.32 0.1.32 3.2.32 2.2.16 3.2.2 | 2.3.4 r.16 2.4.16 3.4.16 4.5.16 0.4.2 | 0.4.2 (2.4 3.3 2.2 3.1).2 | (0.4 2.3 3.2 1.1).2 r.4 r.8 r.16 2.2.16 |
 ${tri16('3.2', '0.1', '2.2')} ${tri16('3.2', '0.1', '2.2')} ${tri16('3.2', '0.1', '2.2')} 3.2.16 0.1.16 ${tri16('1.1', '3.1', '0.1')} ${tri16('1.1', '3.1', '0.1')} ${tri16('1.1', '3.1', '0.1')} 1.1.16 3.1.16 |
@@ -340,12 +340,12 @@ const tremoloBar = (groups: [string, string][]) => groups.map(([p, m]) => `${p}.
 const LEVEL_5: BuiltinLessonDef[] = [
   e({
     id: 'eser-korobeiniki',
-    title: 'Korobeiniki (Rus halk ezgisi)',
+    title: 'Korobeiniki (Russian folk song)',
     level: 5,
     tempo: 120,
-    goal: '5. pozisyonda hızlı melodiyi açık tel baslarıyla birlikte, tempo kaçırmadan çalmak.',
-    description: 'Anonim Rus halk şarkısı "Korobeiniki" (Seyyar Satıcılar), La minörde. Melodi 5. pozisyonda, açık tellerde bas. Tarantella yerine seçilen hızlı dans ezgisi; düzenleme.',
-    tip: 'Sol el 5. perdede sabit: işaret 5, orta 6, yüzük 7, serçe 8. Basları başparmakla, melodiyi i-m ile çal. 120\'de temizse 140, sonra 160 BPM.',
+    goal: 'Play the fast melody in 5th position together with open-string bass notes without losing tempo.',
+    description: 'Anonymous Russian folk song "Korobeiniki" (The Peddlers) in A minor. Melody in 5th position, bass on the open strings. A fast dance tune chosen instead of the Tarantella; arrangement.',
+    tip: 'Fretting hand fixed at the 5th fret: index 5, middle 6, ring 7, pinky 8. Bass with the thumb, melody with i-m. If it\'s clean at 120, go to 140, then 160 BPM.',
     bars: `
 :4 (5.2 0.6).4 4.3.8 5.3.8 (7.3 0.6).4 5.3.8 4.3.8 | (7.4 0.5).4 7.4.8 5.3.8 (5.2 0.5).4 7.3.8 5.3.8 | (4.3 0.6).4{d} 5.3.8 (7.3 0.6).4 5.2.4 | (5.3 0.5).4 7.4.4 (7.4 0.5).2 |
 r.8 (7.3 0.4).4 6.2.8 (5.1 0.4).4 8.2.8 6.2.8 | (5.2 0.5).4{d} 5.3.8 (5.2 0.5).4 7.3.8 5.3.8 | (4.3 0.6).4 4.3.8 5.3.8 (7.3 0.6).4 5.2.4 | (5.3 0.5).4 7.4.4 (7.4 0.5).2 |
@@ -357,9 +357,9 @@ r.8 (7.3 0.4).4 6.2.8 (5.1 0.4).4 8.2.8 6.2.8 | (5.2 0.5).4{d} 5.3.8 (5.2 0.5).4
     title: 'Gavotte en Rondeau (Bach)',
     level: 5,
     tempo: 100,
-    goal: 'Barok dans ritminde melodi ve bası eşit, akıcı sekizliklerle çalmak.',
-    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006\'dan "Gavotte en Rondeau" ana teması, Mi majörde, bir oktav pes. Brahms\'ın Macar Dansı No. 5 yerine seçildi. Düzenleme.',
-    tip: 'Gavot iki vuruşluk öncülle başlar: ilk ölçüdeki iki dörtlüğü hafif çal, ilk tam ölçünün başına vurgu ver. 3. ölçüdeki onaltılıkları (Fa#-Sol#) bağlı çal. Hedef tempo 132.',
+    goal: 'Play melody and bass in even, flowing eighths in a Baroque dance rhythm.',
+    description: 'Johann Sebastian Bach, main theme of "Gavotte en Rondeau" from Violin Partita No. 3 BWV 1006, in E major, an octave lower. Chosen instead of Brahms\'s Hungarian Dance No. 5. Arrangement.',
+    tip: 'The gavotte starts with a two-beat pickup: play the two quarters in the first bar lightly and accent the start of the first full bar. Play the sixteenths in bar 3 (F#-G#) legato. Target tempo 132.',
     bars: `
 :4 r.2 (0.2 2.4).4 4.1.4 | (4.1 2.3).4 2.1.8 0.1.8 2.1.4 5.1.4 | (5.1 4.3).2 7.1.8 4.1.8 5.1.8 2.1.8 | 0.2.8 2.1.16 4.1.16 5.1.8 2.1.8 4.1.8 0.1.8 2.1.8 4.2.8 |
 0.1.8 0.2.8 1.3.8 2.4.8 1.3.8 0.2.8 0.1.8 4.1.8 | 2.3.8 4.1.8 2.1.8 0.1.8 2.1.8 4.1.8 5.1.8 2.1.8 | (5.1 4.3).2 (0.2 2.4).4 4.1.4 | (2.2 2.3).4 2.1.4 (4.4 2.5).4 4.2.4 | (0.1 2.4).2 r.2
@@ -367,12 +367,12 @@ r.8 (7.3 0.4).4 6.2.8 (5.1 0.4).4 8.2.8 6.2.8 | (5.2 0.5).4{d} 5.3.8 (5.2 0.5).4
   }),
   e({
     id: 'eser-bourree-mi-major',
-    title: 'Bourrée Mi Majör (Bach)',
+    title: 'Bourrée in E Major (Bach)',
     level: 5,
     tempo: 104,
-    goal: 'Hızlı sekizlik dizilerinde birinci pozisyonu ve açık telleri temiz kullanmak.',
-    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006\'dan Bourrée, ilk dokuz ölçü, Mi majörde, bir oktav pes. Monti\'nin Czardas\'ı yerine seçildi. Düzenleme.',
-    tip: 'Sekizlikleri i-m dönüşümlü çal, aynı parmakla iki kez vurma. 5.–8. ölçülerdeki yükselen diziler aynı kalıbı tekrarlar: önce yalnız onları çalış. Hedef tempo yarımlık = 80.',
+    goal: 'Use first position and the open strings cleanly in fast eighth-note runs.',
+    description: 'Johann Sebastian Bach, Bourrée from Violin Partita No. 3 BWV 1006, the first nine bars, in E major, an octave lower. Chosen instead of Monti\'s Czardas. Arrangement.',
+    tip: 'Alternate i-m on the eighths; never strike twice with the same finger. The ascending runs in bars 5–8 repeat the same pattern: practice them alone first. Target tempo half note = 80.',
     bars: `
 \\ts 2 2 r.2 r.4 (2.4 0.2).4 | (2.3 2.2).4 2.3.8 0.2.8 2.2.8 4.2.8 0.1.4 | 1.3.8 0.2.8 0.1.4 0.1.8 4.2.8 0.1.4 | 4.4.8 1.3.8 2.3.8 0.2.8 2.2.8 2.3.8 0.2.4 |
 2.3.8 1.3.8 4.4.8 1.3.8 2.4.4 4.1.8 0.1.8 | 2.1.8 4.2.8 0.2.8 2.2.8 4.2.8 0.1.8 2.1.8 5.1.8 | 4.1.8 0.1.8 0.2.8 4.2.8 0.1.8 2.1.8 4.1.8 7.1.8 |
@@ -382,12 +382,12 @@ r.8 (7.3 0.4).4 6.2.8 (5.1 0.4).4 8.2.8 6.2.8 | (5.2 0.5).4{d} 5.3.8 (5.2 0.5).4
   }),
   e({
     id: 'eser-prelude-do-major',
-    title: 'Prelüd Do Majör (Bach)',
+    title: 'Prelude in C Major (Bach)',
     level: 5,
     tempo: 66,
-    goal: 'Onaltılık arpejde akor şekillerini tutarak geniş açıklı parmak dağılımını çalmak.',
-    description: 'Johann Sebastian Bach, İyi Düzenlenmiş Klavye I\'den Prelüd Do majör BWV 846, ilk yedi ölçü ve kapanış akoru. Do majörde, her ölçü bir akor. Rossini\'nin Wilhelm Tell uvertürü yerine seçildi. Düzenleme.',
-    tip: 'Her ölçünün başında akorun tamamını bas ve ölçü boyunca bırakma; sağ el p-i-m-a sırasıyla dolaşsın. 5. ölçüde (Am) Mi notası 2. telin 5. perdesinde. Hedef tempo 80.',
+    goal: 'Play the wide-spread fingering in a sixteenth-note arpeggio while holding the chord shapes.',
+    description: 'Johann Sebastian Bach, Prelude in C major BWV 846 from the Well-Tempered Clavier I, the first seven bars and the closing chord. C major, one chord per bar. Chosen instead of Rossini\'s William Tell Overture. Arrangement.',
+    tip: 'Fret the whole chord at the start of each bar and hold it through the bar; the picking hand cycles p-i-m-a. In bar 5 (Am) the E is on the 2nd string, 5th fret. Target tempo 80.',
     bars: `
 ${preludeBar('3.5', '2.4', '0.3', '1.2', '0.1')} | ${preludeBar('3.5', '0.4', '2.3', '3.2', '1.1')} | ${preludeBar('2.5', '0.4', '0.3', '3.2', '1.1')} | ${preludeBar('3.5', '2.4', '0.3', '1.2', '0.1')} |
 ${preludeBar('3.5', '2.4', '2.3', '5.2', '5.1')} | ${preludeBar('3.5', '0.4', '4.4', '2.3', '3.2')} | ${preludeBar('2.5', '0.4', '0.3', '3.2', '3.1')} | (3.5 2.4 0.3 1.2 0.1).1
@@ -395,12 +395,12 @@ ${preludeBar('3.5', '2.4', '2.3', '5.2', '5.1')} | ${preludeBar('3.5', '0.4', '4
   }),
   e({
     id: 'eser-paganini-kapris-24',
-    title: 'Kapris No. 24 (Paganini)',
+    title: 'Caprice No. 24 (Paganini)',
     level: 5,
     tempo: 76,
-    goal: 'Onaltılık figürleri pozisyon atlamalarıyla hızlı ve temiz çalmak.',
-    description: 'Niccolò Paganini, Keman için 24 Kapris\'ten No. 24, La minör tema (tekrarıyla 16 ölçü). Kemandaki sesler bir oktav pes alındı. Düzenleme.',
-    tip: 'Her ölçü aynı kalıp: uzun nota, onaltılık susuş, dört onaltılık. Susuşu say, kısaltma. Önce 60\'ta, sonra hedef 120 BPM.',
+    goal: 'Play sixteenth-note figures with position jumps quickly and cleanly.',
+    description: 'Niccolò Paganini, No. 24 from the 24 Caprices for violin, the A minor theme (16 bars with the repeat). The violin pitches are taken an octave lower. Arrangement.',
+    tip: 'Every bar is the same pattern: long note, sixteenth rest, four sixteenths. Count the rest, don\'t shorten it. First at 60, then target 120 BPM.',
     bars: `
 \\ts 2 4 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.8 r.16 2.4.16 2.4.16 1.3.16 4.4.16 2.4.16 | 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.4 2.4.8 r.8 |
 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.8 r.16 2.4.16 2.4.16 1.3.16 4.4.16 2.4.16 | 2.3.8 r.16 2.3.16 2.3.16 1.2.16 0.2.16 2.3.16 | 0.1.4 2.4.8 r.8 |
@@ -410,12 +410,12 @@ ${preludeBar('3.5', '2.4', '2.3', '5.2', '5.1')} | ${preludeBar('3.5', '0.4', '4
   }),
   e({
     id: 'eser-cello-suit-prelud',
-    title: 'Çello Süiti No. 1 Prelüd (Bach)',
+    title: 'Cello Suite No. 1 Prelude (Bach)',
     level: 5,
     tempo: 72,
-    goal: 'Sürekli onaltılıklarda bas notasını ve açık telleri kullanarak akıcı arpej çalmak.',
-    description: 'Johann Sebastian Bach, Solo Çello Süiti No. 1 BWV 1007, Prelüd\'ün ilk sekiz ölçüsü. Çellodaki gibi Sol majörde ve aynı seslerde; gitarda birinci pozisyon. Düzenleme.',
-    tip: 'Her ölçünün ilk notası (bas) bir sonraki ölçüye kadar çınlasın. Açık telleri bol kullan; sol el sadece değişen notaya basar. Hedef tempo 90.',
+    goal: 'Play a flowing arpeggio in continuous sixteenths using the bass note and open strings.',
+    description: 'Johann Sebastian Bach, Cello Suite No. 1 BWV 1007, the first eight bars of the Prelude. In G major and at the same pitch as the cello; first position on guitar. Arrangement.',
+    tip: 'Let the first note of each bar (the bass) ring until the next bar. Use the open strings a lot; the fretting hand only presses the changing note. Target tempo 90.',
     bars: `
 ${s16('3.6 0.4 0.2 2.3 0.2 0.4 0.2 0.4 3.6 0.4 0.2 2.3 0.2 0.4 0.2 0.4')} | ${s16('3.6 2.4 1.2 0.2 1.2 2.4 1.2 2.4 3.6 2.4 1.2 0.2 1.2 2.4 1.2 2.4')} |
 ${s16('3.6 4.4 1.2 0.2 1.2 4.4 1.2 4.4 3.6 4.4 1.2 0.2 1.2 4.4 1.2 4.4')} | ${s16('3.6 0.3 0.2 2.3 0.2 0.3 0.2 0.3 3.6 0.3 0.2 2.3 0.2 0.3 0.2 4.4')} |
@@ -425,12 +425,12 @@ ${s16('4.4 2.3 3.2 2.2 3.2 2.3 0.3 2.3 4.4 2.3 0.3 2.3 0.4 4.4 2.4 0.4')} | ${s1
   }),
   e({
     id: 'eser-recuerdos-de-la-alhambra',
-    title: 'Elhamra Hatıraları (Tárrega)',
+    title: 'Recuerdos de la Alhambra (Tárrega)',
     level: 5,
     tempo: 50,
-    goal: 'p-a-m-i tremolo tekniğinde melodiyi kesintisiz, başparmakla arpeji eşit çalmak.',
-    description: 'Francisco Tárrega, "Recuerdos de la Alhambra", La minör açılışın ilk sekiz ölçüsü: başparmakta bas ve arpej, tremoloda melodi. Düzenleme.',
-    tip: 'Her grup dört nota: başparmak (p), sonra aynı melodi notası a-m-i ile üç kez. Önce dörtlü grubu yavaşça eşitle, sonra hızlandır. Tremolo bir çizgi gibi duyulmalı. Hedef tempo 76.',
+    goal: 'Play the melody seamlessly with p-a-m-i tremolo technique and the thumb arpeggio evenly.',
+    description: 'Francisco Tárrega, "Recuerdos de la Alhambra", the first eight bars of the A minor opening: bass and arpeggio in the thumb, melody in the tremolo. Arrangement.',
+    tip: 'Each group is four notes: thumb (p), then the same melody note three times with a-m-i. Even out the four-note group slowly first, then speed up. The tremolo should sound like a single line. Target tempo 76.',
     bars: `
 \\ts 3 4 ${tremoloBar([['0.5', '0.1'], ['2.4', '0.1'], ['1.2', '0.1'], ['2.4', '0.1'], ['4.3', '3.2'], ['2.4', '3.2']])} |
 ${tremoloBar([['0.5', '1.2'], ['2.4', '1.2'], ['2.3', '1.2'], ['2.4', '1.2'], ['4.3', '3.2'], ['2.4', '3.2']])} |
@@ -444,12 +444,12 @@ ${tremoloBar([['3.5', '3.1'], ['0.3', '3.1'], ['5.2', '3.1'], ['0.3', '3.1'], ['
   }),
   e({
     id: 'eser-yaz-presto',
-    title: 'Yaz, Presto (Vivaldi)',
+    title: 'Summer, Presto (Vivaldi)',
     level: 5,
     tempo: 90,
-    goal: 'Hızlı tekrar eden onaltılıkları (tremolo) ve inen diziyi temiz çalmak.',
-    description: 'Antonio Vivaldi, Dört Mevsim\'den "Yaz" (L\'estate), 3. bölüm Presto, fırtına açılışı (1. keman). Sol minörde, bir oktav pes. Düzenleme.',
-    tip: 'Tekrarlanan Sol notalarında i-m dönüşümlü ve hafif çal, ölçü başındaki notayı vurgula. 10. ölçüdeki inen diziyi 5. pozisyonda ayrıca çalış. Hedef tempo 150.',
+    goal: 'Play the fast repeated sixteenths (tremolo) and the descending run cleanly.',
+    description: 'Antonio Vivaldi, "Summer" (L\'estate) from The Four Seasons, 3rd movement Presto, storm opening (1st violin). G minor, an octave lower. Arrangement.',
+    tip: 'On the repeated G notes alternate i-m and play lightly, accenting the note on the downbeat. Practice the descending run in bar 10 separately in 5th position. Target tempo 150.',
     bars: `
 \\ts 3 4 ${s16('3.1' + ' 0.3'.repeat(11))} | ${s16('1.1' + ' 0.3'.repeat(11))} | ${s16('4.2' + ' 0.3'.repeat(11))} | ${s16('3.2' + ' 0.3'.repeat(7))} 0.3.8 r.8 | r.2{d} |
 ${s16('10.1' + ' 7.3'.repeat(11))} | ${s16('8.1' + ' 7.3'.repeat(11))} | ${s16('6.1' + ' 7.3'.repeat(11))} | ${s16('5.1' + ' 7.3'.repeat(7))} 7.3.8 r.8 |
@@ -458,12 +458,12 @@ r.16 ${s16('10.1 8.1 6.1 5.1 8.2 7.2 5.2 7.3 5.3 8.4 7.4')} | (3.6 0.4 0.3 3.3).
   }),
   e({
     id: 'eser-partita-prelud',
-    title: 'Partita No. 3 Prelüd (Bach)',
+    title: 'Partita No. 3 Prelude (Bach)',
     level: 5,
     tempo: 80,
-    goal: 'Sürekli onaltılıklarda açık Si teliyle "bariolage" ve 12. pozisyon geçişlerini çalmak.',
-    description: 'Johann Sebastian Bach, Keman Partitası No. 3 BWV 1006, Preludio\'nun ilk on ölçüsü, Mi majörde, bir oktav pes. Albéniz\'in Asturias\'ı yerine seçildi. Düzenleme.',
-    tip: '3. ve 5. ölçülerde her iki notadan biri açık Si teli: sol el yalnız diğer notaya basar. 8. ölçüde 7. pozisyona, 9. ölçüde 9.–12. perdelere kay. Hedef tempo 116.',
+    goal: 'Play "bariolage" with the open B string and 12th-position shifts in continuous sixteenths.',
+    description: 'Johann Sebastian Bach, Violin Partita No. 3 BWV 1006, the first ten bars of the Preludio, in E major, an octave lower. Chosen instead of Albéniz\'s Asturias. Arrangement.',
+    tip: 'In bars 3 and 5 every other note is the open B string: the fretting hand only presses the other note. Shift to 7th position in bar 8 and to frets 9–12 in bar 9. Target tempo 116.',
     bars: `
 \\ts 3 4 r.8 12.1.16 11.1.16 12.1.8 12.2.8 9.2.8 12.2.8 | 5.2.16 7.2.16 5.2.16 4.2.16 5.2.8 4.3.8 6.4.8 4.3.8 |
 ${s16('2.4 0.2 4.4 0.2 1.3 0.2 2.3 0.2 1.3 0.2 4.4 0.2')} | ${s16('2.4 0.1 4.2 2.2 0.2 0.1 4.2 2.2 0.2 2.3 1.3 4.4')} |
@@ -475,12 +475,12 @@ ${s16('12.1 12.2 10.2 12.2 9.2 12.2 10.2 12.2 9.2 12.2 11.3 12.2')} | ${s16('9.3
   }),
   e({
     id: 'eser-yaban-arisinin-ucusu',
-    title: 'Yaban Arısının Uçuşu (Rimsky-Korsakov)',
+    title: 'Flight of the Bumblebee (Rimsky-Korsakov)',
     level: 5,
     tempo: 80,
-    goal: 'Kromatik onaltılık koşuyu pozisyon değiştirerek eşit ve hızlı çalmak.',
-    description: 'Nikolay Rimsky-Korsakov, "Yaban Arısının Uçuşu", açılıştaki iki oktav inen kromatik koşu (iki kez). Mi\'den başlayıp gitara uygun oktavda. Düzenleme.',
-    tip: 'Her ölçü iki grup dörtlü: grup başını hafif vurgula. Pozisyon geçişlerini (12 → 5 → 4 → 3. perde) ayrı ayrı çalış. 80\'de eşitse 120, hedef 160 BPM.',
+    goal: 'Play the chromatic sixteenth-note run evenly and fast while shifting positions.',
+    description: 'Nikolay Rimsky-Korsakov, "Flight of the Bumblebee", the two-octave descending chromatic run from the opening (twice). Starting on E in a guitar-friendly octave. Arrangement.',
+    tip: 'Each bar is two groups of four: lightly accent the start of each group. Practice the position shifts (12 → 5 → 4 → 3rd fret) one at a time. If it\'s even at 80 go to 120, target 160 BPM.',
     bars: `
 \\ts 2 4 ${s16('12.1 11.1 10.1 9.1 10.1 9.1 8.1 7.1')} | ${s16('8.1 7.1 6.1 5.1 9.2 8.2 7.2 6.2')} | ${s16('5.2 8.3 7.3 6.3 7.3 6.3 5.3 4.3')} | ${s16('5.3 4.3 8.4 7.4 6.4 5.4 4.4 3.4')} |
 ${s16('12.1 11.1 10.1 9.1 10.1 9.1 8.1 7.1')} | ${s16('8.1 7.1 6.1 5.1 9.2 8.2 7.2 6.2')} | ${s16('5.2 8.3 7.3 6.3 7.3 6.3 5.3 4.3')} | ${s16('5.3 4.3 8.4 7.4 6.4 5.4 4.4 3.4')} |

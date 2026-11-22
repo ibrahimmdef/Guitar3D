@@ -1,8 +1,8 @@
 {
   "name": "Guitar3D",
   "short_name": "Guitar3D",
-  "description": "Tabları kendi gitarının 3D modeli üzerinde çal, akor, ritim ve kulak çalış.",
-  "lang": "tr",
+  "description": "Play tabs on a 3D model of your own guitar and practice chords, rhythm and ear training.",
+  "lang": "en",
   "start_url": "/#/library",
   "scope": "/",
   "display": "standalone",

@@ -141,8 +141,8 @@ export function detectFrets(gray: GrayImage, inp: DetectInput): FretLine[] {
  */
 export function warpFretboard(img: RGBAImage, lines: FretLine[], toFret = Math.max(...lines.map((l) => l.n)), outW = 2048, outH = 256): RGBAImage {
   const ls = [...lines].sort((a, b) => a.n - b.n);
-  if (ls[0]?.n !== 0) throw new Error('Nut çizgisi (n = 0) gerekli.');
-  if (ls[ls.length - 1].n < toFret) throw new Error(`${toFret}. perde işaretlenmemiş.`);
+  if (ls[0]?.n !== 0) throw new Error('The nut line (n = 0) is required.');
+  if (ls[ls.length - 1].n < toFret) throw new Error(`Fret ${toFret} isn't marked.`);
   const total = 1 - 2 ** (-toFret / 12);
   const d = (n: number) => 1 - 2 ** (-n / 12);
   const out = createImage(outW, outH);

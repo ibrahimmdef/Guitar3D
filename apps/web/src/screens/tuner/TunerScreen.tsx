@@ -20,10 +20,10 @@ const HOLD_FRAMES = 10;
 const SILENT_FRAMES = 30;
 
 const MIC_TEXT: Record<string, string> = {
-  asking: 'Mikrofon izni bekleniyor…',
-  denied: 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verip tekrar dene.',
-  unsupported: 'Bu tarayıcı mikrofonu desteklemiyor.',
-  error: 'Mikrofon açılamadı.',
+  asking: 'Waiting for microphone permission…',
+  denied: 'Microphone permission was denied. Allow it in your browser settings and try again.',
+  unsupported: 'This browser doesn\'t support the microphone.',
+  error: 'Couldn\'t open the microphone.',
 };
 
 export function TunerScreen() {
@@ -78,22 +78,22 @@ export function TunerScreen() {
   };
 
   const dirText = !active
-    ? on ? (status === 'on' ? 'Bir teli çal' : MIC_TEXT[status] ?? '') : 'Mikrofonu aç ve bir teli çal'
-    : active.direction === 'ok' ? 'Akortlu' : active.direction === 'up' ? 'Sık: ses pes' : 'Gevşet: ses tiz';
+    ? on ? (status === 'on' ? 'Play a string' : MIC_TEXT[status] ?? '') : 'Turn on the microphone and play a string'
+    : active.direction === 'ok' ? 'In tune' : active.direction === 'up' ? 'Tune up: too flat' : 'Tune down: too sharp';
 
   return (
     <div className="screen">
       <ScreenHeader
-        title="Akort"
-        description="Kromatik akort aleti. Teli tek tek çal; ibre ortada ve yeşilse tamamdır."
+        title="Tuner"
+        description="Chromatic tuner. Play one string at a time; when the needle is centered and green, you're in tune."
         actions={
           <Button variant={on ? 'secondary' : 'primary'} icon={on ? <MicOff size={16} /> : <Mic size={16} />} onClick={() => setOn((v) => !v)}>
-            {on ? 'Mikrofonu kapat' : 'Mikrofonu aç'}
+            {on ? 'Turn off microphone' : 'Turn on microphone'}
           </Button>
         }
       />
 
-      <section className="learn" aria-label="Akort">
+      <section className="learn" aria-label="Tuner">
         <div className={`tuner${active?.direction === 'ok' ? ' is-ok' : ''}${active ? '' : ' is-idle'}`}>
           <svg className="tuner-gauge" viewBox="0 0 240 140" aria-hidden>
             <path d={arcPath(-50, 50)} className="tg-arc" />
@@ -111,7 +111,7 @@ export function TunerScreen() {
           <div className="tuner-note" aria-live="polite">
             <span className="tuner-name">{active ? active.name : '–'}</span>
             <span className="tuner-sub num">
-              {active ? `${active.stringCents > 0 ? '+' : ''}${Math.round(active.stringCents)} sent · ${active.freq.toFixed(1)} Hz · hedef ${active.targetName}` : ' '}
+              {active ? `${active.stringCents > 0 ? '+' : ''}${Math.round(active.stringCents)} cents · ${active.freq.toFixed(1)} Hz · target ${active.targetName}` : ' '}
             </span>
           </div>
           <p className="tuner-dir" aria-live="polite">
@@ -125,8 +125,8 @@ export function TunerScreen() {
         <div className="learn-side">
           <TuningSelect value={tuning.id} onChange={(id) => { set({ tuningId: id }); setTuned(new Set()); setPinned(null); }} />
           <div>
-            <h2 className="eyebrow">Teller</h2>
-            <ul className="tuner-strings" aria-label="Teller, kalından inceye">
+            <h2 className="eyebrow">Strings</h2>
+            <ul className="tuner-strings" aria-label="Strings, low to high">
               {targets.map((t) => {
                 const isActive = active?.string === t.string;
                 return (
@@ -136,7 +136,7 @@ export function TunerScreen() {
                       className={`tuner-string${isActive ? ' is-active' : ''}${pinned === t.string ? ' is-pinned' : ''}`}
                       aria-pressed={pinned === t.string}
                       onClick={() => (pinned === t.string ? setPinned(null) : playRef(t.string))}
-                      aria-label={`${t.string}. tel, ${t.name}${tuned.has(t.string) ? ', akortlu' : ''}. Referans sesini çal`}
+                      aria-label={`String ${t.string}, ${t.name}${tuned.has(t.string) ? ', in tune' : ''}. Play reference tone`}
                     >
                       <span className="ts-num num">{t.string}</span>
                       <span className="ts-name">{t.name}</span>
@@ -146,12 +146,12 @@ export function TunerScreen() {
                 );
               })}
             </ul>
-            <p className="subtle small">Bir tele tıklamak referans sesini çalar ve hedefi o tele sabitler. Tekrar tıkla: otomatik.</p>
+            <p className="subtle small">Clicking a string plays its reference tone and locks the target to it. Click again for automatic.</p>
           </div>
         </div>
       </section>
 
-      <LearnStage notes={marker} beatId={active?.string ?? 0} cameraMode="overview" label={active ? `${active.string}. tel vurgulanıyor` : 'Gitar'} />
+      <LearnStage notes={marker} beatId={active?.string ?? 0} cameraMode="overview" label={active ? `String ${active.string} highlighted` : 'Guitar'} />
     </div>
   );
 }

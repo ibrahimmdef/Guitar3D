@@ -24,7 +24,7 @@ export function LearnStage({ notes, beatId, cameraMode = 'follow', label, childr
       <ErrorBoundary
         fallback={(retry) => (
           <div className="learn-stage-fallback">
-            <EmptyState compact tone="danger" icon={<Box size={20} />} title="3D gitar gösterilemedi" description="Tarayıcın WebGL'i desteklemiyor olabilir." action={<Button size="sm" onClick={retry}>Tekrar dene</Button>} />
+            <EmptyState compact tone="danger" icon={<Box size={20} />} title="Couldn't show the 3D guitar" description="Your browser may not support WebGL." action={<Button size="sm" onClick={retry}>Try again</Button>} />
           </div>
         )}
       >

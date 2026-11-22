@@ -45,7 +45,7 @@ function top(score: model.Score, from: number, to: number): string[] {
 }
 
 describe('built-in lesson list', () => {
-  it('has 10 lessons with complete Turkish metadata, ordered easy to medium', () => {
+  it('has 10 lessons with complete metadata, ordered easy to medium', () => {
     expect(lessons).toHaveLength(10);
     expect(new Set(lessons.map((l) => l.id)).size).toBe(10);
     for (const l of lessons) {
@@ -66,7 +66,7 @@ describe('built-in lesson list', () => {
     expect(levels[0]).toBe(1);
   });
 
-  it('has the Türküler pack: 8 original pieces, levelled, no lyrics', () => {
+  it('has the Turkish folk pack: 8 original pieces, levelled, no lyrics', () => {
     expect(turkuler).toHaveLength(8);
     expect(new Set(all.map((l) => l.id)).size).toBe(all.length);
     expect(turkuler.every((l) => l.source === 'original')).toBe(true);
@@ -94,7 +94,7 @@ describe('built-in lesson list', () => {
   });
 
   it('throws for an unknown lesson id', () => {
-    expect(() => loadBuiltinLesson('nope')).toThrow(/bulunamadı/);
+    expect(() => loadBuiltinLesson('nope')).toThrow(/not found/);
   });
 });
 

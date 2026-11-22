@@ -8,7 +8,7 @@ import type { Store } from './store.js';
 
 export const IMAGE_TYPES: Record<string, string> = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
 
-export const BUILTIN_SUMMARY: GuitarSummary = { id: BUILTIN_GUITAR_ID, name: 'Veston (yerleşik)', builtIn: true };
+export const BUILTIN_SUMMARY: GuitarSummary = { id: BUILTIN_GUITAR_ID, name: 'Veston (built-in)', builtIn: true };
 
 const isNum = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 const isPt = (v: unknown) => Array.isArray(v) && v.length === 2 && isNum(v[0]) && isNum(v[1]);
@@ -16,35 +16,35 @@ const isPt = (v: unknown) => Array.isArray(v) && v.length === 2 && isNum(v[0]) &
 /** Returns a list of problems; empty when the profile looks usable. `partial` skips required checks (PUT merges). */
 export function validateProfile(p: unknown, partial = false): string[] {
   const errs: string[] = [];
-  if (!p || typeof p !== 'object' || Array.isArray(p)) return ['Gövde bir JSON nesnesi olmalı.'];
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return ['The body must be a JSON object.'];
   const g = p as Partial<GuitarProfile>;
   const need = (ok: boolean, key: string, msg: string) => {
     if ((g as Record<string, unknown>)[key] === undefined) {
-      if (!partial) errs.push(`${key} gerekli.`);
+      if (!partial) errs.push(`${key} is required.`);
     } else if (!ok) errs.push(msg);
   };
-  need(typeof g.name === 'string' && g.name.trim().length > 0 && g.name.length <= 120, 'name', 'name 1-120 karakterlik bir metin olmalı.');
+  need(typeof g.name === 'string' && g.name.trim().length > 0 && g.name.length <= 120, 'name', 'name must be a string of 1-120 characters.');
   for (const k of ['totalLengthCm', 'scaleLengthCm', 'nutWidthCm', 'endWidthCm', 'stringSpacingNutCm', 'stringSpacingSaddleCm'] as const) {
-    need(isNum(g[k]) && (g[k] as number) > 0 && (g[k] as number) < 300, k, `${k} pozitif bir sayı (cm) olmalı.`);
+    need(isNum(g[k]) && (g[k] as number) > 0 && (g[k] as number) < 300, k, `${k} must be a positive number (cm).`);
   }
   for (const k of ['fretCount', 'bodyJoinFret'] as const) {
-    need(Number.isInteger(g[k]) && (g[k] as number) > 0 && (g[k] as number) <= 36, k, `${k} 1-36 arası tam sayı olmalı.`);
+    need(Number.isInteger(g[k]) && (g[k] as number) > 0 && (g[k] as number) <= 36, k, `${k} must be an integer from 1 to 36.`);
   }
   need(
     !!g.body && Array.isArray(g.body.outline) && g.body.outline.length >= 3 && g.body.outline.length <= 5000 && g.body.outline.every(isPt) &&
       isNum(g.body.depthCm) && !!g.body.soundhole && isNum(g.body.soundhole.x) && isNum(g.body.soundhole.y) && isNum(g.body.soundhole.radiusCm) &&
       !!g.body.bridge && isNum(g.body.bridge.x),
     'body',
-    'body: outline [[x,y]…], depthCm, soundhole {x,y,radiusCm} ve bridge {x,…} içermeli.',
+    'body must contain outline [[x,y]…], depthCm, soundhole {x,y,radiusCm} and bridge {x,…}.',
   );
   need(
     !!g.headstock && isNum(g.headstock.lengthCm) && Array.isArray(g.headstock.profile) && g.headstock.profile.every(isPt) &&
       Array.isArray(g.headstock.tunersLowE) && Array.isArray(g.headstock.tunersHighE),
     'headstock',
-    'headstock: lengthCm, profile [[d,w]…], tunersLowE, tunersHighE içermeli.',
+    'headstock must contain lengthCm, profile [[d,w]…], tunersLowE, tunersHighE.',
   );
-  need(!!g.finish && typeof g.finish === 'object', 'finish', 'finish bir nesne olmalı.');
-  if (g.textures !== undefined && (typeof g.textures !== 'object' || g.textures === null)) errs.push('textures bir nesne olmalı.');
+  need(!!g.finish && typeof g.finish === 'object', 'finish', 'finish must be an object.');
+  if (g.textures !== undefined && (typeof g.textures !== 'object' || g.textures === null)) errs.push('textures must be an object.');
   return errs;
 }
 
@@ -106,7 +106,7 @@ export function guitarsRouter(store: Store): Router {
     }
     const g = store.getGuitar(req.params.id);
     if (!g) {
-      res.status(404).json({ error: 'Gitar bulunamadı.' });
+      res.status(404).json({ error: 'Guitar not found.' });
       return;
     }
     res.json(g);
@@ -114,12 +114,12 @@ export function guitarsRouter(store: Store): Router {
 
   r.put('/guitars/:id', (req, res) => {
     if (req.params.id === BUILTIN_GUITAR_ID) {
-      res.status(403).json({ error: 'Yerleşik gitar değiştirilemez.' });
+      res.status(403).json({ error: 'The built-in guitar can\'t be changed.' });
       return;
     }
     const old = store.getGuitar(req.params.id);
     if (!old) {
-      res.status(404).json({ error: 'Gitar bulunamadı.' });
+      res.status(404).json({ error: 'Guitar not found.' });
       return;
     }
     const errs = validateProfile(req.body, true);
@@ -146,12 +146,12 @@ export function guitarsRouter(store: Store): Router {
     const src = store.getGuitar(req.params.id);
     if (!src) {
       res.status(req.params.id === BUILTIN_GUITAR_ID ? 400 : 404).json({
-        error: req.params.id === BUILTIN_GUITAR_ID ? 'Yerleşik gitarı kopyalamak için profilini POST /api/guitars ile gönder.' : 'Gitar bulunamadı.',
+        error: req.params.id === BUILTIN_GUITAR_ID ? 'To copy the built-in guitar, send its profile with POST /api/guitars.' : 'Guitar not found.',
       });
       return;
     }
     const reqName = (req.body as { name?: unknown } | undefined)?.name;
-    const name = typeof reqName === 'string' && reqName.trim() ? reqName.trim().slice(0, 120) : `${src.name} (kopya)`.slice(0, 120);
+    const name = typeof reqName === 'string' && reqName.trim() ? reqName.trim().slice(0, 120) : `${src.name} (copy)`.slice(0, 120);
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     const from = store.guitarDir(src.id);
@@ -167,7 +167,7 @@ export function guitarsRouter(store: Store): Router {
 
   r.delete('/guitars/:id', (req, res) => {
     if (req.params.id === BUILTIN_GUITAR_ID) {
-      res.status(403).json({ error: 'Yerleşik gitar silinemez.' });
+      res.status(403).json({ error: 'The built-in guitar can\'t be deleted.' });
       return;
     }
     res.status(store.deleteGuitar(req.params.id) ? 204 : 404).end();
@@ -185,24 +185,24 @@ export function guitarsRouter(store: Store): Router {
   r.put('/guitars/:id/textures/:name', express.raw({ type: Object.keys(IMAGE_TYPES), limit: '40mb' }), (req, res) => {
     const { id, name } = req.params;
     if (id === BUILTIN_GUITAR_ID) {
-      res.status(403).json({ error: 'Yerleşik gitar değiştirilemez.' });
+      res.status(403).json({ error: 'The built-in guitar can\'t be changed.' });
       return;
     }
     const g = store.getGuitar(id);
     if (!g) {
-      res.status(404).json({ error: 'Gitar bulunamadı.' });
+      res.status(404).json({ error: 'Guitar not found.' });
       return;
     }
     const ext = IMAGE_TYPES[(req.headers['content-type'] ?? '').split(';')[0].trim()];
     if (!isTextureName(name) || !ext || !Buffer.isBuffer(req.body) || req.body.length === 0) {
-      res.status(400).json({ error: `Doku adı ${GUITAR_TEXTURE_NAMES.join('|')} olmalı; PNG, JPEG veya WebP gönder.` });
+      res.status(400).json({ error: `Texture name must be ${GUITAR_TEXTURE_NAMES.join('|')}; send PNG, JPEG or WebP.` });
       return;
     }
     let toFret = 0;
     if (name === 'fretboard') {
       toFret = Number(req.query.toFret ?? g.textures?.fretboard?.toFret ?? 12);
       if (!Number.isInteger(toFret) || toFret < 1 || toFret > 36) {
-        res.status(400).json({ error: 'toFret 1-36 arası tam sayı olmalı.' });
+        res.status(400).json({ error: 'toFret must be an integer from 1 to 36.' });
         return;
       }
     }
@@ -238,7 +238,7 @@ export function guitarsRouter(store: Store): Router {
   r.put('/settings', (req, res) => {
     const id = (req.body as { activeGuitarId?: unknown })?.activeGuitarId;
     if (typeof id !== 'string' || (id !== BUILTIN_GUITAR_ID && !store.getGuitar(id))) {
-      res.status(400).json({ error: 'activeGuitarId mevcut bir gitarın kimliği olmalı.' });
+      res.status(400).json({ error: 'activeGuitarId must be the id of an existing guitar.' });
       return;
     }
     res.json(store.putSettings({ activeGuitarId: id }));

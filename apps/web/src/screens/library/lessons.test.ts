@@ -3,7 +3,7 @@ import { groupByLevel, groupByRank, listLessons, loadLesson, normalizeLevel, toL
 
 describe('lessons', () => {
   it('normalises levels from several spellings', () => {
-    expect(normalizeLevel('Başlangıç')).toBe('beginner');
+    expect(normalizeLevel('Beginner')).toBe('beginner');
     expect(normalizeLevel('medium')).toBe('intermediate');
     // Built-in lessons use 1–5: 1–2 beginner, 3 intermediate, 4–5 advanced.
     expect(normalizeLevel(2)).toBe('beginner');
@@ -34,10 +34,10 @@ describe('lessons', () => {
     expect(g.map((x) => [x.level, x.items.length])).toEqual([['beginner', 2], ['advanced', 1]]);
   });
 
-  it('keeps the raw 1–5 level and groups the Eserler pack as Orta / Orta üstü / Zor', async () => {
+  it('keeps the raw 1–5 level and groups the Classics pack as Intermediate / Upper intermediate / Hard', async () => {
     expect(toLessonMeta({ id: 'x', title: 'X', level: 4 })).toMatchObject({ level: 'advanced', rank: 4 });
     const g = groupByRank([{ rank: 5 }, { rank: 3 }, { rank: 4 }, { rank: 5 }, {}]);
-    expect(g.map((x) => [x.label, x.items.length])).toEqual([['Orta', 1], ['Orta üstü', 1], ['Zor', 2]]);
+    expect(g.map((x) => [x.label, x.items.length])).toEqual([['Intermediate', 1], ['Upper intermediate', 1], ['Hard', 2]]);
     const eserler = (await listLessons()).filter((l) => l.group === 'eserler');
     expect(groupByRank(eserler).map((x) => x.items.length)).toEqual([10, 10, 10]);
   });

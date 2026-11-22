@@ -6,7 +6,7 @@ function fake(routes: Record<string, unknown>) {
   const f = (async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
     const key = `${init?.method ?? 'GET'} ${url}`;
-    if (!(key in routes)) return new Response(JSON.stringify({ error: 'yok' }), { status: 404 });
+    if (!(key in routes)) return new Response(JSON.stringify({ error: 'missing' }), { status: 404 });
     return new Response(JSON.stringify(routes[key]), { status: 200 });
   }) as unknown as typeof fetch;
   return { f, calls };
@@ -30,6 +30,6 @@ describe('guitarsApi', () => {
     const api = createGuitarsApi(f);
     await api.putTexture('g1', 'fretboard', new Blob(['x'], { type: 'image/jpeg' }), 15);
     expect((calls[0].init!.headers as Record<string, string>)['Content-Type']).toBe('image/jpeg');
-    await expect(api.get('nope')).rejects.toThrow('yok');
+    await expect(api.get('nope')).rejects.toThrow('missing');
   });
 });

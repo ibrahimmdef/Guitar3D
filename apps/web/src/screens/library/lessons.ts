@@ -13,9 +13,9 @@ import { DEMO_TEX } from '../../demoTab';
 export type LessonLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export const LEVEL_LABEL: Record<LessonLevel, string> = {
-  beginner: 'Başlangıç',
-  intermediate: 'Orta',
-  advanced: 'İleri',
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
 };
 export const LEVELS: LessonLevel[] = ['beginner', 'intermediate', 'advanced'];
 
@@ -27,15 +27,15 @@ export interface LessonMeta {
   tempo?: number;
   /** 'turkuler' = the Turkish folk-style pack, 'eserler' = the classical pieces pack (own library sections). */
   group?: string;
-  /** Raw 1–5 level of built-in lessons; the "Eserler" section uses it to tell 4 (orta üstü) from 5 (zor). */
+  /** Raw 1–5 level of built-in lessons; the "Classics" section uses it to tell 4 (upper intermediate) from 5 (hard). */
   rank?: number;
 }
 
-/** Sub-levels of the "Eserler" pack (built-in levels 3–5). */
+/** Sub-levels of the "Classics" pack (built-in levels 3–5). */
 export const ESER_LEVELS: { rank: number; label: string }[] = [
-  { rank: 3, label: 'Orta' },
-  { rank: 4, label: 'Orta üstü' },
-  { rank: 5, label: 'Zor' },
+  { rank: 3, label: 'Intermediate' },
+  { rank: 4, label: 'Upper intermediate' },
+  { rank: 5, label: 'Hard' },
 ];
 
 /** Groups pack pieces by their raw 1–5 level, in the order of `ESER_LEVELS`; empty groups are dropped. */
@@ -48,52 +48,52 @@ export type LessonContent = { kind: 'tex'; tex: string } | { kind: 'buffer'; dat
 /** Lesson opened by the old "demo" link. */
 export const DEFAULT_LESSON_ID = 'warmup';
 
-const TUNING = '\\track "Akustik Gitar"\n\\staff {tabs}\n\\tuning e4 b3 g3 d3 a2 e2';
+const TUNING = '\\track "Acoustic Guitar"\n\\staff {tabs}\n\\tuning e4 b3 g3 d3 a2 e2';
 
 const FALLBACK: (LessonMeta & { tex: string })[] = [
   {
     id: 'open-strings',
-    title: 'Açık teller',
+    title: 'Open strings',
     level: 'beginner',
     tempo: 70,
-    description: 'Altı teli tanı: her teli dörder kez, pena aşağı vuruşla.',
-    tex: `\\title "Açık teller"\n\\tempo 70\n.\n${TUNING}\n:4 0.6 0.6 0.6 0.6 | 0.5 0.5 0.5 0.5 | 0.4 0.4 0.4 0.4 | 0.3 0.3 0.3 0.3 | 0.2 0.2 0.2 0.2 | 0.1 0.1 0.1 0.1 | 0.1 0.2 0.3 0.4 | 0.5 0.6 0.6 0.6`,
+    description: 'Get to know the six strings: each string four times, with downstrokes.',
+    tex: `\\title "Open strings"\n\\tempo 70\n.\n${TUNING}\n:4 0.6 0.6 0.6 0.6 | 0.5 0.5 0.5 0.5 | 0.4 0.4 0.4 0.4 | 0.3 0.3 0.3 0.3 | 0.2 0.2 0.2 0.2 | 0.1 0.1 0.1 0.1 | 0.1 0.2 0.3 0.4 | 0.5 0.6 0.6 0.6`,
   },
   {
     id: 'spider',
-    title: 'Örümcek egzersizi 1-2-3-4',
+    title: 'Spider exercise 1-2-3-4',
     level: 'beginner',
     tempo: 66,
-    description: 'Her parmak bir perde. Sol el kuvveti ve bağımsızlığı için.',
-    tex: `\\title "Örümcek egzersizi 1-2-3-4"\n\\tempo 66\n.\n${TUNING}\n:8 1.6 2.6 3.6 4.6 1.5 2.5 3.5 4.5 | 1.4 2.4 3.4 4.4 1.3 2.3 3.3 4.3 | 1.2 2.2 3.2 4.2 1.1 2.1 3.1 4.1 | 4.1 3.1 2.1 1.1 4.2 3.2 2.2 1.2 | 4.3 3.3 2.3 1.3 4.4 3.4 2.4 1.4 | 4.5 3.5 2.5 1.5 4.6 3.6 2.6 1.6`,
+    description: 'One finger per fret. For fretting-hand strength and independence.',
+    tex: `\\title "Spider exercise 1-2-3-4"\n\\tempo 66\n.\n${TUNING}\n:8 1.6 2.6 3.6 4.6 1.5 2.5 3.5 4.5 | 1.4 2.4 3.4 4.4 1.3 2.3 3.3 4.3 | 1.2 2.2 3.2 4.2 1.1 2.1 3.1 4.1 | 4.1 3.1 2.1 1.1 4.2 3.2 2.2 1.2 | 4.3 3.3 2.3 1.3 4.4 3.4 2.4 1.4 | 4.5 3.5 2.5 1.5 4.6 3.6 2.6 1.6`,
   },
   {
     id: 'em-am',
-    title: 'İlk akorlar: Em ve Am',
+    title: 'First chords: Em and Am',
     level: 'beginner',
     tempo: 72,
-    description: 'İki kolay akor arasında temiz geçiş.',
-    tex: `\\title "İlk akorlar: Em ve Am"\n\\tempo 72\n.\n${TUNING}\n:2 (0.6 2.5 2.4 0.3 0.2 0.1) (0.6 2.5 2.4 0.3 0.2 0.1) | (0.5 2.4 2.3 1.2 0.1) (0.5 2.4 2.3 1.2 0.1) | (0.6 2.5 2.4 0.3 0.2 0.1) (0.5 2.4 2.3 1.2 0.1) | (0.6 2.5 2.4 0.3 0.2 0.1).1`,
+    description: 'Clean changes between two easy chords.',
+    tex: `\\title "First chords: Em and Am"\n\\tempo 72\n.\n${TUNING}\n:2 (0.6 2.5 2.4 0.3 0.2 0.1) (0.6 2.5 2.4 0.3 0.2 0.1) | (0.5 2.4 2.3 1.2 0.1) (0.5 2.4 2.3 1.2 0.1) | (0.6 2.5 2.4 0.3 0.2 0.1) (0.5 2.4 2.3 1.2 0.1) | (0.6 2.5 2.4 0.3 0.2 0.1).1`,
   },
   {
     id: DEFAULT_LESSON_ID,
-    title: 'Isınma Etüdü',
+    title: 'Warm-up Étude',
     level: 'intermediate',
     tempo: 84,
-    description: 'Arpej, hammer-on, slide ve akorlar: uygulamanın tüm özelliklerini dene.',
+    description: 'Arpeggios, hammer-ons, slides and chords: try out every feature of the app.',
     tex: DEMO_TEX,
   },
 ];
 
 const LEVEL_ALIASES: Record<string, LessonLevel> = {
   // Built-in lessons use a 1–5 scale: 1–2 beginner, 3 intermediate, 4–5 advanced.
-  beginner: 'beginner', basic: 'beginner', easy: 'beginner', 'başlangıç': 'beginner', baslangic: 'beginner', '1': 'beginner', '2': 'beginner',
-  intermediate: 'intermediate', medium: 'intermediate', orta: 'intermediate', '3': 'intermediate',
-  advanced: 'advanced', hard: 'advanced', 'ileri': 'advanced', '4': 'advanced', '5': 'advanced',
+  beginner: 'beginner', basic: 'beginner', easy: 'beginner', '1': 'beginner', '2': 'beginner',
+  intermediate: 'intermediate', medium: 'intermediate', '3': 'intermediate',
+  advanced: 'advanced', hard: 'advanced', '4': 'advanced', '5': 'advanced',
 };
 
 export function normalizeLevel(v: unknown): LessonLevel {
-  return LEVEL_ALIASES[String(v ?? '').trim().toLocaleLowerCase('tr')] ?? 'beginner';
+  return LEVEL_ALIASES[String(v ?? '').trim().toLowerCase()] ?? 'beginner';
 }
 
 export function toLessonMeta(x: unknown): LessonMeta | null {
@@ -180,8 +180,8 @@ export async function loadLesson(id: string): Promise<{ meta: LessonMeta | null;
     } catch {
       /* ignore */
     }
-    if (!p?.tex) throw new Error('Önizleme bulunamadı. Tabı yeniden içe aktar.');
-    return { meta: { id, title: p.title || 'Önizleme', level: 'beginner' }, content: { kind: 'tex', tex: p.tex } };
+    if (!p?.tex) throw new Error('Preview not found. Import the tab again.');
+    return { meta: { id, title: p.title || 'Preview', level: 'beginner' }, content: { kind: 'tex', tex: p.tex } };
   }
   const mod = await builtinModule();
   if (mod?.loadBuiltinLesson) {
@@ -197,7 +197,7 @@ export async function loadLesson(id: string): Promise<{ meta: LessonMeta | null;
     }
   }
   const f = FALLBACK.find((l) => l.id === id);
-  if (!f) throw new Error('Bu ders bulunamadı.');
+  if (!f) throw new Error('Lesson not found.');
   const { tex, ...meta } = f;
   return { meta, content: { kind: 'tex', tex } };
 }

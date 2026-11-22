@@ -17,7 +17,7 @@ export const ChordDiagram = memo(function ChordDiagram({ voicing, size = 120, sh
   const start = voicing.frets.some((f) => f > 4) ? first : 1;
   const x = (i: number) => left + i * gap;
   const y = (fret: number) => top + (fret - start + 0.5) * fretH;
-  const label = title ?? `${voicing.name} akoru: ${voicing.frets.map((f) => (f < 0 ? 'x' : f)).join(' ')}`;
+  const label = title ?? `${voicing.name} chord: ${voicing.frets.map((f) => (f < 0 ? 'x' : f)).join(' ')}`;
 
   return (
     <svg className="chord-diagram" viewBox={`0 0 ${W} ${H}`} width={size} height={(size * H) / W} role="img" aria-label={label}>

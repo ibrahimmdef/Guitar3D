@@ -5,7 +5,7 @@ import {
 } from './tabEditor';
 
 function riff(): EdDoc {
-  let d = newDoc('Deneme "riff"');
+  let d = newDoc('Test "riff"');
   d = { ...d, tempo: 104, bars: [{ beats: [{ duration: 8, notes: [{ string: 6, fret: 0 }] }, { duration: 8, notes: [{ string: 6, fret: 3 }] }, { duration: 4, notes: [] }, { duration: 2, notes: [{ string: 3, fret: 0 }, { string: 2, fret: 1 }, { string: 4, fret: 2 }] }] }] };
   return addBar(d, 0, { beats: [{ duration: 1, notes: [{ string: 1, fret: 12 }] }] });
 }
@@ -13,7 +13,7 @@ function riff(): EdDoc {
 describe('alphaTex round trip', () => {
   it('writes the editor model as alphaTex', () => {
     const tex = toAlphaTex(riff());
-    expect(tex).toContain('\\title "Deneme riff"');
+    expect(tex).toContain('\\title "Test riff"');
     expect(tex).toContain('\\tempo 104');
     expect(tex).toContain('\\tuning e4 b3 g3 d3 a2 e2');
     expect(tex).toContain('\\ts 4 4 0.6.8 3.6.8 r.4 (1.2 0.3 2.4).2 |');
@@ -26,11 +26,11 @@ describe('alphaTex round trip', () => {
     expect(back.beatsPerBar).toBe(4);
     expect(back.tuning).toEqual(d.tuning);
     expect(back.bars).toEqual(d.bars.map((b) => ({ beats: b.beats.map((x) => ({ ...x, notes: [...x.notes].sort((p, q) => p.string - q.string) })) })));
-    expect(toAlphaTex(back)).toBe(toAlphaTex(d).replace('Deneme "riff"', 'Deneme riff'));
+    expect(toAlphaTex(back)).toBe(toAlphaTex(d).replace('Test "riff"', 'Test riff'));
   });
   it('reads hand-written alphaTex with :duration, effects and drop D', () => {
-    const d = parseAlphaTex('\\title "El yazısı"\n\\tempo 70\n.\n\\tuning e4 b3 g3 d3 a2 d2\n:8 0.6 2.5{h} 3.5 r | :4 (0.1 0.2) 5.3.16 r\n');
-    expect(d.title).toBe('El yazısı');
+    const d = parseAlphaTex('\\title "Handwritten"\n\\tempo 70\n.\n\\tuning e4 b3 g3 d3 a2 d2\n:8 0.6 2.5{h} 3.5 r | :4 (0.1 0.2) 5.3.16 r\n');
+    expect(d.title).toBe('Handwritten');
     expect(d.tuning[5]).toBe(38);
     expect(d.bars).toHaveLength(2);
     expect(d.bars[0].beats.map((b) => b.duration)).toEqual([8, 8, 8, 8]);
@@ -39,7 +39,7 @@ describe('alphaTex round trip', () => {
     expect(d.bars[1].beats[2]).toEqual({ duration: 16, notes: [] });
   });
   it('rejects text without notes and parses pitches', () => {
-    expect(() => parseAlphaTex('\\title "boş"\n.\n')).toThrow();
+    expect(() => parseAlphaTex('\\title "empty"\n.\n')).toThrow();
     expect(parseTexPitch('c#4')).toBe(61);
     expect(parseTexPitch('bb3')).toBe(58);
     expect(parseTexPitch('x')).toBeNull();

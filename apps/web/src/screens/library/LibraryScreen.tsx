@@ -14,8 +14,8 @@ import { ImageImportDialog, TextImportDialog } from './TextImport';
 
 type Sort = 'recent' | 'title' | 'added';
 
-const collator = new Intl.Collator('tr');
-const norm = (s: string) => s.toLocaleLowerCase('tr');
+const collator = new Intl.Collator('en');
+const norm = (s: string) => s.toLowerCase();
 
 export function LibraryScreen() {
   const toast = useToast();
@@ -39,7 +39,7 @@ export function LibraryScreen() {
       })
       .catch(() => {
         setTabs([]);
-        setError('Sunucuya ulaşılamadı, kendi tabların şu an gösterilemiyor. Dersler yine de çalışır.');
+        setError('Couldn\'t reach the server, so your own tabs can\'t be shown right now. Lessons still work.');
       });
   }, []);
   useEffect(load, [load]);
@@ -69,9 +69,9 @@ export function LibraryScreen() {
     try {
       await deleteTab(t.id);
       setTabs((x) => x?.filter((y) => y.id !== t.id) ?? null);
-      toast({ tone: 'info', title: `“${t.title}” silindi.` });
+      toast({ tone: 'info', title: `“${t.title}” deleted.` });
     } catch (e) {
-      toast({ tone: 'danger', title: 'Tab silinemedi.', description: (e as Error).message });
+      toast({ tone: 'danger', title: 'Couldn\'t delete the tab.', description: (e as Error).message });
     }
   };
 
@@ -80,8 +80,8 @@ export function LibraryScreen() {
     setTabs((x) => [...added, ...(x ?? []).filter((t) => !added.some((a) => a.id === t.id))]);
     toast({
       tone: 'success',
-      title: added.length === 1 ? `“${added[0].title}” eklendi.` : `${added.length} tab eklendi.`,
-      description: added.length === 1 ? 'Açmak için karta tıkla.' : undefined,
+      title: added.length === 1 ? `“${added[0].title}” added.` : `${added.length} tabs added.`,
+      description: added.length === 1 ? 'Click the card to open it.' : undefined,
     });
   };
 
@@ -90,40 +90,40 @@ export function LibraryScreen() {
     <TabImportSlot
       onImported={onAdded}
         onReadable={(f) => { setImportFile(f); setImportMode('image'); }}
-      onError={(m) => toast({ tone: 'danger', title: 'Dosya yüklenemedi.', description: m, durationMs: 7000 })}
+      onError={(m) => toast({ tone: 'danger', title: 'Couldn\'t upload the file.', description: m, durationMs: 7000 })}
     />
     <div className="lib-import-row">
-      <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Metinden içe aktar</Button>
-      <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => { setImportFile(null); setImportMode('image'); }}>PDF / görselden</Button>
+      <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Import from text</Button>
+      <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => { setImportFile(null); setImportMode('image'); }}>From PDF / image</Button>
     </div>
     </>
   );
 
   return (
     <div className="screen">
-      <ScreenHeader title="Kütüphane" description={firstRun ? undefined : 'Bir tab ya da ders seç, 3D gitarda çalışmaya başla.'} />
+      <ScreenHeader title="Library" description={firstRun ? undefined : 'Pick a tab or a lesson and start practicing on the 3D guitar.'} />
 
       {firstRun && !error && (
         <section className="welcome" aria-labelledby="welcome-title">
-          <h2 id="welcome-title">Hoş geldin. Nereden başlayalım?</h2>
+          <h2 id="welcome-title">Welcome. Where do you want to start?</h2>
           <ul className="welcome-steps">
             <WelcomeStep
               icon={<GraduationCap size={20} />}
-              title="İlk dersini çal"
-              text={firstLesson ? `“${firstLesson.title}” ile başla. Notalar gitarın üzerinde gösterilir.` : 'Hazır derslerden biriyle başla.'}
-              action={firstLesson && <Button variant="primary" icon={<Play size={15} fill="currentColor" />} onClick={() => navigate(playLesson(firstLesson.id))}>Derse başla</Button>}
+              title="Play your first lesson"
+              text={firstLesson ? `Start with “${firstLesson.title}”. The notes are shown on the guitar.` : 'Start with one of the built-in lessons.'}
+              action={firstLesson && <Button variant="primary" icon={<Play size={15} fill="currentColor" />} onClick={() => navigate(playLesson(firstLesson.id))}>Start lesson</Button>}
             />
             <WelcomeStep
               icon={<Guitar size={20} />}
-              title="Gitarını ekle"
-              text="İki fotoğrafla kendi gitarını oluştur. İstersen yerleşik modelle devam et."
-              action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => navigate({ name: 'guitar' })}>Gitarım</Button>}
+              title="Add your guitar"
+              text="Build your own guitar from two photos, or keep using the built-in model."
+              action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => navigate({ name: 'guitar' })}>My guitars</Button>}
             />
             <WelcomeStep
               icon={<Upload size={20} />}
-              title="Kendi tabını yükle"
-              text="Guitar Pro veya MusicXML dosyanı sürükleyip bırak."
-              action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => document.getElementById('sec-import')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Yükleme alanı</Button>}
+              title="Upload your own tab"
+              text="Drag and drop your Guitar Pro or MusicXML file."
+              action={<Button variant="secondary" iconRight={<ArrowRight size={15} />} onClick={() => document.getElementById('sec-import')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Upload area</Button>}
             />
           </ul>
         </section>
@@ -132,17 +132,17 @@ export function LibraryScreen() {
       {(tabs === null || tabs.length > 0 || error) && (
         <section className="lib-sec" aria-labelledby="sec-tabs">
           <div className="sec-head">
-            <h2 id="sec-tabs">Tablarım</h2>
+            <h2 id="sec-tabs">My tabs</h2>
             {tabs && tabs.length > 0 && (
               <SegmentedControl
-                aria-label="Sıralama"
+                aria-label="Sort by"
                 value={sort}
                 onChange={setSort}
                 size="sm"
                 options={[
-                  { value: 'recent', label: 'Son çalınan' },
-                  { value: 'title', label: 'Ad' },
-                  { value: 'added', label: 'Eklenme' },
+                  { value: 'recent', label: 'Last played' },
+                  { value: 'title', label: 'Title' },
+                  { value: 'added', label: 'Date added' },
                 ]}
               />
             )}
@@ -150,17 +150,17 @@ export function LibraryScreen() {
           {(tabs?.length ?? 0) + (lessons?.length ?? 0) > 6 && (
             <label className="search">
               <Search size={16} aria-hidden className="search-ic" />
-              <span className="sr-only">Tablarda ve derslerde ara</span>
-              <input type="search" placeholder="Şarkı, sanatçı veya ders ara" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <span className="sr-only">Search tabs and lessons</span>
+              <input type="search" placeholder="Search songs, artists or lessons" value={query} onChange={(e) => setQuery(e.target.value)} />
             </label>
           )}
           {error ? (
-            <EmptyState compact tone="danger" icon={<CloudOff size={22} />} title="Tablar yüklenemedi" description={error} action={<Button onClick={load}>Tekrar dene</Button>} />
+            <EmptyState compact tone="danger" icon={<CloudOff size={22} />} title="Couldn't load tabs" description={error} action={<Button onClick={load}>Try again</Button>} />
           ) : tabs === null ? (
-            <div className="lib-loading" role="status"><Spinner label="Tablar yükleniyor" /> Tablar yükleniyor…</div>
+            <div className="lib-loading" role="status"><Spinner label="Loading tabs" /> Loading tabs…</div>
           ) : (
             <>
-              <ul className="lib-grid" aria-label="Tablar">
+              <ul className="lib-grid" aria-label="Tabs">
                 {visibleTabs.map((t) => {
                   const best = bestSpeed(progress[t.id]);
                   const played = relativeTime(recent[t.id]);
@@ -169,20 +169,20 @@ export function LibraryScreen() {
                       <button type="button" className="tab-card" onClick={() => navigate(playTab(t.id))}>
                         <span className="tab-card-ic" aria-hidden><FileMusic size={18} /></span>
                         <span className="tab-card-title">{t.title || t.fileName}</span>
-                        <span className="tab-card-sub">{t.artist || 'Bilinmeyen sanatçı'}</span>
-                        <span className="tab-card-meta">{played ? `Son çalma ${played}` : 'Henüz çalınmadı'}</span>
-                        <span className="tab-card-progress" aria-label={best == null ? 'Henüz pratik yapılmadı' : `En iyi temiz hız yüzde ${Math.round(best * 100)}`}>
+                        <span className="tab-card-sub">{t.artist || 'Unknown artist'}</span>
+                        <span className="tab-card-meta">{played ? `Last played ${played}` : 'Not played yet'}</span>
+                        <span className="tab-card-progress" aria-label={best == null ? 'No practice yet' : `Best clean speed ${Math.round(best * 100)} percent`}>
                           <span className="bar"><span style={{ width: `${(best ?? 0) * 100}%` }} /></span>
                           <span className="num">{best == null ? '—' : `%${Math.round(best * 100)}`}</span>
                         </span>
                         <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
                       </button>
-                      <IconButton className="tab-card-del" label={`“${t.title}” tabını sil`} icon={<Trash size={16} />} size="sm" onClick={() => setConfirm(t)} />
+                      <IconButton className="tab-card-del" label={`Delete tab “${t.title}”`} icon={<Trash size={16} />} size="sm" onClick={() => setConfirm(t)} />
                     </li>
                   );
                 })}
               </ul>
-              {q && visibleTabs.length === 0 && <p className="subtle small">“{query}” ile eşleşen tab yok.</p>}
+              {q && visibleTabs.length === 0 && <p className="subtle small">No tabs match “{query}”.</p>}
               {importer}
             </>
           )}
@@ -193,17 +193,17 @@ export function LibraryScreen() {
 
       <section className="lib-sec" aria-labelledby="sec-lessons">
         <div className="sec-head">
-          <h2 id="sec-lessons">Dersler</h2>
+          <h2 id="sec-lessons">Lessons</h2>
         </div>
         {lessons === null ? (
-          <div className="lib-loading" role="status"><Spinner label="Dersler yükleniyor" /> Dersler yükleniyor…</div>
+          <div className="lib-loading" role="status"><Spinner label="Loading lessons" /> Loading lessons…</div>
         ) : regularLessons.length === 0 ? (
-          <p className="subtle small">{q ? `“${query}” ile eşleşen ders yok.` : 'Şu an ders yok.'}</p>
+          <p className="subtle small">{q ? `No lessons match “${query}”.` : 'No lessons right now.'}</p>
         ) : (
           groupByLevel(regularLessons).map((g) => (
             <div key={g.level} className="lesson-group">
               <h3 className="eyebrow">{LEVEL_LABEL[g.level]}</h3>
-              <LessonGrid label={`${LEVEL_LABEL[g.level]} dersleri`} items={g.items} recent={recent} />
+              <LessonGrid label={`${LEVEL_LABEL[g.level]} lessons`} items={g.items} recent={recent} />
             </div>
           ))
         )}
@@ -212,19 +212,19 @@ export function LibraryScreen() {
       {turkuler.length > 0 && (
         <section className="lib-sec" aria-labelledby="sec-turkuler">
           <div className="sec-head">
-            <h2 id="sec-turkuler">Türküler</h2>
+            <h2 id="sec-turkuler">Turkish folk</h2>
           </div>
-          <p className="subtle small">Türkü havasında, Hicaz, Kürdi ve Nihavend renklerinde, halay, horon ve aksak ritimlerde özgün etütler. Kolaydan zora.</p>
-          <LessonGrid label="Türküler" items={turkuler} recent={recent} showLevel />
+          <p className="subtle small">Original études in Turkish folk style, with Hicaz, Kürdi and Nihavend colors and halay, horon and aksak rhythms. Easiest first.</p>
+          <LessonGrid label="Turkish folk" items={turkuler} recent={recent} showLevel />
         </section>
       )}
 
       {eserler.length > 0 && (
         <section className="lib-sec" aria-labelledby="sec-eserler">
           <div className="sec-head">
-            <h2 id="sec-eserler">Eserler</h2>
+            <h2 id="sec-eserler">Classics</h2>
           </div>
-          <p className="subtle small">Bach, Mozart, Beethoven, Tárrega ve anonim ezgilerden ünlü temalar; gitar için kısa düzenlemeler. Ortadan zora.</p>
+          <p className="subtle small">Famous themes from Bach, Mozart, Beethoven, Tárrega and traditional tunes; short arrangements for guitar. Intermediate to hard.</p>
           {groupByRank(eserler).map((g) => (
             <div key={g.rank} className="lesson-group">
               <h3 className="eyebrow">{g.label}</h3>
@@ -237,7 +237,7 @@ export function LibraryScreen() {
       {firstRun && !error && (
         <section className="lib-sec" aria-labelledby="sec-import">
           <div className="sec-head">
-            <h2 id="sec-import">Kendi tablarını ekle</h2>
+            <h2 id="sec-import">Add your own tabs</h2>
           </div>
           {importer}
         </section>
@@ -249,13 +249,13 @@ export function LibraryScreen() {
       <Dialog
         open={!!confirm}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title="Tab silinsin mi?"
-        description={confirm ? `“${confirm.title}” ve pratik geçmişi kalıcı olarak silinir. Bu işlem geri alınamaz.` : undefined}
+        title="Delete this tab?"
+        description={confirm ? `“${confirm.title}” and its practice history will be permanently deleted. This can't be undone.` : undefined}
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirm(null)}>Vazgeç</Button>
-            <Button variant="danger" icon={<Trash size={15} />} onClick={() => confirm && remove(confirm)}>Sil</Button>
+            <Button variant="ghost" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="danger" icon={<Trash size={15} />} onClick={() => confirm && remove(confirm)}>Delete</Button>
           </>
         }
       />
@@ -287,7 +287,7 @@ function LessonGrid({ label, items, recent, showLevel }: { label: string; items:
               <span className="tab-card-title">{l.title}</span>
               <span className="tab-card-sub">{[showLevel ? LEVEL_LABEL[l.level] : '', l.tempo ? `${l.tempo} BPM` : showLevel ? '' : LEVEL_LABEL[l.level]].filter(Boolean).join(' · ')}</span>
               {l.description && <span className="tab-card-desc">{l.description}</span>}
-              <span className="tab-card-meta">{played ? `Son çalma ${played}` : 'Yeni'}</span>
+              <span className="tab-card-meta">{played ? `Last played ${played}` : 'New'}</span>
               <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
             </button>
           </li>

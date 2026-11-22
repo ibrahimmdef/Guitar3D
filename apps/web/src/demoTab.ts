@@ -1,9 +1,9 @@
 export const DEMO_TEX = `
-\\title "Isınma Etüdü"
+\\title "Warm-up Étude"
 \\subtitle "Guitar3D demo"
 \\tempo 84
 .
-\\track "Akustik Gitar"
+\\track "Acoustic Guitar"
 \\staff {tabs}
 \\tuning e4 b3 g3 d3 a2 e2
 :8 3.5 2.4 0.3 1.2 0.1 1.2 0.3 2.4 |

@@ -108,7 +108,7 @@ describe('line and system detection', () => {
     expect(findTabSystems(TWO_SYSTEMS_DROP_D, warnings)).toHaveLength(2);
     const bass = 'G|--0--|\nD|--2--|\nA|--2--|\nE|--0--|';
     expect(findTabSystems(bass, warnings)).toHaveLength(0);
-    expect(warnings.some((w) => w.includes('4 satırlık'))).toBe(true);
+    expect(warnings.some((w) => w.includes('4-line'))).toBe(true);
     expect(looksLikeAsciiTab(EIGHTHS)).toBe(true);
     expect(looksLikeAsciiTab('\\title "x" :4 0.6')).toBe(false);
   });
@@ -186,7 +186,7 @@ describe('asciiTabToAlphaTex → alphaTab', () => {
     expect(r.bars).toBe(3);
     // First system lists the low string first (D A D G B e) and gets flipped → drop D.
     expect(r.tuning).toEqual(['E4', 'B3', 'G3', 'D3', 'A2', 'D2']);
-    expect(r.warnings.some((w) => w.includes('çevrildi'))).toBe(true);
+    expect(r.warnings.some((w) => w.includes('flipped'))).toBe(true);
     const score = load(r.alphaTex);
     expect(score.tracks[0].staves[0].tuning).toEqual(r.tuning.map(midi));
     const first = beats(score, 0);

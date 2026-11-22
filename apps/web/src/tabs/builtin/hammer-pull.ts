@@ -2,13 +2,13 @@ import type { BuiltinLessonDef } from './types';
 
 export const hammerPull: BuiltinLessonDef = {
   id: 'hammer-pull',
-  title: 'Hammer-on ve Pull-off Çalışması',
+  title: 'Hammer-on and Pull-off Practice',
   level: 3,
   tempo: 72,
   source: 'original',
-  goal: 'Penayla bir kez vurup ikinci notayı sadece sol elle seslendirmek (legato).',
-  description: 'Önce açık telden hammer-on, sonra açık tele pull-off, en sonda basılı notalar arasında ikisi birden.',
-  tip: 'Hammer-on\'da parmağı perdenin hemen arkasına çekiç gibi indir. Pull-off\'ta parmağı düz kaldırma; teli hafifçe aşağı doğru çekerek bırak. İki notanın sesi eşit olana kadar yavaş çal.',
+  goal: 'Pick once and sound the second note with the fretting hand only (legato).',
+  description: 'First hammer-ons from an open string, then pull-offs to an open string, and finally both between fretted notes.',
+  tip: 'For a hammer-on, bring the finger down just behind the fret like a hammer. For a pull-off, don\'t lift the finger straight up; release the string with a slight downward pull. Play slowly until both notes sound equally loud.',
   bars: `
 :8 0.1{h} 2.1 0.1{h} 3.1 0.2{h} 1.2 0.2{h} 3.2 |
 0.3{h} 2.3 0.4{h} 2.4 0.5{h} 2.5 0.6{h} 3.6 |

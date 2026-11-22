@@ -31,7 +31,7 @@ interface Props {
  * Paste ASCII tab → editable textarea, live conversion summary, listen / open in player / save.
  * The text stays editable so OCR mistakes or odd spacing can be fixed before saving.
  */
-export function TextImportDialog({ open, onOpenChange, onSaved, initialText = '', header, title = 'Metinden tab', description }: Props) {
+export function TextImportDialog({ open, onOpenChange, onSaved, initialText = '', header, title = 'Tab from text', description }: Props) {
   const toast = useToast();
   const [text, setText] = useState(initialText);
   const [seen, setSeen] = useState(initialText);
@@ -53,13 +53,13 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
     if (!ok) return;
     setSaving(true);
     try {
-      const meta = await tabsApi.uploadAlphaTex(texWithTitle, { title: name.trim() || result.title || 'İçe aktarılan tab', artist: result.artist, format: 'ascii' });
+      const meta = await tabsApi.uploadAlphaTex(texWithTitle, { title: name.trim() || result.title || 'Imported tab', artist: result.artist, format: 'ascii' });
       onSaved(meta);
       setText('');
       setName('');
       onOpenChange(false);
     } catch (e) {
-      toast({ tone: 'danger', title: 'Kaydedilemedi.', description: (e as Error).message });
+      toast({ tone: 'danger', title: 'Couldn\'t save.', description: (e as Error).message });
     } finally {
       setSaving(false);
     }
@@ -67,7 +67,7 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
 
   const openInPlayer = () => {
     if (!ok) return;
-    setPreviewLesson(texWithTitle, name.trim() || result.title || 'Önizleme');
+    setPreviewLesson(texWithTitle, name.trim() || result.title || 'Preview');
     navigate(playLesson(PREVIEW_LESSON_ID));
   };
 
@@ -79,26 +79,26 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
         onOpenChange(o);
       }}
       title={title}
-      description={description ?? 'ASCII tabı yapıştır. Sağda dönüşümü görürsün; kaydetmeden önce metni düzeltebilirsin.'}
+      description={description ?? 'Paste an ASCII tab. The conversion shows on the right; you can fix the text before saving.'}
       size="lg"
       footer={
         <>
           <Button variant="ghost" icon={player.playing ? <Square size={15} /> : <Play size={15} />} disabled={!ok} onClick={() => (player.playing ? player.stop() : player.play(texWithTitle))}>
-            {player.playing ? 'Durdur' : 'Dinle'}
+            {player.playing ? 'Stop' : 'Listen'}
           </Button>
-          <Button variant="secondary" icon={<SquareArrowOutUpRight size={15} />} disabled={!ok} onClick={openInPlayer}>Oynatıcıda aç</Button>
-          <Button variant="primary" icon={<Save size={15} />} disabled={!ok || saving} onClick={save}>{saving ? 'Kaydediliyor…' : 'Kütüphaneye kaydet'}</Button>
+          <Button variant="secondary" icon={<SquareArrowOutUpRight size={15} />} disabled={!ok} onClick={openInPlayer}>Open in player</Button>
+          <Button variant="primary" icon={<Save size={15} />} disabled={!ok || saving} onClick={save}>{saving ? 'Saving…' : 'Save to library'}</Button>
         </>
       }
     >
       {header}
       <div className="ti-grid">
-        <label className="sr-only" htmlFor="ti-text">Tab metni</label>
+        <label className="sr-only" htmlFor="ti-text">Tab text</label>
         <textarea id="ti-text" className="input" value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} placeholder={PLACEHOLDER} />
         <div className="ti-side">
           <label className="field">
-            Ad
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={typeof result !== 'string' ? result.title ?? 'Adsız tab' : 'Adsız tab'} />
+            Name
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={typeof result !== 'string' ? result.title ?? 'Untitled tab' : 'Untitled tab'} />
           </label>
           <label className="field">
             Tempo (BPM)
@@ -109,7 +109,7 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
           ) : (
             <>
               <p className="ti-summary num" aria-live="polite">
-                {result.systems} sistem · {result.bars} ölçü · {result.notes} nota
+                {result.systems} systems · {result.bars} bars · {result.notes} notes
               </p>
               {result.warnings.length > 0 && (
                 <ul className="ti-warn">
@@ -117,12 +117,12 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
                 </ul>
               )}
               <details>
-                <summary className="subtle small">alphaTex çıktısı</summary>
+                <summary className="subtle small">alphaTex output</summary>
                 <pre className="ti-code">{result.alphaTex}</pre>
               </details>
             </>
           )}
-          <p className="subtle small">Ritim karakter aralıklarından tahmin edilir. Her ölçü çizgisi | bir ölçü sayılır. h, p, /, \, b, x, ~ işaretleri desteklenir.</p>
+          <p className="subtle small">Rhythm is guessed from character spacing. Each bar line | counts as one bar. The symbols h, p, /, \, b, x, ~ are supported.</p>
         </div>
       </div>
     </Dialog>
@@ -146,19 +146,19 @@ export function ImageImportDialog({ initialFile, ...p }: Omit<Props, 'initialTex
         const { readPdf } = await import('../../tabs/pdf');
         const out = await readPdf(file, setProgress);
         setText(out.text || ' ');
-        if (out.mode === 'text') setNote(`PDF'teki tab metni alındı (${out.pages} sayfa). Ritim aralıklardan tahmin edilir; kontrol et.`);
-        else if (out.mode === 'scan') setNote(`Sayfalar görsel olarak okundu: ${out.systems} tab satırı (${out.pages} sayfa). Notaları PDF ile karşılaştır, yanlışları düzelt.`);
-        else setError(out.text.trim() ? 'PDF\'te tab satırı bulunamadı; içindeki metin aşağıda.' : 'PDF\'te tab bulunamadı.');
+        if (out.mode === 'text') setNote(`Tab text taken from the PDF (${out.pages} pages). Rhythm is guessed from spacing; check it.`);
+        else if (out.mode === 'scan') setNote(`Pages read as images: ${out.systems} tab lines (${out.pages} pages). Compare the notes with the PDF and fix any mistakes.`);
+        else setError(out.text.trim() ? 'No tab lines found in the PDF; its text is below.' : 'No tab found in the PDF.');
         return;
       }
       const { ocrImage } = await import('../../tabs/ocr');
       const out = await ocrImage(file, setProgress);
       setText(out.text || ' ');
-      if (!out.text.trim()) setError('Görselde tab bulunamadı.');
-      else if (out.mode === 'layout') setNote(`${out.systems} tab satırı bulundu. Notaları görselle karşılaştır, yanlış okunan perdeleri metinde düzelt.`);
-      else setNote('Tel çizgileri bulunamadı; metin olarak okundu. Sonucu kontrol et.');
+      if (!out.text.trim()) setError('No tab found in the image.');
+      else if (out.mode === 'layout') setNote(`Found ${out.systems} tab lines. Compare the notes with the image and fix misread frets in the text.`);
+      else setNote('No string lines found; read as text. Check the result.');
     } catch (e) {
-      setError(`Metin okunamadı: ${(e as Error).message}`);
+      setError(`Couldn't read the text: ${(e as Error).message}`);
     } finally {
       setProgress(null);
     }
@@ -189,7 +189,7 @@ export function ImageImportDialog({ initialFile, ...p }: Omit<Props, 'initialTex
     <div className="ti-image">
       <div className="ti-row">
         <label className="btn btn-secondary btn-md">
-          <span className="btn-label">{progress != null ? `Okunuyor… %${Math.round(progress * 100)}` : 'Görsel ya da PDF seç'}</span>
+          <span className="btn-label">{progress != null ? `Reading… ${Math.round(progress * 100)}%` : 'Choose an image or PDF'}</span>
           <input
             type="file"
             accept="image/*,application/pdf,.pdf"
@@ -202,7 +202,7 @@ export function ImageImportDialog({ initialFile, ...p }: Omit<Props, 'initialTex
             }}
           />
         </label>
-        <span className="subtle small">PDF ya da görsel seç, ya da ekran görüntüsünü yapıştır (Ctrl+V). Yazı (ASCII) tablar ve programların çizdiği tablar okunur; el yazısı, eğik fotoğraf ve nota dizeği okunmaz.</span>
+        <span className="subtle small">Choose a PDF or image, or paste a screenshot (Ctrl+V). Text (ASCII) tabs and tabs drawn by software can be read; handwriting, skewed photos and standard notation can't.</span>
       </div>
       {error && <p className="ti-err" role="alert">{error}</p>}
       {note && <p className="subtle small" role="status">{note}</p>}
@@ -213,8 +213,8 @@ export function ImageImportDialog({ initialFile, ...p }: Omit<Props, 'initialTex
       {...p}
       initialText={text}
       header={header}
-      title="PDF ya da görselden tab"
-      description="Tab PDF'i, ekran görüntüsü ya da fotoğrafı seç. Her şey tarayıcında okunur; hataları kaydetmeden önce düzelt."
+      title="Tab from PDF or image"
+      description="Choose a tab PDF, screenshot or photo. Everything is read in your browser; fix any mistakes before saving."
     />
   );
 }

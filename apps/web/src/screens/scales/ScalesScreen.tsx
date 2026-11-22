@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AudioLines, Maximize2, Play, Square } from 'lucide-react';
-import { noteName, SHARP_NAMES, SOLFEGE } from '../../music/notes';
+import { noteName, SHARP_NAMES } from '../../music/notes';
 import { degreeLabel, firstOctave, getScale, neckNotes, scaleExercise, scaleMarkers, scalePcs, scalePositions, SCALE_PATTERNS, SCALES, type ScaleId, type ScalePattern } from '../../music/scales';
 import { sequenceTex } from '../../music/tex';
 import { getTuning } from '../../music/tunings';
@@ -17,7 +17,7 @@ import { ScreenHeader } from '../AppShell';
 import { LearnStage } from '../LearnStage';
 import { TuningSelect } from '../TuningSelect';
 
-const KEY_OPTIONS = SHARP_NAMES.map((n, i) => ({ value: String(i), label: n, hint: SOLFEGE[i] }));
+const KEY_OPTIONS = SHARP_NAMES.map((n, i) => ({ value: String(i), label: n }));
 const MAX_FRET = 15;
 
 export function ScalesScreen() {
@@ -54,47 +54,47 @@ export function ScalesScreen() {
   const openInPlayer = () => {
     player.stop();
     backing.stop();
-    const title = `${noteName(root)} ${scale.label.toLocaleLowerCase('tr')} · ${pos ? `${pos.index + 1}. kutu` : 'bir oktav'} · ${SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLocaleLowerCase('tr')}`;
+    const title = `${noteName(root)} ${scale.label.toLowerCase()} · ${pos ? `box ${pos.index + 1}` : 'one octave'} · ${SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLowerCase()}`;
     const tex = sequenceTex(exercise(), { tempo, tuning, program: settings.program });
     setPreviewLesson(withTitle(tex, title), title);
     navigate(playLesson(PREVIEW_LESSON_ID));
   };
 
-  const posLabel = pos ? `${pos.index + 1}. pozisyon, ${pos.minFret === 0 ? 'açık' : `${pos.minFret}.`}–${pos.maxFret}. perde` : `Tüm sap, 0–${MAX_FRET}. perde`;
+  const posLabel = pos ? `Position ${pos.index + 1}, frets ${pos.minFret === 0 ? 'open' : pos.minFret}–${pos.maxFret}` : `Whole neck, frets 0–${MAX_FRET}`;
 
   return (
     <div className="screen">
-      <ScreenHeader title="Gamlar" description="Ton ve gam seç; notalar sapta yanar, kökler dolu işaretle gösterilir." />
+      <ScreenHeader title="Scales" description="Pick a key and scale; the notes light up on the neck and roots are shown as filled markers." />
 
-      <section className="learn" aria-label="Sapta gam">
-        <LearnStage notes={markers} beatId={root * 100 + SCALES.indexOf(scale)} cameraMode={pos ? 'follow' : 'neck'} label={`${noteName(root)} ${scale.label} gamı, ${posLabel}`}>
+      <section className="learn" aria-label="Scale on the neck">
+        <LearnStage notes={markers} beatId={root * 100 + SCALES.indexOf(scale)} cameraMode={pos ? 'follow' : 'neck'} label={`${noteName(root)} ${scale.label} scale, ${posLabel}`}>
           <span className="hud-chip">{posLabel}</span>
         </LearnStage>
         <div className="learn-side">
           <div className="learn-title-row">
             <div>
-              <h2 className="learn-title">{noteName(root)} {scale.label.toLocaleLowerCase('tr')}</h2>
-              <p className="muted small">{SOLFEGE[root]} · {tuning.label} akort</p>
+              <h2 className="learn-title">{noteName(root)} {scale.label.toLowerCase()}</h2>
+              <p className="muted small">{tuning.label} tuning</p>
             </div>
             <Button variant="primary" icon={player.playing ? <Square size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />} onClick={play}>
-              {player.playing ? 'Durdur' : 'Çal'}
+              {player.playing ? 'Stop' : 'Play'}
             </Button>
           </div>
-          <div className="note-legend" aria-label="Gamın notaları">
+          <div className="note-legend" aria-label="Notes of the scale">
             {scalePcs(root, scaleId).map((p, i) => (
               <span key={p} className={`note-pill${i === 0 ? ' is-root' : ''}`}>
                 {noteName(p)} <small>{degreeLabel(scale.intervals[i])}</small>
               </span>
             ))}
           </div>
-          <p className="subtle small">Çal: {pos ? 'bu kutu' : 'kökten bir oktav'}, {SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLocaleLowerCase('tr')}, {tempo} BPM.</p>
+          <p className="subtle small">Plays: {pos ? 'this box' : 'one octave from the root'}, {SCALE_PATTERNS.find((p) => p.id === pattern)!.label.toLowerCase()}, {tempo} BPM.</p>
           <div className="learn-row">
-            <Button variant="secondary" icon={<Maximize2 size={15} />} onClick={openInPlayer}>Tabda çal</Button>
-            <span className="subtle small">Büyük ekranda tab, hız, döngü ve metronomla çalış.</span>
+            <Button variant="secondary" icon={<Maximize2 size={15} />} onClick={openInPlayer}>Play as tab</Button>
+            <span className="subtle small">Practice on the big screen with tab, speed, loop and metronome.</span>
           </div>
           <div className="learn-row">
             <Button size="sm" icon={backing.playing ? <Square size={14} fill="currentColor" /> : <AudioLines size={14} />} pressed={backing.playing} onClick={backing.toggle}>
-              {backing.playing ? 'Eşliği durdur' : 'Eşlikle doğaçla'}
+              {backing.playing ? 'Stop backing' : 'Improvise with backing'}
             </Button>
           </div>
           <div className="learn-row">
@@ -105,7 +105,7 @@ export function ScalesScreen() {
               </select>
             </label>
             <label className="field">
-              Kalıp
+              Pattern
               <select className="select" value={pattern} onChange={(e) => setPattern(e.target.value as ScalePattern)}>
                 {SCALE_PATTERNS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
@@ -115,24 +115,24 @@ export function ScalesScreen() {
         </div>
       </section>
 
-      <section className="learn-filters" aria-label="Gam seçimi">
-        <ChipGroup label="Ton" value={String(root)} onChange={(v) => setRoot(Number(v))} options={KEY_OPTIONS} />
+      <section className="learn-filters" aria-label="Scale selection">
+        <ChipGroup label="Key" value={String(root)} onChange={(v) => setRoot(Number(v))} options={KEY_OPTIONS} />
         <div className="chip-group">
-          <label className="chip-group-label" htmlFor="scale-select">Gam</label>
+          <label className="chip-group-label" htmlFor="scale-select">Scale</label>
           <select id="scale-select" className="select" value={scaleId} onChange={(e) => changeScale(e.target.value as ScaleId)}>
-            <optgroup label="Temel">
+            <optgroup label="Basic">
               {SCALES.filter((s) => s.group === 'temel').map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </optgroup>
-            <optgroup label="Modlar">
+            <optgroup label="Modes">
               {SCALES.filter((s) => s.group === 'mod').map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </optgroup>
           </select>
         </div>
         <ChipGroup
-          label="Kutu"
+          label="Box"
           value={position}
           onChange={setPosition}
-          options={[{ value: 'all', label: 'Tüm sap' }, ...positions.map((p) => ({ value: String(p.index), label: String(p.index + 1), hint: `${p.minFret}–${p.maxFret}. perde` }))]}
+          options={[{ value: 'all', label: 'Whole neck' }, ...positions.map((p) => ({ value: String(p.index), label: String(p.index + 1), hint: `frets ${p.minFret}–${p.maxFret}` }))]}
         />
       </section>
     </div>

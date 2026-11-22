@@ -11,8 +11,8 @@ export interface Tuning {
 }
 
 export const TUNINGS: Tuning[] = [
-  { id: 'standard', label: 'Standart', midi: [64, 59, 55, 50, 45, 40] },
-  { id: 'half-down', label: 'Yarım ton pes', midi: [63, 58, 54, 49, 44, 39] },
+  { id: 'standard', label: 'Standard', midi: [64, 59, 55, 50, 45, 40] },
+  { id: 'half-down', label: 'Half step down', midi: [63, 58, 54, 49, 44, 39] },
   { id: 'drop-d', label: 'Drop D', midi: [64, 59, 55, 50, 45, 38] },
   { id: 'dadgad', label: 'DADGAD', midi: [62, 57, 55, 50, 45, 38] },
   { id: 'open-g', label: 'Open G', midi: [62, 59, 55, 50, 43, 38] },

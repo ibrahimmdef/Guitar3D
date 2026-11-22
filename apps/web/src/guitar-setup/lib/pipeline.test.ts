@@ -97,7 +97,7 @@ describe('frame from landmarks', () => {
     const s = solveFrame(lm(), { kind: 'scale', cm: 64 });
     expect(s.totalLengthCm).toBeCloseTo(108, 2);
     const bad = { ...lm(), saddle: toImage(truth, [-80, 0]) };
-    expect(solveFrame(bad, { kind: 'scale', cm: 64 }).warnings.join(' ')).toMatch(/farklı tel boyları/);
+    expect(solveFrame(bad, { kind: 'scale', cm: 64 }).warnings.join(' ')).toMatch(/different scale lengths/);
     expect(() => solveFrame({ ...lm(), saddle: toImage(truth, [5, 0]) }, { kind: 'scale', cm: 64 })).toThrow();
     const c = circleFromClicks(s.frame, toImage(truth, [-44, 1]), toImage(truth, [-44, 6]));
     expect(c.x).toBeCloseTo(-44, 2);
@@ -192,7 +192,7 @@ describe('body from a synthetic photo', () => {
     expect(fromHex(toHex([48, 36, 28]))).toEqual([48, 36, 28]);
     expect(sampleColorAt(img, toImage(truth, [-70, 10]), 3)[0]).toBeCloseTo(48, -1);
 
-    const prof = assembleProfile({ name: 'Sentetik', totalLengthCm: 108, scaleLengthCm: sol.scaleLengthCm, body, soundhole: sh });
+    const prof = assembleProfile({ name: 'Synthetic', totalLengthCm: 108, scaleLengthCm: sol.scaleLengthCm, body, soundhole: sh });
     expect(prof.bodyJoinFret).toBe(Math.min(16, Math.max(12, Math.round(-12 * Math.log2(1 + body.bounds.maxX / sol.scaleLengthCm)))));
     expect(prof.body.bridge.x).toBeLessThan(-SYN.scale);
     expect(prof.body.bounds).toEqual(body.bounds);

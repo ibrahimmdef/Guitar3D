@@ -52,7 +52,7 @@ export function backupRouter(store: Store) {
   r.get('/backups/:name', (req, res) => {
     const file = path.join(dir, req.params.name);
     if (!nameOk(req.params.name) || !fs.existsSync(file)) {
-      res.status(404).json({ error: 'Yedek bulunamadı.' });
+      res.status(404).json({ error: 'Backup not found.' });
       return;
     }
     res.type('application/json').send(fs.readFileSync(file));

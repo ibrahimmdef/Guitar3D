@@ -52,14 +52,14 @@ export function NotesPanel({ tabKey, notes, refresh, currentBar, onSeekBar }: Pr
   };
   return (
     <section className="drawer-sec" aria-labelledby="notes-sec">
-      <h3 id="notes-sec" className="eyebrow">Ölçü notları</h3>
+      <h3 id="notes-sec" className="eyebrow">Bar notes</h3>
       {notes.length > 0 && (
         <ul className="note-list">
           {notes.map((n) => (
             <li key={n.id} className={n.bar === currentBar ? 'is-now' : undefined}>
-              <button type="button" className="note-bar num" onClick={() => onSeekBar(n.bar)} aria-label={`${n.bar + 1}. ölçüye git`}>{n.bar + 1}</button>
+              <button type="button" className="note-bar num" onClick={() => onSeekBar(n.bar)} aria-label={`Go to bar ${n.bar + 1}`}>{n.bar + 1}</button>
               <span className="note-text">{n.text}</span>
-              <IconButton size="sm" label="Notu sil" icon={<Trash2 size={14} />} onClick={() => void notesApi.remove(n.id).then(refresh)} />
+              <IconButton size="sm" label="Delete note" icon={<Trash2 size={14} />} onClick={() => void notesApi.remove(n.id).then(refresh)} />
             </li>
           ))}
         </ul>
@@ -71,8 +71,8 @@ export function NotesPanel({ tabKey, notes, refresh, currentBar, onSeekBar }: Pr
           void add();
         }}
       >
-        <input className="input" style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={`${currentBar + 1}. ölçüye not`} aria-label={`${currentBar + 1}. ölçüye not`} maxLength={1000} />
-        <Button size="sm" type="submit" disabled={busy || !text.trim()}>Ekle</Button>
+        <input className="input" style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Note for bar ${currentBar + 1}`} aria-label={`Note for bar ${currentBar + 1}`} maxLength={1000} />
+        <Button size="sm" type="submit" disabled={busy || !text.trim()}>Add</Button>
       </form>
     </section>
   );

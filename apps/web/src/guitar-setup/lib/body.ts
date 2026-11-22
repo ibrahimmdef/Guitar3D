@@ -136,7 +136,7 @@ export function extractBody(mask: Mask, frame: PhotoFrame, scaleLengthCm: number
   const seed = toImage(frame, [-scaleLengthCm * 0.88, 0]);
   let body = floodFill(opened, seed);
   if (maskArea(body) === 0) body = largestComponent(opened);
-  if (maskArea(body) === 0) throw new Error('Gövde maskeden ayrılamadı. Eşiği düşürmeyi ya da gövdeye tıklamayı dene.');
+  if (maskArea(body) === 0) throw new Error('Couldn\'t separate the body from the mask. Try lowering the threshold or clicking the body.');
   // On real photos the fretboard / strings often cut a channel into the body down to the soundhole: seal and fill it.
   body = closeDiskFilled(body, Math.max(1, Math.round(0.65 * neckWidthCm * ppc)));
   const contour = traceContour(body);

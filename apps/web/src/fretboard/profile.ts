@@ -16,7 +16,7 @@ export function preloadProfile(p: GuitarProfile) {
 /** Loads the owner's Veston profile (measured by scripts/measure-veston.py) and preloads its textures. */
 export async function loadDefaultProfile(): Promise<GuitarProfile> {
   const r = await fetch(DEFAULT_PROFILE_URL);
-  if (!r.ok) throw new Error(`Gitar profili yüklenemedi (${r.status})`);
+  if (!r.ok) throw new Error(`Couldn't load the guitar profile (${r.status})`);
   const p = (await r.json()) as GuitarProfile;
   preloadProfile(p);
   return p;
@@ -29,7 +29,7 @@ export interface GuitarTemplateEntry {
   id: string;
   name: string;
   description: string;
-  /** Family label shown in the UI ('Dreadnought', 'Klasik', …). */
+  /** Family label shown in the UI ('Dreadnought', 'Classical', …). */
   kind: string;
   profileUrl: string;
 }
@@ -49,9 +49,9 @@ export async function listGuitarTemplates(f: typeof fetch = (...a) => fetch(...a
 /** Loads any GuitarProfile JSON (a template, the Veston, a saved guitar) and preloads its textures. */
 export async function loadGuitarProfile(url: string): Promise<GuitarProfile> {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`Gitar profili yüklenemedi (${r.status})`);
+  if (!r.ok) throw new Error(`Couldn't load the guitar profile (${r.status})`);
   const p = (await r.json()) as GuitarProfile;
-  if (!p || !Array.isArray(p.body?.outline)) throw new Error('Geçersiz gitar profili');
+  if (!p || !Array.isArray(p.body?.outline)) throw new Error('Invalid guitar profile');
   preloadProfile(p);
   return p;
 }

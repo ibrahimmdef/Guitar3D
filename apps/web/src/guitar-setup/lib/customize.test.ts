@@ -24,8 +24,8 @@ describe('customizeProfile', () => {
 
   it('shrinks to 36" proportionally, keeping bridge on the saddle and the neck joint', () => {
     const scale = proportionalScale(veston, 91.4);
-    const p = customizeProfile(veston, { totalLengthCm: 91.4, name: ' Seyahat ', finish: { top: '#c08040', gloss: 0.9 } });
-    expect(p.name).toBe('Seyahat');
+    const p = customizeProfile(veston, { totalLengthCm: 91.4, name: ' Travel ', finish: { top: '#c08040', gloss: 0.9 } });
+    expect(p.name).toBe('Travel');
     expect(p.scaleLengthCm).toBeCloseTo(scale, 1);
     expect(p.totalLengthCm).toBeCloseTo(91.4, 1);
     expect(p.body.bridge.x - -p.scaleLengthCm).toBeCloseTo(veston.body.bridge.x - -veston.scaleLengthCm, 0);
@@ -42,10 +42,10 @@ describe('customizeProfile', () => {
     expect(p.headstock.profile.at(-1)![0]).toBeCloseTo(p.headstock.lengthCm, 1);
   });
 
-  it('validates sizes in Turkish', () => {
+  it('validates sizes', () => {
     expect(sizeProblem(104, 64.8)).toBeNull();
-    expect(sizeProblem(20, 64.8)).toMatch(/Toplam boy/);
-    expect(sizeProblem(104, 90)).toMatch(/Tel boyu/);
-    expect(sizeProblem(80, 60)).toMatch(/çok uzun/);
+    expect(sizeProblem(20, 64.8)).toMatch(/Total length/);
+    expect(sizeProblem(104, 90)).toMatch(/Scale length/);
+    expect(sizeProblem(80, 60)).toMatch(/too long/);
   });
 });

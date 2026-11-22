@@ -18,7 +18,7 @@ export function createGuitarsApi(f: typeof fetch = (...a) => fetch(...a)) {
     rename: (id: string, name: string) => api.update(id, { name }),
     remove: async (id: string) => {
       const r = await f(`/api/guitars/${id}`, { method: 'DELETE' });
-      if (!r.ok && r.status !== 404) throw new Error((await r.json().catch(() => null))?.error ?? `Silinemedi (HTTP ${r.status}).`);
+      if (!r.ok && r.status !== 404) throw new Error((await r.json().catch(() => null))?.error ?? `Couldn't delete (HTTP ${r.status}).`);
     },
     /** Copy of a stored guitar (server copies the texture files). */
     duplicate: (id: string, name?: string) => f(`/api/guitars/${id}/duplicate`, send('POST', name ? { name } : {})).then((r) => json<GuitarProfile>(r)),
@@ -67,7 +67,7 @@ export const TEMPLATES_INDEX_URL = '/guitar/templates/index.json';
 export const BUILTIN_TEMPLATE: GuitarTemplate = {
   id: BUILTIN_GUITAR_ID,
   name: 'Veston dreadnought',
-  description: '42″ siyah dreadnought, fotoğraflardan ölçülmüş.',
+  description: '42″ black dreadnought, measured from photos.',
   kind: 'Dreadnought',
   profileUrl: BUILTIN_GUITAR_PROFILE_URL,
 };
@@ -93,11 +93,11 @@ export async function loadTemplates(f: typeof fetch = (...a) => fetch(...a)): Pr
 
 export async function loadTemplateProfile(t: GuitarTemplate, f: typeof fetch = (...a) => fetch(...a)): Promise<GuitarProfile> {
   const r = await f(t.profileUrl);
-  if (!r.ok) throw new Error(`Şablon yüklenemedi (HTTP ${r.status}).`);
+  if (!r.ok) throw new Error(`Couldn't load the template (HTTP ${r.status}).`);
   try {
     return { ...(JSON.parse(await r.text()) as GuitarProfile), id: t.id };
   } catch {
-    throw new Error('Şablon dosyası okunamadı.');
+    throw new Error('Couldn\'t read the template file.');
   }
 }
 

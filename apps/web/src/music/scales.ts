@@ -14,19 +14,19 @@ export interface ScaleDef {
 }
 
 export const SCALES: ScaleDef[] = [
-  { id: 'major', label: 'Majör', intervals: [0, 2, 4, 5, 7, 9, 11], group: 'temel' },
-  { id: 'minor', label: 'Doğal minör', intervals: [0, 2, 3, 5, 7, 8, 10], group: 'temel' },
-  { id: 'major-pent', label: 'Majör pentatonik', intervals: [0, 2, 4, 7, 9], group: 'temel' },
-  { id: 'minor-pent', label: 'Minör pentatonik', intervals: [0, 3, 5, 7, 10], group: 'temel' },
+  { id: 'major', label: 'Major', intervals: [0, 2, 4, 5, 7, 9, 11], group: 'temel' },
+  { id: 'minor', label: 'Natural minor', intervals: [0, 2, 3, 5, 7, 8, 10], group: 'temel' },
+  { id: 'major-pent', label: 'Major pentatonic', intervals: [0, 2, 4, 7, 9], group: 'temel' },
+  { id: 'minor-pent', label: 'Minor pentatonic', intervals: [0, 3, 5, 7, 10], group: 'temel' },
   { id: 'blues', label: 'Blues', intervals: [0, 3, 5, 6, 7, 10], group: 'temel' },
-  { id: 'harmonic-minor', label: 'Armonik minör', intervals: [0, 2, 3, 5, 7, 8, 11], group: 'temel' },
-  { id: 'ionian', label: 'İyonyen', intervals: [0, 2, 4, 5, 7, 9, 11], group: 'mod' },
-  { id: 'dorian', label: 'Doryen', intervals: [0, 2, 3, 5, 7, 9, 10], group: 'mod' },
-  { id: 'phrygian', label: 'Frigyen', intervals: [0, 1, 3, 5, 7, 8, 10], group: 'mod' },
-  { id: 'lydian', label: 'Lidyen', intervals: [0, 2, 4, 6, 7, 9, 11], group: 'mod' },
-  { id: 'mixolydian', label: 'Miksolidyen', intervals: [0, 2, 4, 5, 7, 9, 10], group: 'mod' },
-  { id: 'aeolian', label: 'Eolyen', intervals: [0, 2, 3, 5, 7, 8, 10], group: 'mod' },
-  { id: 'locrian', label: 'Lokriyen', intervals: [0, 1, 3, 5, 6, 8, 10], group: 'mod' },
+  { id: 'harmonic-minor', label: 'Harmonic minor', intervals: [0, 2, 3, 5, 7, 8, 11], group: 'temel' },
+  { id: 'ionian', label: 'Ionian', intervals: [0, 2, 4, 5, 7, 9, 11], group: 'mod' },
+  { id: 'dorian', label: 'Dorian', intervals: [0, 2, 3, 5, 7, 9, 10], group: 'mod' },
+  { id: 'phrygian', label: 'Phrygian', intervals: [0, 1, 3, 5, 7, 8, 10], group: 'mod' },
+  { id: 'lydian', label: 'Lydian', intervals: [0, 2, 4, 6, 7, 9, 11], group: 'mod' },
+  { id: 'mixolydian', label: 'Mixolydian', intervals: [0, 2, 4, 5, 7, 9, 10], group: 'mod' },
+  { id: 'aeolian', label: 'Aeolian', intervals: [0, 2, 3, 5, 7, 8, 10], group: 'mod' },
+  { id: 'locrian', label: 'Locrian', intervals: [0, 1, 3, 5, 6, 8, 10], group: 'mod' },
 ];
 
 export const getScale = (id: ScaleId) => SCALES.find((s) => s.id === id) ?? SCALES[0];
@@ -140,7 +140,7 @@ export function ascendDescend(notes: NeckNote[]): NeckNote[] {
   return [...uniq, ...uniq.slice(0, -1).reverse()];
 }
 
-/** One octave + root from the lowest root inside the notes (for "çal" on the whole neck). */
+/** One octave + root from the lowest root inside the notes (for "play" on the whole neck). */
 export function firstOctave(notes: NeckNote[]): NeckNote[] {
   const sorted = [...notes].sort((a, b) => a.midi - b.midi || b.string - a.string);
   const first = sorted.find((n) => n.isRoot);
@@ -151,10 +151,10 @@ export function firstOctave(notes: NeckNote[]): NeckNote[] {
 export type ScalePattern = 'updown' | 'thirds' | 'threes' | 'fours';
 
 export const SCALE_PATTERNS: { id: ScalePattern; label: string }[] = [
-  { id: 'updown', label: 'Çıkıcı ve inici' },
-  { id: 'thirds', label: 'Üçlü aralıklar' },
-  { id: 'threes', label: '3\'lü gruplar' },
-  { id: 'fours', label: '4\'lü gruplar' },
+  { id: 'updown', label: 'Up and down' },
+  { id: 'thirds', label: 'In thirds' },
+  { id: 'threes', label: 'Groups of 3' },
+  { id: 'fours', label: 'Groups of 4' },
 ];
 
 /** Practice sequence over the given notes: plain up/down, diatonic thirds, or groups of 3/4, up then down. */

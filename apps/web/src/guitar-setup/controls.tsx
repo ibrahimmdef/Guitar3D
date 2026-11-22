@@ -46,13 +46,13 @@ export function NumberInput({ id, value, onChange, step = 0.1, min, max, unit, w
 /** Overall length: 36"–42" chips plus a free cm value. */
 export function SizePresets({ totalCm, onTotal }: { totalCm: number; onTotal: (cm: number) => void }) {
   return (
-    <div className="gs-chips" role="radiogroup" aria-label="Hazır boylar">
+    <div className="gs-chips" role="radiogroup" aria-label="Preset sizes">
       {SIZE_PRESETS.map((p) => {
         const on = Math.abs(totalCm - p.cm) < 0.05;
         return (
           <button key={p.inches} type="button" role="radio" aria-checked={on} className={`gs-chip${on ? ' is-on' : ''}`} onClick={() => onTotal(p.cm)}>
             {p.label}
-            <span className="gs-chip-sub num">{p.cm.toLocaleString('tr-TR')}</span>
+            <span className="gs-chip-sub num">{p.cm.toLocaleString('en-US')}</span>
           </button>
         );
       })}
@@ -62,13 +62,13 @@ export function SizePresets({ totalCm, onTotal }: { totalCm: number; onTotal: (c
 
 export type FinishKey = 'top' | 'sides' | 'neck' | 'fretboard' | 'binding' | 'pickguard' | 'headstock';
 export const FINISH_LABELS: Record<FinishKey, string> = {
-  top: 'Kapak',
-  sides: 'Yanlar ve arka',
-  neck: 'Sap',
-  fretboard: 'Klavye',
-  binding: 'Biye',
-  pickguard: 'Pena koruyucu',
-  headstock: 'Kafa',
+  top: 'Top',
+  sides: 'Back and sides',
+  neck: 'Neck',
+  fretboard: 'Fretboard',
+  binding: 'Binding',
+  pickguard: 'Pickguard',
+  headstock: 'Headstock',
 };
 
 /** Colour swatches for the finish + gloss; optional parts (binding, pickguard) can be switched off. */
@@ -93,20 +93,20 @@ export function FinishEditor({ finish, onChange, keys = ['top', 'sides', 'neck',
           const optional = k === 'binding' || k === 'pickguard';
           return (
             <div key={k} className={`gs-swatch${picking === k ? ' is-picking' : ''}`}>
-              <label className="gs-swatch-color" style={{ background: v ?? 'transparent' }} title={`${FINISH_LABELS[k]} rengi`}>
-                <input type="color" value={v ?? '#888888'} onChange={(e) => setColor(k, e.target.value)} aria-label={`${FINISH_LABELS[k]} rengi`} />
+              <label className="gs-swatch-color" style={{ background: v ?? 'transparent' }} title={`${FINISH_LABELS[k]} color`}>
+                <input type="color" value={v ?? '#888888'} onChange={(e) => setColor(k, e.target.value)} aria-label={`${FINISH_LABELS[k]} color`} />
                 {!v && <span className="gs-swatch-none" aria-hidden>—</span>}
               </label>
               <span className="gs-swatch-label">{FINISH_LABELS[k]}</span>
               <span className="gs-swatch-actions">
                 {pickFromPhoto && (
                   <button type="button" className="gs-link" aria-pressed={picking === k} onClick={() => pickFromPhoto(picking === k ? null : k)}>
-                    {picking === k ? 'Fotoğrafa tıkla…' : 'Fotoğraftan'}
+                    {picking === k ? 'Click the photo…' : 'From photo'}
                   </button>
                 )}
                 {optional && (
                   <button type="button" className="gs-link" onClick={() => setColor(k, v ? null : k === 'binding' ? '#e9dfc6' : '#1a1a1a')}>
-                    {v ? 'Yok' : 'Ekle'}
+                    {v ? 'None' : 'Add'}
                   </button>
                 )}
               </span>
@@ -114,11 +114,11 @@ export function FinishEditor({ finish, onChange, keys = ['top', 'sides', 'neck',
           );
         })}
       </div>
-      <Slider label="Parlaklık" value={finish.gloss} min={0} max={1} step={0.05} onChange={(gloss) => onChange({ ...finish, gloss })} format={(g) => (g < 0.3 ? 'Mat' : g < 0.7 ? 'Saten' : 'Parlak')} />
+      <Slider label="Gloss" value={finish.gloss} min={0} max={1} step={0.05} onChange={(gloss) => onChange({ ...finish, gloss })} format={(g) => (g < 0.3 ? 'Matte' : g < 0.7 ? 'Satin' : 'Gloss')} />
     </div>
   );
 }
 
 export function MakeActiveToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return <Toggle checked={checked} onChange={onChange} label="Kaydettikten sonra bu gitarı kullan" description="Çalar ekranında ve her yerde bu gitar görünür." />;
+  return <Toggle checked={checked} onChange={onChange} label="Use this guitar after saving" description="This guitar appears in the player and everywhere else." />;
 }

@@ -40,7 +40,7 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
       .then((p) => {
         if (!alive) return;
         setBase(p);
-        setName((n) => (n && !templates.some((x) => n === `Benim ${x.name}`) ? n : `Benim ${t.name}`));
+        setName((n) => (n && !templates.some((x) => n === `My ${x.name}`) ? n : `My ${t.name}`));
         setTotal(p.totalLengthCm);
         setScale(p.scaleLengthCm);
         setScaleAuto(true);
@@ -53,7 +53,7 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
   }, [tplId, templates]);
 
   const problem = sizeProblem(total, scale);
-  const nameProblem = name.trim() ? null : 'Gitarına bir ad ver.';
+  const nameProblem = name.trim() ? null : 'Give your guitar a name.';
   const profile = useMemo(
     () => (base && finish && !problem ? ({ ...customizeProfile(base, { name, totalLengthCm: total, scaleLengthCm: scale, finish }), id: 'preview' } as GuitarProfile) : null),
     [base, finish, name, total, scale, problem],
@@ -76,7 +76,7 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
       if (makeActive) await setActiveGuitar(saved.id, saved);
       onSaved(saved);
     } catch (e) {
-      setError(`Kaydedilemedi: ${(e as Error).message}`);
+      setError(`Couldn't save: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -84,16 +84,16 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
 
   return (
     <div className="gs-root">
-      <div className="gs-preview" aria-label="Canlı önizleme">
+      <div className="gs-preview" aria-label="Live preview">
         {preview ? (
           <StageGuitar profile={preview} className="gs-preview-canvas" notes={NO_NOTES} beatId={0} beatProgress={0} view="player" cameraMode="overview" />
         ) : (
-          <div className="gs-preview-empty">{problem ?? <Spinner label="Şablon yükleniyor" />}</div>
+          <div className="gs-preview-empty">{problem ?? <Spinner label="Loading template" />}</div>
         )}
       </div>
 
       <div className="gs-form">
-        <Field label="Şablon">
+        <Field label="Template">
           {(id) => (
             <select id={id} className="gs-input" value={tplId} onChange={(e) => setTplId(e.target.value)}>
               {templates.map((t) => (
@@ -102,10 +102,10 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
             </select>
           )}
         </Field>
-        <Field label="Ad" error={nameProblem}>
+        <Field label="Name" error={nameProblem}>
           {(id) => <input id={id} className="gs-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />}
         </Field>
-        <Field label="Toplam boy" hint="Kafanın ucundan gövdenin altına kadar. Hazır boylardan seç ya da cm gir." error={problem && !problem.startsWith('Tel') ? problem : null}>
+        <Field label="Total length" hint="From the headstock tip to the bottom of the body. Pick a preset size or enter cm." error={problem && !problem.startsWith('Scale') ? problem : null}>
           {(id) => (
             <div className="gs-row">
               <SizePresets totalCm={total} onTotal={onTotal} />
@@ -114,30 +114,30 @@ export function TemplateCustomizer({ templates, initialTemplateId, onSaved, onCa
           )}
         </Field>
         <Field
-          label="Tel boyu (scale)"
-          hint={scaleAuto ? 'Boyla orantılı ayarlanıyor. Biliyorsan nut ile köprü arasını gir.' : 'Elle girildi.'}
-          error={problem?.startsWith('Tel') ? problem : null}
+          label="Scale length"
+          hint={scaleAuto ? 'Set in proportion to the length. If you know it, enter the nut-to-bridge distance.' : 'Entered manually.'}
+          error={problem?.startsWith('Scale') ? problem : null}
         >
           {(id) => (
             <div className="gs-row">
               <NumberInput id={id} value={Number.isFinite(scale) ? scale : ''} onChange={(v) => { setScale(v); setScaleAuto(false); }} unit="cm" min={45} max={72} />
               {!scaleAuto && base && (
-                <button type="button" className="gs-link" onClick={() => { setScaleAuto(true); setScale(proportionalScale(base, total)); }}>Orantılıya dön</button>
+                <button type="button" className="gs-link" onClick={() => { setScaleAuto(true); setScale(proportionalScale(base, total)); }}>Back to proportional</button>
               )}
             </div>
           )}
         </Field>
         {finish && (
           <section className="gs-section">
-            <h3 className="gs-h">Renkler</h3>
+            <h3 className="gs-h">Colors</h3>
             <FinishEditor finish={finish} onChange={setFinish} />
           </section>
         )}
         <MakeActiveToggle checked={makeActive} onChange={setMakeActive} />
         {error && <p className="gs-error" role="alert">{error}</p>}
         <div className="gs-footer">
-          <Button variant="ghost" onClick={onCancel}>Vazgeç</Button>
-          <Button variant="primary" onClick={save} disabled={!profile || !!nameProblem || busy}>{busy ? 'Kaydediliyor…' : 'Gitarı kaydet'}</Button>
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" onClick={save} disabled={!profile || !!nameProblem || busy}>{busy ? 'Saving…' : 'Save guitar'}</Button>
         </div>
       </div>
     </div>

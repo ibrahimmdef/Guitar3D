@@ -48,7 +48,7 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3
 describe('guitars api', () => {
   it('lists the built-in Veston stub first', async () => {
     const res = await request(app).get('/api/guitars').expect(200);
-    expect(res.body).toEqual([{ id: 'veston', name: 'Veston (yerleşik)', builtIn: true }]);
+    expect(res.body).toEqual([{ id: 'veston', name: 'Veston (built-in)', builtIn: true }]);
     const one = await request(app).get('/api/guitars/veston').expect(200);
     expect(one.body.builtIn).toBe(true);
   });
@@ -126,7 +126,7 @@ describe('guitars api', () => {
 
     const { body: copy } = await request(app).post(`/api/guitars/${g.id}/duplicate`).send({}).expect(201);
     expect(copy.id).not.toBe(g.id);
-    expect(copy.name).toBe('Test dreadnought (kopya)');
+    expect(copy.name).toBe('Test dreadnought (copy)');
     expect(copy.body.outline).toEqual(g.body.outline);
     expect(copy.textures.bodyTop).toMatch(new RegExp(`^/api/guitars/${copy.id}/textures/bodyTop\\?v=`));
     expect(copy.textures.fretboard).toMatchObject({ toFret: 12 });
@@ -138,8 +138,8 @@ describe('guitars api', () => {
     await request(app).delete(`/api/guitars/${g.id}`).expect(204);
     await request(app).get(`/api/guitars/${copy.id}/textures/bodyTop`).expect(200);
 
-    const named = await request(app).post(`/api/guitars/${copy.id}/duplicate`).send({ name: '  Sahne gitarı ' }).expect(201);
-    expect(named.body.name).toBe('Sahne gitarı');
+    const named = await request(app).post(`/api/guitars/${copy.id}/duplicate`).send({ name: '  Stage guitar ' }).expect(201);
+    expect(named.body.name).toBe('Stage guitar');
     await request(app).post('/api/guitars/nope/duplicate').expect(404);
     await request(app).post('/api/guitars/veston/duplicate').expect(400);
     expect((await request(app).get('/api/guitars')).body).toHaveLength(3);
@@ -151,8 +151,8 @@ describe('guitars api', () => {
     });
     const { body: g } = await request(app).post('/api/guitars').send(tpl).expect(201);
     expect(g.textures).toEqual({ fretboard: { url: '/guitar/fretboard.jpg', toFret: 20 }, headstock: '/guitar/headstock-face.jpg' });
-    const { body: r } = await request(app).put(`/api/guitars/${g.id}`).send({ name: 'Yeni ad' }).expect(200);
-    expect(r).toMatchObject({ name: 'Yeni ad', totalLengthCm: 104.1, textures: g.textures, createdAt: g.createdAt });
+    const { body: r } = await request(app).put(`/api/guitars/${g.id}`).send({ name: 'New name' }).expect(200);
+    expect(r).toMatchObject({ name: 'New name', totalLengthCm: 104.1, textures: g.textures, createdAt: g.createdAt });
     await request(app).put(`/api/guitars/${g.id}`).send({ name: '' }).expect(400);
   });
 

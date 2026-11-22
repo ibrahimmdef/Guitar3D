@@ -111,7 +111,7 @@ export function EditorScreen() {
     }
     if (mod && e.key.toLowerCase() === 'c') {
       setClip(structuredClone(doc.bars[c.bar]));
-      toast({ title: `${c.bar + 1}. ölçü kopyalandı`, durationMs: 1500 });
+      toast({ title: `Bar ${c.bar + 1} copied`, durationMs: 1500 });
       return;
     }
     if (mod && e.key.toLowerCase() === 'v' && clip) {
@@ -168,9 +168,9 @@ export function EditorScreen() {
       const d = parseAlphaTex(text);
       h.apply(d);
       setCursor({ bar: 0, beat: 0, string: 1 });
-      toast({ title: `${d.bars.length} ölçü içe aktarıldı`, tone: 'success' });
+      toast({ title: `${d.bars.length} bars imported`, tone: 'success' });
     } catch (err) {
-      toast({ title: 'İçe aktarılamadı', description: (err as Error).message, tone: 'danger' });
+      toast({ title: 'Couldn\'t import', description: (err as Error).message, tone: 'danger' });
     }
   };
 
@@ -187,10 +187,10 @@ export function EditorScreen() {
     setSaving(true);
     try {
       const meta = await tabsApi.uploadAlphaTex(tex, { title: doc.title, format: 'alphatex' });
-      toast({ title: 'Kütüphaneye kaydedildi', description: meta.title, tone: 'success' });
+      toast({ title: 'Saved to library', description: meta.title, tone: 'success' });
       navigate(playTab(meta.id));
     } catch (err) {
-      toast({ title: 'Kaydedilemedi', description: (err as Error).message, tone: 'danger' });
+      toast({ title: 'Couldn\'t save', description: (err as Error).message, tone: 'danger' });
     } finally {
       setSaving(false);
     }
@@ -199,25 +199,25 @@ export function EditorScreen() {
   return (
     <div className="screen editor-screen">
       <ScreenHeader
-        title="Tab editörü"
-        description="Gitara tıklayarak ya da ızgaraya perde numarası yazarak kendi riff'ini yaz, dinle, kütüphaneye kaydet."
+        title="Tab editor"
+        description="Write your own riff by clicking the guitar or typing fret numbers into the grid, listen to it, and save it to your library."
         actions={
           <>
             <Button icon={player.playing ? <Square size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />} onClick={() => (player.playing ? player.stop() : player.play(withInstrument(tex, settings.program)))}>
-              {player.playing ? 'Durdur' : 'Dinle'}
+              {player.playing ? 'Stop' : 'Listen'}
             </Button>
-            <Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={saving}>Kaydet</Button>
+            <Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={saving}>Save</Button>
           </>
         }
       />
 
       <div className="editor-top">
-        <LearnStage notes={marks} beatId={beatKey} cameraMode="overview" label="Gitar: tıklanan perde imleçteki vuruşa yazılır" onFretClick={onFretClick}>
-          <span className="hud-chip num">{c.bar + 1}. ölçü · {c.beat + 1}. vuruş</span>
+        <LearnStage notes={marks} beatId={beatKey} cameraMode="overview" label="Guitar: the clicked fret is written to the beat at the cursor" onFretClick={onFretClick}>
+          <span className="hud-chip num">Bar {c.bar + 1} · beat {c.beat + 1}</span>
         </LearnStage>
         <div className="learn-side">
           <label className="field">
-            <span>Başlık</span>
+            <span>Title</span>
             <input className="input" value={doc.title} onChange={(e) => h.apply({ ...doc, title: e.target.value })} />
           </label>
           <div className="p2-row">
@@ -226,14 +226,14 @@ export function EditorScreen() {
               <input className="input input-num" type="number" min={30} max={260} value={doc.tempo} onChange={(e) => h.apply({ ...doc, tempo: Math.max(30, Math.min(260, Number(e.target.value) || 90)) })} />
             </label>
             <label className="field">
-              <span>Ölçü</span>
+              <span>Time</span>
               <select className="select" value={doc.beatsPerBar} onChange={(e) => h.apply({ ...doc, beatsPerBar: Number(e.target.value) })}>
                 {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}/4</option>)}
               </select>
             </label>
           </div>
-          <div className="chip-group" role="group" aria-label="Vuruş süresi">
-            <span className="chip-group-label">Süre</span>
+          <div className="chip-group" role="group" aria-label="Beat duration">
+            <span className="chip-group-label">Duration</span>
             <div className="chip-row">
               {DURATIONS.map((d) => (
                 <button key={d} type="button" className={`chip${curBeat.duration === d ? ' is-on' : ''}`} aria-pressed={curBeat.duration === d} onClick={() => h.apply(setDuration(doc, c, d as Duration))}>
@@ -242,30 +242,30 @@ export function EditorScreen() {
               ))}
             </div>
           </div>
-          <Toggle checked={advanceOnClick} onChange={setAdvanceOnClick} label="Gitara tıklayınca ilerle" description="Kapalıysa aynı vuruşa akor gibi nota eklenir." />
+          <Toggle checked={advanceOnClick} onChange={setAdvanceOnClick} label="Advance on guitar click" description="When off, notes are added to the same beat like a chord." />
           <div className="p2-row">
-            <Button size="sm" variant="ghost" icon={<Undo2 size={15} />} onClick={h.undo} disabled={!h.canUndo}>Geri al</Button>
-            <Button size="sm" variant="ghost" icon={<Redo2 size={15} />} onClick={h.redo} disabled={!h.canRedo}>Yinele</Button>
+            <Button size="sm" variant="ghost" icon={<Undo2 size={15} />} onClick={h.undo} disabled={!h.canUndo}>Undo</Button>
+            <Button size="sm" variant="ghost" icon={<Redo2 size={15} />} onClick={h.redo} disabled={!h.canRedo}>Redo</Button>
           </div>
         </div>
       </div>
 
       <div className="p2-row editor-tools">
-        <Button size="sm" icon={<Plus size={15} />} onClick={() => h.apply(insertBeat(doc, c))}>Vuruş ekle</Button>
-        <Button size="sm" icon={<FilePlus2 size={15} />} onClick={() => { h.apply(addBar(doc, c.bar)); setCursor({ ...c, bar: c.bar + 1, beat: 0 }); }}>Ölçü ekle</Button>
-        <Button size="sm" icon={<ClipboardCopy size={15} />} onClick={() => setClip(structuredClone(doc.bars[c.bar]))}>Ölçüyü kopyala</Button>
-        <Button size="sm" icon={<ClipboardPaste size={15} />} disabled={!clip} onClick={() => clip && h.apply(addBar(doc, c.bar, clip))}>Sonrasına yapıştır</Button>
-        <Button size="sm" variant="ghost" icon={<Trash2 size={15} />} onClick={() => h.apply(deleteBar(doc, c.bar))}>Ölçüyü sil</Button>
+        <Button size="sm" icon={<Plus size={15} />} onClick={() => h.apply(insertBeat(doc, c))}>Add beat</Button>
+        <Button size="sm" icon={<FilePlus2 size={15} />} onClick={() => { h.apply(addBar(doc, c.bar)); setCursor({ ...c, bar: c.bar + 1, beat: 0 }); }}>Add bar</Button>
+        <Button size="sm" icon={<ClipboardCopy size={15} />} onClick={() => setClip(structuredClone(doc.bars[c.bar]))}>Copy bar</Button>
+        <Button size="sm" icon={<ClipboardPaste size={15} />} disabled={!clip} onClick={() => clip && h.apply(addBar(doc, c.bar, clip))}>Paste after</Button>
+        <Button size="sm" variant="ghost" icon={<Trash2 size={15} />} onClick={() => h.apply(deleteBar(doc, c.bar))}>Delete bar</Button>
       </div>
 
-      <div className="editor-grid" ref={gridRef} tabIndex={0} onKeyDown={onKey} role="grid" aria-label="Tab ızgarası. Rakamlarla perde yaz, oklarla gez, Sil ile temizle, Ctrl+Z geri al, Ctrl+C / Ctrl+V ölçü kopyala.">
+      <div className="editor-grid" ref={gridRef} tabIndex={0} onKeyDown={onKey} role="grid" aria-label="Tab grid. Type digits for frets, move with the arrow keys, clear with Delete, Ctrl+Z to undo, Ctrl+C / Ctrl+V to copy bars.">
         {doc.bars.map((bar, bi) => {
           const fill = barFill(doc, bar);
           return (
-            <div key={bi} className={`ed-bar is-${fill}`} role="rowgroup" aria-label={`${bi + 1}. ölçü`}>
+            <div key={bi} className={`ed-bar is-${fill}`} role="rowgroup" aria-label={`Bar ${bi + 1}`}>
               <div className="ed-bar-head">
                 <span className="num">{bi + 1}</span>
-                {fill !== 'full' && <span className="ed-fill">{fill === 'short' ? 'eksik' : 'taşıyor'}</span>}
+                {fill !== 'full' && <span className="ed-fill">{fill === 'short' ? 'short' : 'overflows'}</span>}
               </div>
               {STRINGS.map((s) => (
                 <div key={s} className="ed-line" role="row">
@@ -280,7 +280,7 @@ export function EditorScreen() {
                         tabIndex={-1}
                         className={`ed-cell num${on ? ' is-col' : ''}${on && c.string === s ? ' is-cursor' : ''}${b.notes.length === 0 ? ' is-rest' : ''}`}
                         style={{ flexGrow: 16 / b.duration }}
-                        aria-label={`${bi + 1}. ölçü ${k + 1}. vuruş ${s}. tel: ${n ? `${n.fret}. perde` : 'boş'}`}
+                        aria-label={`Bar ${bi + 1} beat ${k + 1} string ${s}: ${n ? `fret ${n.fret}` : 'empty'}`}
                         onClick={() => {
                           setCursor({ bar: bi, beat: k, string: s });
                           gridRef.current?.focus();
@@ -296,28 +296,28 @@ export function EditorScreen() {
           );
         })}
       </div>
-      <p className="subtle small">Klavye: rakam = perde (iki hane hızlı yaz), ←/→ vuruş, ↑/↓ tel, Sil = notayı ya da boş vuruşu sil, + = vuruş ekle, Ctrl+Z geri al.</p>
+      <p className="subtle small">Keyboard: digit = fret (type two digits quickly), ←/→ beat, ↑/↓ string, Delete = delete the note or empty beat, + = add beat, Ctrl+Z undo.</p>
 
-      <section className="editor-io" aria-label="İçe ve dışa aktar">
+      <section className="editor-io" aria-label="Import and export">
         <h2 className="section-title">alphaTex</h2>
         <div className="p2-row">
-          <Button size="sm" icon={<Download size={15} />} onClick={download}>.atex indir</Button>
-          <Button size="sm" icon={<ClipboardCopy size={15} />} onClick={() => navigator.clipboard?.writeText(tex).then(() => toast({ title: 'Panoya kopyalandı', durationMs: 1500 }))}>Kopyala</Button>
+          <Button size="sm" icon={<Download size={15} />} onClick={download}>Download .atex</Button>
+          <Button size="sm" icon={<ClipboardCopy size={15} />} onClick={() => navigator.clipboard?.writeText(tex).then(() => toast({ title: 'Copied to clipboard', durationMs: 1500 }))}>Copy</Button>
           <label className="btn btn-secondary btn-sm">
             <span className="btn-ic" aria-hidden><Upload size={15} /></span>
-            <span className="btn-label">Dosyadan yükle</span>
+            <span className="btn-label">Load from file</span>
             <input type="file" accept=".atex,.txt,.alphatex" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void f.text().then(doImport); e.target.value = ''; }} />
           </label>
-          <Button size="sm" variant="ghost" onClick={() => { h.apply(newDoc()); setCursor({ bar: 0, beat: 0, string: 1 }); }}>Yeni</Button>
+          <Button size="sm" variant="ghost" onClick={() => { h.apply(newDoc()); setCursor({ bar: 0, beat: 0, string: 1 }); }}>New</Button>
         </div>
-        <textarea className="input editor-tex" rows={6} value={importText || tex} onChange={(e) => setImportText(e.target.value)} aria-label="alphaTex metni" spellCheck={false} />
+        <textarea className="input editor-tex" rows={6} value={importText || tex} onChange={(e) => setImportText(e.target.value)} aria-label="alphaTex text" spellCheck={false} />
         {importText && importText !== tex && (
           <div className="p2-row">
-            <Button size="sm" variant="primary" onClick={() => { doImport(importText); setImportText(''); }}>Metinden içe aktar</Button>
-            <Button size="sm" variant="ghost" onClick={() => setImportText('')}>Vazgeç</Button>
+            <Button size="sm" variant="primary" onClick={() => { doImport(importText); setImportText(''); }}>Import from text</Button>
+            <Button size="sm" variant="ghost" onClick={() => setImportText('')}>Cancel</Button>
           </div>
         )}
-        <p className="subtle small">Kaydedince parça kütüphaneye eklenir ve oynatıcıda açılır.</p>
+        <p className="subtle small">When you save, the piece is added to your library and opens in the player.</p>
       </section>
     </div>
   );

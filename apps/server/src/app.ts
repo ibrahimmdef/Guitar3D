@@ -22,9 +22,9 @@ const ALLOWED = Object.keys(TAB_FORMATS);
 const SORTS: Record<string, (a: TabMeta, b: TabMeta) => number> = {
   recent: (a, b) => b.uploadedAt.localeCompare(a.uploadedAt),
   played: (a, b) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? '') || b.uploadedAt.localeCompare(a.uploadedAt),
-  title: (a, b) => a.title.localeCompare(b.title, 'tr'),
+  title: (a, b) => a.title.localeCompare(b.title, 'en'),
 };
-const fold = (s: string) => s.toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 export interface AppOptions {
   /** Separation / probing backend (tests pass a mock). Defaults to Demucs + ffmpeg. */
@@ -73,7 +73,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
     if (req.is('application/json')) {
       const body = req.body as { alphaTex?: unknown; title?: unknown; artist?: unknown; format?: unknown };
       if (typeof body?.alphaTex !== 'string' || !body.alphaTex.trim() || body.alphaTex.length > 2_000_000) {
-        res.status(400).json({ error: 'alphaTex metni gerekli.' });
+        res.status(400).json({ error: 'alphaTex text is required.' });
         return;
       }
       const id = crypto.randomUUID();
@@ -82,7 +82,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
       const info = extractTabInfo(Buffer.from(body.alphaTex), 'alphatex');
       const meta = store.addTab({
         id,
-        title: str(body.title) || info.title || 'Adsız tab',
+        title: str(body.title) || info.title || 'Untitled tab',
         artist: str(body.artist) || info.artist || '',
         fileName,
         uploadedAt: new Date().toISOString(),
@@ -92,7 +92,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
       return;
     }
     if (!req.file) {
-      res.status(400).json({ error: 'Desteklenen bir Guitar Pro, MusicXML veya alphaTex dosyası yükle.' });
+      res.status(400).json({ error: 'Upload a supported Guitar Pro, MusicXML or alphaTex file.' });
       return;
     }
     const ext = path.extname(req.file.originalname).toLowerCase();
@@ -121,7 +121,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
     const patch: { title?: string; artist?: string } = {};
     if (body.title !== undefined) {
       if (!str(body.title)) {
-        res.status(400).json({ error: 'title boş olamaz.' });
+        res.status(400).json({ error: 'title must not be empty.' });
         return;
       }
       patch.title = str(body.title);
@@ -129,17 +129,17 @@ export function createApp(store: Store, opts: AppOptions = {}) {
     if (body.artist !== undefined) patch.artist = str(body.artist);
     const tab = store.updateTab(req.params.id, patch);
     if (!tab) {
-      res.status(404).json({ error: 'Tab bulunamadı.' });
+      res.status(404).json({ error: 'Tab not found.' });
       return;
     }
     res.json(tab);
   });
 
-  /** Marks the tab as played now (drives "son çalınanlar"). */
+  /** Marks the tab as played now (drives "recently played"). */
   app.post('/api/tabs/:id/played', (req, res) => {
     const tab = store.updateTab(req.params.id, { lastPlayedAt: new Date().toISOString() });
     if (!tab) {
-      res.status(404).json({ error: 'Tab bulunamadı.' });
+      res.status(404).json({ error: 'Tab not found.' });
       return;
     }
     res.json(tab);
@@ -148,7 +148,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
   app.get('/api/tabs/:id/file', (req, res) => {
     const tab = store.getTab(req.params.id);
     if (!tab) {
-      res.status(404).json({ error: 'Tab bulunamadı.' });
+      res.status(404).json({ error: 'Tab not found.' });
       return;
     }
     const file = path.resolve(store.tabsDir, tab.fileName);
@@ -167,7 +167,7 @@ export function createApp(store: Store, opts: AppOptions = {}) {
   app.put('/api/progress/:tabId', (req, res) => {
     const body = req.body as Partial<TabProgress>;
     if (!Array.isArray(body?.sections)) {
-      res.status(400).json({ error: 'sections dizisi gerekli.' });
+      res.status(400).json({ error: 'A sections array is required.' });
       return;
     }
     res.json(store.putProgress({ tabId: req.params.tabId, sections: body.sections }));
