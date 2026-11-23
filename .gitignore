@@ -5,4 +5,8 @@ data/
 *.log
 .claude/worktrees/
 .claude/
-apps/desktop/
+apps/desktop/dist/
+apps/desktop/release/
+apps/desktop/arch/pkg/
+apps/desktop/arch/src/
+*.pkg.tar.zst

@@ -1,0 +1,56 @@
+{
+  "name": "@guitar3d/desktop",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Guitar3D desktop app",
+  "author": {
+    "name": "Guitar3D",
+    "email": "guitar3d@users.noreply.github.com"
+  },
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build:main": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node20 --external:electron --outfile=dist/main.cjs",
+    "build": "npm --prefix ../web run build && npm run build:main",
+    "start": "npm run build:main && electron .",
+    "dist:linux": "npm run build && electron-builder --linux AppImage dir --x64",
+    "dist:arch": "npm run build && electron-builder --linux dir --x64 && cd arch && makepkg -f"
+  },
+  "build": {
+    "appId": "app.guitar3d.desktop",
+    "productName": "Guitar3D",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "asar": true,
+    "linux": {
+      "target": [
+        "AppImage",
+        "dir"
+      ],
+      "category": "Education",
+      "icon": "../web/public/icons/icon-512.png",
+      "artifactName": "Guitar3D-${version}.${ext}",
+      "executableName": "guitar3d",
+      "synopsis": "Guitar tab practice on a 3D model of your guitar"
+    },
+    "electronVersion": "45.3.2"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2"
+  },
+  "desktopName": "guitar3d.desktop",
+  "productName": "Guitar3D",
+  "homepage": "https://github.com/ibrahimmdef/Guitar3D"
+}

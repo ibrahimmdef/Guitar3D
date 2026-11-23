@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Guitar3D
+Comment=Practise tabs on a 3D model of your guitar
+Exec=/opt/guitar3d/guitar3d %U
+Icon=guitar3d
+Terminal=false
+Type=Application
+Categories=Education;Music;Audio;
+StartupWMClass=Guitar3D
