@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlphaTabApi, importer, model, StaveProfile, synth } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
@@ -148,18 +148,42 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     });
     let beatId = 0;
     let lastBeat: model.Beat | null = null;
+
+    // Memoized beat -> FretNote conversion cache (keyed by beat identity + stringCount)
+    const beatCache = new Map<model.Beat, { notes: FretNote[]; upcoming: FretNote[][] }>();
+
+    const getBeatData = (beat: model.Beat, sc: number) => {
+      const cached = beatCache.get(beat);
+      if (cached) return cached;
+      const upcoming = upcomingFretNotes(beat, sc, 3);
+      const notes = beatToNotes(beat, sc, upcoming);
+      const result = { notes, upcoming };
+      beatCache.set(beat, result);
+      // Keep cache small (max 200 entries)
+      if (beatCache.size > 200) {
+        const firstKey = beatCache.keys().next().value;
+        if (firstKey) beatCache.delete(firstKey);
+      }
+      return result;
+    };
+
     const showBeat = (beat: model.Beat) => {
       if (beat === lastBeat) return;
       lastBeat = beat;
       beatId += 1;
-      const upcoming = upcomingFretNotes(beat, stringCount, 3);
-      patch({ notes: beatToNotes(beat, stringCount, upcoming), upcoming, beat, beatId, currentBar: beat.voice.bar.index });
+      const { notes, upcoming } = getBeatData(beat, stringCount);
+      patch({ notes, upcoming, beat, beatId, currentBar: beat.voice.bar.index });
     };
     api.playedBeatChanged.on(showBeat);
-    // Seeking while paused does not emit playedBeatChanged, so resolve the beat from the tick cache.
-    api.playerPositionChanged.on((e) => {
-      const track = api.tracks[0];
-      const hit = track && api.tickCache ? api.tickCache.findBeat(new Set([track.index]), e.currentTick) : null;
+
+    // Debounced position updates: alphaTab fires playerPositionChanged ~every 50ms.
+    // We batch state updates to avoid cascading React renders on every event.
+    let positionFrame = 0;
+    let pendingPosition: { e: { currentTime: number; endTime: number; currentTick: number; endTick: number }; hit: { beat: model.Beat; start: number; end: number; duration: number; masterBar: { masterBar: model.MasterBar; start: number } } | null } | null = null;
+    const flushPosition = () => {
+      if (!pendingPosition) return;
+      const { e, hit } = pendingPosition;
+      pendingPosition = null;
       let beatProgress = 0;
       let metro: Pick<PlayerState, 'beatInBar' | 'beatsPerBar'> | null = null;
       if (hit) {
@@ -176,10 +200,22 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
         return next;
       });
       if (hit) showBeat(hit.beat);
+    };
+    api.playerPositionChanged.on((e) => {
+      const track = api.tracks[0];
+      const hit = track && api.tickCache ? api.tickCache.findBeat(new Set([track.index]), e.currentTick) : null;
+      pendingPosition = { e, hit };
+      if (!positionFrame) {
+        positionFrame = requestAnimationFrame(() => {
+          positionFrame = 0;
+          flushPosition();
+        });
+      }
     });
     api.error.on((e) => patch({ error: String((e as Error)?.message ?? e), loading: false }));
 
     return () => {
+      if (positionFrame) cancelAnimationFrame(positionFrame);
       api.destroy();
       apiRef.current = null;
     };

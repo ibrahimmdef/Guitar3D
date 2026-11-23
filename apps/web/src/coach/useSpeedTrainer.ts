@@ -35,6 +35,10 @@ const MARGIN_MS = 300;
  * each complete pass (start of the loop to its end, no seeks or pauses in between), and either
  * scores it from the microphone recording (onset + pitch detection against the tab, latency
  * removed) or, without a microphone, just reports that a pass ended.
+ *
+ * Manual mode (mic=false): onPass is called with score=null after each completed pass.
+ * The UI (SpeedTrainerPanel) then shows "Clean" / "Not clean" buttons and waits for the user
+ * to press one. The user's choice is sent back via onManual(clean) which records the pass.
  */
 export function useSpeedTrainer({ api, track, loop, active, mic, latencyMs, toleranceMs, onPass }: Args) {
   const [micStatus, setMicStatus] = useState<TrainerMicStatus>('off');
@@ -85,8 +89,11 @@ export function useSpeedTrainer({ api, track, loop, active, mic, latencyMs, tole
     const finish = (pass: Anchor[]) => {
       const first = pass[0];
       const last = pass[pass.length - 1];
+      // Use time-signature-aware thresholds: one quarter note = 960 ticks / denominator
+      const mb = score.masterBars[loop[0]];
+      const quarterTicks = 3840 / (mb?.timeSignatureDenominator || 4);
       // only whole passes: from the loop start (count-in ticks do not move) to near its end
-      if (!first || first.tick > range.startTick + 480 || last.tick < range.endTick - 960 || pass.length < 4) return;
+      if (!first || first.tick > range.startTick + quarterTicks || last.tick < range.endTick - quarterTicks * 2 || pass.length < 4) return;
       const speed = a.playbackSpeed;
       const lp: [number, number] = [loop[0], loop[1]];
       const cap = capture.current;
@@ -100,7 +107,7 @@ export function useSpeedTrainer({ api, track, loop, active, mic, latencyMs, tole
       const { latencyMs: lat, toleranceMs: tol } = live.current;
       const from = (times[0] as number) - MARGIN_MS;
       const to = (times[times.length - 1] as number) + MARGIN_MS + Math.max(0, lat);
-      const wait = Math.max(0, to - cap.latestPerf()) + 60;
+      const wait = Math.max(0, to - cap.latestPerf()) + 150;
       timers.push(window.setTimeout(() => {
         const { samples, startPerf } = cap.slice(from, to);
         if (samples.length < 1000) return;

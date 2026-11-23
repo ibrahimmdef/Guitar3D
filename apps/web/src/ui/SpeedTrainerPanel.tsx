@@ -118,7 +118,7 @@ export function SpeedTrainerPanel(p: Props) {
         <summary className="small">Trainer settings</summary>
         <Slider label="Start speed" min={0.3} max={1} step={0.05} value={s.ladderStart} onChange={(v) => set({ ladderStart: v })} format={pct} />
         <Slider label="Clean passes to speed up" min={1} max={5} step={1} value={s.ladderPasses} onChange={(v) => set({ ladderPasses: v })} />
-        <Slider label="Failed passes before slowing" min={1} max={5} step={1} value={s.ladderFailPasses} onChange={(v) => set({ ladderFailPasses: v })} />
+        <Slider label="Failed passes before speed drops" min={1} max={5} step={1} value={s.ladderFailPasses} onChange={(v) => set({ ladderFailPasses: v })} />
         <Slider label="Step" min={0.02} max={0.1} step={0.01} value={s.ladderStep} onChange={(v) => set({ ladderStep: v })} format={pct} />
         <Slider label="Score that counts as clean" min={60} max={100} step={5} value={s.ladderCleanAccuracy} onChange={(v) => set({ ladderCleanAccuracy: v })} format={(v) => `${v}%`} />
         <Slider label="Timing window" min={30} max={120} step={10} value={s.timingToleranceMs} onChange={(v) => set({ timingToleranceMs: v })} format={(v) => `±${v} ms`} />

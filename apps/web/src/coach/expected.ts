@@ -27,9 +27,15 @@ export function plannedNotes(track: model.Track, from: number, to: number): Plan
     (bar.voices[0]?.beats ?? []).forEach((b, i) => {
       // toSimpleBars skips empty beats: keep its numbering for the shift lookup
       const k = b.isEmpty ? -1 : simple++;
-      if (b.isRest || b.graceType !== 0) return;
+      if (b.isRest || b.graceType !== 0) {
+        if (!b.isEmpty) simple--;
+        return;
+      }
       const struck = b.notes.filter((n) => !n.isPercussion && !n.isTieDestination);
-      if (!struck.length) return;
+      if (!struck.length) {
+        if (!b.isEmpty) simple--;
+        return;
+      }
       const live = struck.filter((n) => !n.isDead);
       const legato = live.length > 0 && live.every((n) => n.isHammerPullDestination || n.slideOrigin != null);
       const shift = shifts.get(`${bi}:${k}`);

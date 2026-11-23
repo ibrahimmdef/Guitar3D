@@ -69,7 +69,7 @@ export function ladderStep(
   const failPasses = Math.max(1, cfg.failPasses ?? DEFAULT_FAIL_PASSES);
   if (result === 'miss') {
     const fails = s.fails + 1;
-    if (fails < failPasses) return { state: { ...s, clean: 0, fails }, event: 'strike' };
+    if (fails < failPasses) return { state: { ...s, clean: 0, fails, done: false }, event: 'strike' };
     const speed = round(Math.max(Math.min(s.floor, s.speed), s.speed - step));
     return { state: { ...s, speed, clean: 0, fails: 0, done: false }, event: speed < s.speed ? 'down' : 'floor' };
   }

@@ -196,11 +196,26 @@ export function createApp(store: Store, opts: AppOptions = {}) {
       res.status(400).json({ error: 'score must be 0–100, bpm 1–1000 and mode "mic" or "manual".' });
       return;
     }
+    // Explicit mode inference: 'mic' when a score is provided (requires microphone scoring),
+    // 'manual' otherwise. A manual pass with a score is now rejected to avoid ambiguity.
+    let mode: SectionPass['mode'];
+    if (b.mode !== undefined) {
+      mode = b.mode as SectionPass['mode'];
+    } else if (b.score !== undefined) {
+      mode = 'mic';
+    } else {
+      mode = 'manual';
+    }
+    // Reject manual passes that include a score (should use mode: "mic" instead)
+    if (mode === 'manual' && b.score !== undefined) {
+      res.status(400).json({ error: 'Manual passes cannot include a score. Use mode: "mic" for microphone-scored passes.' });
+      return;
+    }
     const pass: SectionPass = {
       at: new Date().toISOString(),
       speed: Math.round((b.speed as number) * 1000) / 1000,
       clean: b.clean,
-      mode: (b.mode as SectionPass['mode']) ?? (b.score !== undefined ? 'mic' : 'manual'),
+      mode,
       ...(b.score !== undefined ? { score: Math.round(b.score as number) } : {}),
     };
     const section = { startBar: b.startBar as number, endBar: b.endBar as number, ...(b.bpm ? { bpm: Math.round(b.bpm as number) } : {}) };
