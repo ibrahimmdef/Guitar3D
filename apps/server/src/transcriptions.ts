@@ -3,7 +3,7 @@ import multer from 'multer';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { TranscriptionJob } from '@guitar3d/shared';
+import type { StemName, TranscriptionJob } from '@guitar3d/shared';
 import type { Store } from './store.js';
 import { JobLock } from './jobLock.js';
 import { STEM_EXT } from './separator.js';
@@ -69,12 +69,26 @@ export class TranscriptionQueue {
     }
   }
 
-  /** A song's full mix for beat tracking (undefined for recordings). */
-  private beatsInput(job: TranscriptionJob): string | undefined {
+  /**
+   * A song's full mix for beat tracking (undefined for recordings). Link imports drop the original
+   * after separation: then all stems together, which add up to the mix again. The guitar stem
+   * alone has no drums and loses the beat in breaks and sustained chords.
+   */
+  private beatsInput(job: TranscriptionJob): string | string[] | undefined {
     const song = job.source === 'song' && job.songId ? this.store.getSong(job.songId) : undefined;
-    const file = song?.fileName ? path.join(this.store.songDir(song.id), song.fileName) : '';
-    // link imports may have dropped the original after separation
-    return file && fs.existsSync(file) && fs.statSync(file).isFile() ? file : undefined;
+    if (!song) return undefined;
+    const file = song.fileName ? path.join(this.store.songDir(song.id), song.fileName) : '';
+    if (file && fs.existsSync(file) && fs.statSync(file).isFile()) return file;
+    const stems = song.stems.map((s) => path.join(this.store.songDir(song.id), 'stems', `${s}${STEM_EXT}`)).filter((f) => fs.existsSync(f));
+    return stems.length > 1 ? stems : undefined;
+  }
+
+  /** A separated stem of the song a job transcribes, when it exists. */
+  private stemFile(job: TranscriptionJob, stem: StemName): string | undefined {
+    const song = job.source === 'song' && job.songId ? this.store.getSong(job.songId) : undefined;
+    if (!song?.stems.includes(stem)) return undefined;
+    const file = path.join(this.store.songDir(song.id), 'stems', `${stem}${STEM_EXT}`);
+    return fs.existsSync(file) ? file : undefined;
   }
 
   /** The audio to transcribe: the song's separated guitar stem, or the uploaded recording. */
@@ -113,6 +127,7 @@ export class TranscriptionQueue {
         return this.tools.transcribe(input, {
           noBeats: !!job.bpm,
           beatsInput: this.beatsInput(job),
+          drumsInput: this.stemFile(job, 'drums'),
           signal: ctrl.signal,
           onProgress: (p) => {
             if (p - saved >= 0.02 && this.store.getTranscription(id)) {

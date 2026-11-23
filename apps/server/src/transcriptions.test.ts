@@ -32,13 +32,13 @@ class MockSongTools implements SongTools {
 class MockTranscriber implements TranscriberTools {
   available = true;
   fail = false;
-  calls: { input: string; noBeats?: boolean; beatsInput?: string }[] = [];
+  calls: { input: string; noBeats?: boolean; beatsInput?: string | string[]; drumsInput?: string }[] = [];
   gate: Promise<void> = Promise.resolve();
   async status(): Promise<TranscriberStatus> {
     return this.available ? { available: true } : { available: false, reason: 'Basic Pitch is not installed.', setupHint: 'setup-demucs.sh' };
   }
-  async transcribe(input: string, { noBeats, beatsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
-    this.calls.push({ input, noBeats, beatsInput });
+  async transcribe(input: string, { noBeats, beatsInput, drumsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
+    this.calls.push({ input, noBeats, beatsInput, drumsInput });
     onProgress(0.5);
     await this.gate;
     if (signal.aborted) throw new Error('aborted');
@@ -95,6 +95,8 @@ describe('transcriptions api', () => {
     expect(tr.calls[0].noBeats).toBe(false);
     // the beat is tracked on the full mix
     expect(tr.calls[0].beatsInput).toBe(path.join(dir, 'songs', songId, 'original.wav'));
+    // the drum track finds the bar lines
+    expect(tr.calls[0].drumsInput).toBe(path.join(dir, 'songs', songId, 'stems', 'drums.mp3'));
     expect(done.summary.strum.bars[1].s).toBe('D-U-D-U---------');
 
     const tabs = (await request(app).get('/api/tabs')).body;
@@ -107,6 +109,15 @@ describe('transcriptions api', () => {
 
     expect((await request(app).get(`/api/transcriptions?songId=${songId}`)).body).toHaveLength(1);
     expect((await request(app).get('/api/transcriptions?songId=nope')).body).toHaveLength(0);
+  });
+
+  it('tracks the beat on the stems when the original was not kept (link imports)', async () => {
+    const songId = await readySong();
+    fs.rmSync(path.join(dir, 'songs', songId, 'original.wav'));
+    await request(app).post('/api/transcriptions').send({ songId }).expect(201);
+    await tq().idle();
+    const stems = path.join(dir, 'songs', songId, 'stems');
+    expect(tr.calls[0].beatsInput).toEqual([path.join(stems, 'guitar.mp3'), path.join(stems, 'drums.mp3')]);
   });
 
   it('rejects unknown or unseparated songs', async () => {

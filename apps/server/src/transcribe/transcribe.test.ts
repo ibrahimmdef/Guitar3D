@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUTO_TEX_TAG, fingerPitches, readAutoTabInfo } from '@guitar3d/shared';
-import { chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, type QNote, type RawNote } from './grid.js';
+import { alignGrid, chooseDownbeat, drumDownbeat, drumPhase, fixedGrid, quantize, toBars, trackedGrid, type QNote, type RawNote } from './grid.js';
 import { detectTuning, lowestPlayed, suggestCapo, TUNING_DEFS, tuningLabel } from './tuning.js';
 import { alignedValue, buildAlphaTex, groupEvents, placeEvents, renderTrack, restTokens, splitLeadRhythm, texPitch } from './tab.js';
 import { buildAutoTab } from './index.js';
@@ -28,6 +28,18 @@ describe('beat grid and quantisation', () => {
     expect(trackedGrid([], 90).tempo).toBe(90);
   });
 
+  it('moves a late beat grid onto the note onsets', () => {
+    // the tracker reports every beat 40 ms after the attacks it heard
+    const attacks = Array.from({ length: 16 }, (_, i) => 1 + i * 0.5);
+    const g = alignGrid(trackedGrid(attacks.map((t) => t + 0.04)), attacks.map((t) => note(t, 40)));
+    expect(g.toTime(0)).toBeCloseTo(1, 3);
+    expect(g.toBeat(3)).toBeCloseTo(4, 3);
+    // already aligned, or too few notes: unchanged
+    const same = trackedGrid(attacks);
+    expect(alignGrid(same, attacks.map((t) => note(t, 40)))).toBe(same);
+    expect(alignGrid(same, [note(1.04, 40)])).toBe(same);
+  });
+
   it('merges the same pitch starting in the same slot', () => {
     const out = quantize([note(0, 60, 0.1, 0.3), note(0.02, 60, 0.6, 0.9)], fixedGrid(120));
     expect(out).toEqual([{ slot: 0, len: 5, pitch: 60, conf: 0.9 }]);
@@ -40,6 +52,25 @@ describe('beat grid and quantisation', () => {
     const barred = toBars(notes, 1);
     expect(Math.min(...barred.map((n) => n.slot))).toBe(0);
     expect(barred.find((n) => n.pitch === 40)!.slot % 16).toBe(0);
+  });
+
+  it('finds the bar line from the drums: kick on 1, snare on 2 and 4', () => {
+    // the bar starts on tracked beat 2: kick there and on beat 0 of the next pair, snare between
+    const drums = Array.from({ length: 64 }, (_, i): [number, number] => {
+      const inBar = (i - 2 + 4) % 4;
+      return inBar === 0 ? [0.9, 0.1] : inBar === 2 ? [0.6, 0.15] : [0.1, 0.8];
+    });
+    expect(drumDownbeat(drums)).toBe(2);
+    // the drums win over the guitar's guess
+    expect(chooseDownbeat([q(0, 40), q(16, 40)], drums)).toBe(2);
+    // no steady pattern or too short: no answer from the drums
+    expect(drumDownbeat(Array.from({ length: 64 }, (): [number, number] => [0.5, 0.5]))).toBeNull();
+    expect(drumDownbeat(drums.slice(0, 8))).toBeNull();
+    // kick as strong on 3 as on 1: the backbeat gives the pair, the notes pick inside it
+    const even = Array.from({ length: 64 }, (_, i): [number, number] => (i % 2 === 0 ? [0.8, 0.1] : [0.1, 0.8]));
+    expect(drumPhase(even)).toEqual({ pair: 0, phase: null });
+    expect(chooseDownbeat([q(4, 40), q(20, 40), q(36, 40)], even)).toBe(0); // beat 1 of the grid is not allowed
+    expect(chooseDownbeat([q(8, 40), q(24, 40), q(40, 40)], even)).toBe(2);
   });
 
   it('with a count-in keeps beat 0 as the downbeat and drops what came before', () => {
@@ -70,6 +101,8 @@ describe('tuning and capo', () => {
   it('ignores a single stray low note', () => {
     expect(lowestPlayed(run([30, 45, 45, 52]))).toBe(45);
     expect(lowestPlayed([...run([40, 40, 47]), { pitch: 35, conf: 0.1 }, { pitch: 35, conf: 0.1 }])).toBe(40);
+    // a long song: two bass notes bleeding into the guitar stem are not a lower string
+    expect(lowestPlayed(run([36, 36, ...Array(300).fill(40), ...Array(500).fill(47)]))).toBe(40);
   });
 
   it('detects half step down, drop D and standard from the lowest note', () => {
@@ -204,7 +237,7 @@ describe('buildAutoTab', () => {
     // beats slow down from 0.5 s to 0.6 s apart: bar lines must follow them, not a fixed tempo
     const beats: number[] = [1];
     for (let i = 1; i < 24; i++) beats.push(beats[i - 1] + (i < 12 ? 0.5 : 0.6));
-    const raw = { duration: 15, beats, tempo: 110, notes: beats.slice(0, 20).map((b, i) => note(b + 0.01, i % 4 === 0 ? 40 : 47)) };
+    const raw = { duration: 15, beats, tempo: 110, notes: beats.slice(0, 20).map((b, i) => note(b, i % 4 === 0 ? 40 : 47)) };
     const { info, summary } = buildAutoTab(raw, { title: 'x' });
     expect(info.barTimes).toHaveLength(summary.bars + 1);
     expect(info.barTimes![0]).toBe(1);

@@ -29,7 +29,8 @@ const lowest = (t: TuningDef) => Math.min(...t.midi);
 
 /**
  * The lowest pitch that is really played: confident notes only, and it must occur at least twice
- * (one stray low note is more likely a transcription error). Null when there are no notes.
+ * and in at least 1 % of them (a stray low note is more likely a transcription error or bleed from
+ * the bass). Null when there are no notes.
  */
 export function lowestPlayed(notes: { pitch: number; conf: number }[], minConf = 0.3): number | null {
   if (!notes.length) return null;
@@ -37,7 +38,10 @@ export function lowestPlayed(notes: { pitch: number; conf: number }[], minConf =
   const pool = sure.length ? sure : notes;
   const count = new Map<number, number>();
   for (const n of pool) count.set(n.pitch, (count.get(n.pitch) ?? 0) + 1);
-  const repeated = [...count.entries()].filter(([, c]) => c >= 2).map(([p]) => p);
+  // A low string is played again and again; a few bass notes bleeding into a separated guitar
+  // track are not (2 stray C2s among 2,400 notes once turned E standard into drop C).
+  const need = Math.max(2, Math.ceil(pool.length * 0.01));
+  const repeated = [...count.entries()].filter(([, c]) => c >= need).map(([p]) => p);
   return Math.min(...(repeated.length ? repeated : [...count.keys()]));
 }
 

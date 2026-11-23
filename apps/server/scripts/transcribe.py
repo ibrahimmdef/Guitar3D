@@ -9,6 +9,9 @@ Reads a mono WAV, writes JSON:
 - beats/tempo: librosa beat tracking (skipped with --no-beats when the tempo is known), on
   --beats-from when given (a song's full mix: drums keep the beat steadier than the guitar alone).
 - cents: librosa tuning estimate (deviation from A440, -50..50).
+- beatDrums: with --drums (the song's separated drum track), [kick, snare] strength at every beat
+  (low-band and mid-band onsets around the beat). Rock and pop put the kick on 1 and the snare on 2
+  and 4, which finds the bar line when the guitar part alone is ambiguous.
 - strums: every onset (librosa onset detection) with features for the strum analysis:
   strength (onset envelope, 0..1 of the loudest), spread (s: when the high strings' new energy
   arrives minus when the low strings' does, > 0 = low strings first = down stroke), flatness
@@ -81,6 +84,33 @@ def strum_features(y, sr):
     return out
 
 
+def beat_drums(path, sr, beats):
+    """[kick, snare] onset strength around each beat time of the drum stem."""
+    import numpy as np
+    import librosa
+
+    y, _ = librosa.load(path, sr=sr, mono=True)
+    hop = 512
+    S = np.abs(librosa.stft(y, hop_length=hop))
+    fq = librosa.fft_frequencies(sr=sr)
+
+    def flux(band):
+        e = S[band].sum(0)
+        return np.maximum(0, np.diff(e, prepend=e[:1]))
+
+    kick = flux(fq < 120)
+    snare = flux((fq > 1500) & (fq < 4000))
+    peak_k = float(kick.max()) or 1.0
+    peak_s = float(snare.max()) or 1.0
+    out = []
+    for f in librosa.time_to_frames(np.asarray(beats), sr=sr, hop_length=hop):
+        lo, hi = max(0, f - 2), min(len(kick), f + 3)
+        k = float(kick[lo:hi].max()) / peak_k if hi > lo else 0.0
+        sn = float(snare[lo:hi].max()) / peak_s if hi > lo else 0.0
+        out.append([round(k, 4), round(sn, 4)])
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("input")
@@ -90,6 +120,7 @@ def main():
     ap.add_argument("--frame-threshold", type=float, default=0.3)
     ap.add_argument("--min-note-ms", type=float, default=70.0)
     ap.add_argument("--beats-from", help="audio to track the beat on (default: the input)")
+    ap.add_argument("--drums", help="separated drum track: kick/snare per beat for the bar lines")
     ap.add_argument("--only-strums", action="store_true", help="debug: strum features only")
     args = ap.parse_args()
 
@@ -150,6 +181,11 @@ def main():
         tempo = float(np.atleast_1d(tempo)[0])
         out["tempo"] = round(tempo, 2)
         out["beats"] = [round(float(b), 4) for b in beats]
+        if args.drums and len(beats):
+            try:
+                out["beatDrums"] = beat_drums(args.drums, sr, out["beats"])
+            except Exception as e:  # a hint only
+                print(f"drum features failed: {e}", file=sys.stderr)
     progress(0.9)
     try:
         out["strums"] = strum_features(y, sr)

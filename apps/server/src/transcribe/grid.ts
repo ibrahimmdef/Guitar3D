@@ -23,6 +23,8 @@ export interface RawTranscription {
   cents?: number;
   /** Onsets with attack features for the strum analysis (see scripts/transcribe.py). */
   strums?: RawStrum[];
+  /** [kick, snare] strength (0..1) at every entry of `beats`, from the song's drum track. */
+  beatDrums?: [number, number][];
 }
 
 /** One onset of the guitar track and how its attack looks. */
@@ -110,6 +112,26 @@ export function trackedGrid(beats: number[] | undefined, tempo?: number): BeatGr
 }
 
 /**
+ * Moves a tracked grid onto the notes' onsets. Beat trackers place beats on the peak of the onset
+ * envelope, a few tens of ms after the attack, so every quantised note (and every bar line the
+ * player syncs to the song) came out late. The shift is the median distance of confident onsets
+ * to their nearest sixteenth, applied when it is clear and smaller than a 32nd note.
+ */
+export function alignGrid(grid: BeatGrid, notes: readonly RawNote[], minConf = 0.3): BeatGrid {
+  const res: number[] = [];
+  for (const n of notes) {
+    if (n.conf < minConf) continue;
+    const slot = Math.round(grid.toBeat(n.start) * SLOTS_PER_BEAT);
+    res.push(n.start - grid.toTime(slot / SLOTS_PER_BEAT));
+  }
+  if (res.length < 8) return grid;
+  const d = median(res);
+  const sixteenth = grid.toTime(1 / SLOTS_PER_BEAT) - grid.toTime(0);
+  if (Math.abs(d) < 0.005 || Math.abs(d) > sixteenth / 2) return grid;
+  return { ...grid, toBeat: (t) => grid.toBeat(t - d), toTime: (b) => grid.toTime(b) + d };
+}
+
+/**
  * Snaps notes to the 16th grid. Notes of the same pitch starting in the same slot merge (longest
  * length, highest confidence).
  */
@@ -135,7 +157,9 @@ export function quantize(notes: RawNote[], grid: BeatGrid): QNote[] {
  * line), and the very first note gets a bonus (pieces usually start on a downbeat). Notes starting
  * together count once.
  */
-export function chooseDownbeat(notes: QNote[]): number {
+export function chooseDownbeat(notes: QNote[], drums?: readonly [number, number][]): number {
+  const fromDrums = drums ? drumPhase(drums) : null;
+  if (fromDrums?.phase != null) return fromDrums.phase;
   const score = [0, 0, 0, 0];
   const slots = new Map<number, QNote[]>();
   for (const n of notes) slots.set(n.slot, [...(slots.get(n.slot) ?? []), n]);
@@ -151,8 +175,10 @@ export function chooseDownbeat(notes: QNote[]): number {
     const low = Math.min(...ns.map((n) => n.pitch));
     score[beat] += 1 + Math.max(0, 52 - low) / 12 + (ns.length >= 3 ? 0.5 : 0) + (slot === first ? 1.5 : 0) + (changed ? 2 : 0);
   }
-  let best = 0;
-  for (let i = 1; i < 4; i++) if (score[i] > score[best] + 1e-9) best = i;
+  // the drums' backbeat leaves two candidates: the notes pick between them
+  const allowed = fromDrums ? [fromDrums.pair, fromDrums.pair + 2] : [0, 1, 2, 3];
+  let best = allowed[0];
+  for (const i of allowed) if (score[i] > score[best] + 1e-9) best = i;
   return best;
 }
 
@@ -179,4 +205,39 @@ export function barOrigin(notes: QNote[], downbeat: number, fixedDownbeat = fals
   const phase = downbeat * SLOTS_PER_BEAT;
   const first = Math.min(...notes.map((n) => n.slot));
   return phase + Math.floor((first - phase) / SLOTS_PER_BAR) * SLOTS_PER_BAR;
+}
+
+/**
+ * The bar line from the drums. Rock and pop put the snare on the backbeat (2 and 4) and the kick
+ * on 1 and 3, so each beat scores kick minus snare (z-scored over the song) and every 4th beat is
+ * summed per phase. The backbeat separates the pairs {1,3} and {2,4} clearly; 1 vs 3 is subtler
+ * (the kick is usually a little stronger on 1). Returns the phase, or only the pair when 1 vs 3 is
+ * unclear, or null without a steady drum pattern.
+ */
+export function drumPhase(drums: readonly [number, number][], minBeats = 32): { pair: number; phase: number | null } | null {
+  if (drums.length < minBeats) return null;
+  const z = (xs: number[]) => {
+    const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length) || 1;
+    return xs.map((x) => (x - m) / sd);
+  };
+  const k = z(drums.map((d) => d[0]));
+  const sn = z(drums.map((d) => d[1]));
+  const sum = [0, 0, 0, 0];
+  const n = [0, 0, 0, 0];
+  for (let i = 0; i < drums.length; i++) {
+    sum[i % 4] += k[i] - sn[i];
+    n[i % 4]++;
+  }
+  const sc = sum.map((x, p) => x / (n[p] || 1));
+  const pairs = [sc[0] + sc[2], sc[1] + sc[3]];
+  if (Math.abs(pairs[0] - pairs[1]) < 0.5) return null;
+  const pair = pairs[0] > pairs[1] ? 0 : 1;
+  const d = sc[pair] - sc[pair + 2];
+  return { pair, phase: Math.abs(d) >= 0.1 ? (d > 0 ? pair : pair + 2) : null };
+}
+
+/** The bar's first beat (0–3) from the drums alone, or null when they do not tell. */
+export function drumDownbeat(drums: readonly [number, number][]): number | null {
+  return drumPhase(drums)?.phase ?? null;
 }

@@ -1,5 +1,5 @@
 import type { AutoTabInfo, StrumAnalysis, TranscriptionSummary } from '@guitar3d/shared';
-import { barOrigin, chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, SLOTS_PER_BEAT, type RawTranscription } from './grid.js';
+import { alignGrid, barOrigin, chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, SLOTS_PER_BEAT, type RawTranscription } from './grid.js';
 import { analyzeStrums, applyStrums } from './strum.js';
 import { cleanNotes } from './clean.js';
 import { buildAlphaTex, groupEvents, LEAD_NAME, placeEvents, RHYTHM_NAME, splitLeadRhythm, type TrackPart } from './tab.js';
@@ -31,9 +31,9 @@ export interface AutoTab {
 export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab {
   const notes = cleanNotes(raw.notes).filter((n) => n.conf >= (opts.minConf ?? 0.12) && n.end > n.start && n.pitch >= 24 && n.pitch <= 100);
   if (!notes.length) throw new Error('No guitar notes were detected.');
-  const grid = opts.bpm ? fixedGrid(opts.bpm, opts.offset ?? 0) : trackedGrid(raw.beats, raw.tempo);
+  const grid = opts.bpm ? fixedGrid(opts.bpm, opts.offset ?? 0) : alignGrid(trackedGrid(raw.beats, raw.tempo), notes);
   const q = quantize(notes, grid);
-  const downbeat = grid.fixedDownbeat ? 0 : chooseDownbeat(q);
+  const downbeat = grid.fixedDownbeat ? 0 : chooseDownbeat(q, raw.beatDrums?.length === raw.beats?.length ? raw.beatDrums : undefined);
   const barred = toBars(q, downbeat, grid.fixedDownbeat);
   if (!barred.length) throw new Error('No guitar notes were detected after the count-in.');
 

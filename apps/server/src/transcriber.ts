@@ -15,8 +15,13 @@ import type { RawTranscription } from './transcribe/index.js';
 export interface TranscribeOptions {
   /** Skip beat tracking (the caller knows the tempo). */
   noBeats?: boolean;
-  /** Track the beat on this audio instead (a song's full mix, steadier than the guitar stem). */
-  beatsInput?: string;
+  /**
+   * Track the beat on this audio instead (a song's full mix, steadier than the guitar stem).
+   * Several files (a song's stems) are mixed together first.
+   */
+  beatsInput?: string | string[];
+  /** The song's separated drum track: finds the bar lines from the kick/snare pattern. */
+  drumsInput?: string;
   onProgress: (fraction: number) => void;
   signal: AbortSignal;
 }
@@ -69,7 +74,7 @@ export class BasicPitchTools implements TranscriberTools {
     return { available: true };
   }
 
-  async transcribe(input: string, { noBeats, beatsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
+  async transcribe(input: string, { noBeats, beatsInput, drumsInput, onProgress, signal }: TranscribeOptions): Promise<RawTranscription> {
     fs.mkdirSync(this.tmpRoot, { recursive: true });
     const work = fs.mkdtempSync(path.join(this.tmpRoot, 'tr-'));
     try {
@@ -77,12 +82,16 @@ export class BasicPitchTools implements TranscriberTools {
       const wav = path.join(work, 'input.wav');
       await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-ac', '1', '-ar', '22050', '-c:a', 'pcm_s16le', wav], { signal, onSpawn: track });
       const beatsWav = path.join(work, 'beats.wav');
-      const withBeats = !noBeats && !!beatsInput && fs.existsSync(beatsInput);
-      if (withBeats) await run(this.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', beatsInput!, '-ac', '1', '-ar', '22050', '-c:a', 'pcm_s16le', beatsWav], { signal, onSpawn: track });
+      const beatFiles = (Array.isArray(beatsInput) ? beatsInput : beatsInput ? [beatsInput] : []).filter((f) => fs.existsSync(f));
+      const withBeats = !noBeats && beatFiles.length > 0;
+      if (withBeats) await run(this.ffmpeg, beatsMixArgs(beatFiles, beatsWav), { signal, onSpawn: track });
+      const drumsWav = path.join(work, 'drums.wav');
+      const withDrums = !noBeats && !!drumsInput && fs.existsSync(drumsInput);
+      if (withDrums) await run(this.ffmpeg, beatsMixArgs([drumsInput!], drumsWav), { signal, onSpawn: track });
       onProgress(0.05);
       const out = path.join(work, 'notes.json');
       const threads = String(Math.max(1, Math.min(4, os.cpus().length - 1)));
-      await run(this.python, [this.script, wav, '--out', out, ...(noBeats ? ['--no-beats'] : withBeats ? ['--beats-from', beatsWav] : [])], {
+      await run(this.python, [this.script, wav, '--out', out, ...(noBeats ? ['--no-beats'] : withBeats ? ['--beats-from', beatsWav] : []), ...(withDrums ? ['--drums', drumsWav] : [])], {
         signal,
         env: { ...process.env, TMPDIR: work, OMP_NUM_THREADS: threads, NUMBA_CACHE_DIR: path.join(this.tmpRoot, 'numba-cache'), PYTHONUNBUFFERED: '1' },
         onSpawn: (c) => {
@@ -103,4 +112,11 @@ export class BasicPitchTools implements TranscriberTools {
       fs.rmSync(work, { recursive: true, force: true });
     }
   }
+}
+
+/** ffmpeg arguments: one file (or the sum of several, e.g. stems) → mono 22.05 kHz WAV. */
+export function beatsMixArgs(files: readonly string[], out: string): string[] {
+  const inputs = files.flatMap((f) => ['-i', f]);
+  const mix = files.length > 1 ? ['-filter_complex', `amix=inputs=${files.length}:normalize=0:duration=longest`] : [];
+  return ['-hide_banner', '-loglevel', 'error', '-y', ...inputs, ...mix, '-ac', '1', '-ar', '22050', '-c:a', 'pcm_s16le', out];
 }

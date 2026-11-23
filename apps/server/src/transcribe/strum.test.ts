@@ -219,6 +219,15 @@ describe('strums in the tab', () => {
     expect(r.lead.map((e) => e.slot)).toEqual([7]); // B (in G) moved out, C# stays
   });
 
+  it('does not turn picked riff notes into copies of the last chord', () => {
+    // a G chord, then single picked notes outside it (F, A#): onsets, but no strums to fill
+    const rhythm = [chordEv(0, G)];
+    const lead: TabEvent[] = [{ slot: 4, notes: [q(4, 53)] }, { slot: 8, notes: [q(8, 46)] }];
+    const r = applyStrums(rhythm, lead, [strum(0, 'D'), strum(4, 'D'), strum(8, 'D')]);
+    expect(r.rhythm.map((e) => e.slot)).toEqual([0]);
+    expect(r.lead.map((e) => e.slot)).toEqual([4, 8]);
+  });
+
   it('writes pick strokes, chord names, dead notes and accents in alphaTex', () => {
     const ev = (slot: number, extra: Partial<PlacedEvent>, dead = false): PlacedEvent => ({
       slot,

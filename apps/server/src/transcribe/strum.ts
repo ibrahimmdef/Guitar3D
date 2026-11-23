@@ -204,7 +204,9 @@ const pcs = (e: TabEvent) => new Set(e.notes.map((n) => ((n.pitch % 12) + 12) % 
 /**
  * Puts the strums into the parts: every strum becomes a rhythm event (the chord transcribed there,
  * or the voicing that is ringing: the last chord before it, else the next one) with its stroke,
- * accent and, for chucks, dead notes. Chord events within a sixteenth of a strum merge into it and
+ * accent and, for chucks, dead notes. An onset transcribed as a single note outside the ringing
+ * chord is a riff note, not a strum the transcriber half missed: it gets no copied chord (in riff
+ * songs copying once turned every picked note into a full chord). Chord events within a sixteenth of a strum merge into it and
  * lead notes that only repeat the strummed chord's notes move out of the lead part.
  */
 export function applyStrums(rhythm: readonly TabEvent[], lead: readonly TabEvent[], strums: readonly Strum[], bars?: readonly StrumBar[]): { rhythm: TabEvent[]; lead: TabEvent[] } {
@@ -222,11 +224,21 @@ export function applyStrums(rhythm: readonly TabEvent[], lead: readonly TabEvent
   };
   const out: TabEvent[] = [];
   const used = new Set<TabEvent>();
+  // the picked note(s) closest to a strum, within a sixteenth
+  const pickedAt = (slot: number) => {
+    const by = lead.filter((e) => Math.abs(e.slot - slot) <= 1);
+    const d = Math.min(...by.map((e) => Math.abs(e.slot - slot)));
+    return by.filter((e) => Math.abs(e.slot - slot) === d);
+  };
   let lastChord: string | null = null;
   for (const s of strums) {
     const own = near(s.slot);
     const src = own ?? voicing(s.slot);
     if (!src) continue;
+    if (!own) {
+      const cp = pcs(src);
+      if (pickedAt(s.slot).some((e) => [...pcs(e)].some((p) => !cp.has(p)))) continue;
+    }
     if (own) used.add(own);
     const name = s.chuck ? null : bars ? (half(s.slot) ?? null) : chordName(src.notes.map((n) => n.pitch));
     const ev: TabEvent = {
