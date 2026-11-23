@@ -49,7 +49,6 @@ apps/web/src
 packages/shared  types and music helpers (guitar profile, chords, fingering)
 ```
 
-A guide in Turkish explaining how each part works and what to learn: [docs/OGRENME.md](docs/OGRENME.md).
 
 ## The Veston model
 
