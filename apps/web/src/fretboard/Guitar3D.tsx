@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { CameraControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { CameraMode, FretNote, GuitarProfile, GuitarView } from '@guitar3d/shared';
-import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry } from './build';
+import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry, type InstancedData } from './build';
 import {
   bodyDepthAt, capoLayout, followTarget, guitarXRange, hitToFret, speakingFraction,
 } from './geometry';
@@ -124,18 +124,52 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
     if (profile.textures.fretboard?.inlayMask) u.inlayMask = profile.textures.fretboard.inlayMask;
     return u;
   }, [profile]);
-  // useTexture suspends: the guitar appears only once every texture is decoded.
-  const tex = useTexture(urls) as unknown as Textures;
-  useLayoutEffect(() => {
-    const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    for (const [k, t] of Object.entries(tex) as [string, THREE.Texture][]) {
-      t.colorSpace = k === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
-      t.anisotropy = aniso;
-      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-      t.needsUpdate = true;
+
+  // Lazy texture loading: don't suspend, load progressively
+  const [textures, setTextures] = useState<Textures>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTex = async () => {
+      const tex: Textures = {};
+      const keys = Object.keys(urls);
+      for (const key of keys) {
+        if (cancelled) return;
+        const url = urls[key];
+        const t = await new Promise<THREE.Texture>((resolve, reject) => {
+          const loader = new THREE.TextureLoader();
+          loader.load(url, resolve, undefined, reject);
+        });
+        if (!cancelled) {
+          t.colorSpace = key === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+          t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
+          t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+          t.needsUpdate = true;
+          tex[key as keyof Textures] = t;
+          setTextures({ ...tex });
+        }
+      }
+      if (!cancelled) setLoading(false);
+    };
+    if (Object.keys(urls).length > 0) {
+      loadTex();
+    } else {
+      setLoading(false);
     }
-  }, [tex, gl]);
-  return tex;
+    return () => { cancelled = true; };
+  }, [urls, gl]);
+
+  // Return procedural fallbacks while loading
+  const result = useMemo(() => ({
+    fretboard: textures.fretboard,
+    headstock: textures.headstock,
+    rosette: textures.rosette,
+    bodyTop: textures.bodyTop,
+    inlayMask: textures.inlayMask,
+  }), [textures]);
+
+  return result;
 }
 
 function Guitar({
@@ -193,14 +227,68 @@ function Guitar({
   }, [roseMat, tex.rosette]);
   const staticStrings = useMemo(() => buildStaticStrings(geo.strings), [geo]);
   useEffect(() => () => {
-    staticStrings.plain.dispose();
-    staticStrings.wound.dispose();
+    if (staticStrings?.plain && staticStrings?.wound) {
+      staticStrings.plain.dispose();
+      staticStrings.wound.dispose();
+    }
   }, [staticStrings]);
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
   const parts = geo.parts;
   const solid = (k: keyof typeof parts, mat: THREE.Material, cast = true) =>
     parts[k] ? <mesh key={k} geometry={parts[k]} material={mat} castShadow={cast} receiveShadow /> : null;
+
+  // GPU Instanced components for static elements (frets, side dots, face inlays)
+  const InstancedFrets = useMemo(() => {
+    if (!geo.instanced?.frets.count) return null;
+    const geometry = new THREE.CapsuleGeometry(0.1, 1, 3, 10); // radius 0.1, height 1 (will be scaled by instance matrix)
+    const mesh = new THREE.InstancedMesh(geometry, mats.fret, geo.instanced.frets.count);
+    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.frets.matrices, 16);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    return (
+      <primitive object={mesh} dispose={null} onDispose={() => {
+        geometry.dispose();
+        mesh.dispose();
+      }} />
+    );
+  }, [geo.instanced?.frets.count, mats.fret]);
+
+  const InstancedSideDots = useMemo(() => {
+    if (!geo.instanced?.sideDots.count) return null;
+    const geometry = new THREE.CircleGeometry(1, 14); // radius 1 (will be scaled by instance matrix)
+    const mesh = new THREE.InstancedMesh(geometry, mats.dot, geo.instanced.sideDots.count);
+    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.sideDots.matrices, 16);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.frustumCulled = false;
+    return (
+      <primitive object={mesh} dispose={null} onDispose={() => {
+        geometry.dispose();
+        mesh.dispose();
+      }} />
+    );
+  }, [geo.instanced?.sideDots.count, mats.dot]);
+
+  const InstancedFaceInlays = useMemo(() => {
+    if (!geo.instanced?.faceInlays.count) return null;
+    const geometry = new THREE.CircleGeometry(1, 28); // radius 1 (will be scaled by instance matrix)
+    const mesh = new THREE.InstancedMesh(geometry, mats.inlay, geo.instanced.faceInlays.count);
+    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.faceInlays.matrices, 16);
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.frustumCulled = false;
+    return (
+      <primitive object={mesh} dispose={null} onDispose={() => {
+        geometry.dispose();
+        mesh.dispose();
+      }} />
+    );
+  }, [geo.instanced?.faceInlays.count, mats.inlay]);
 
   return (
     <group>
@@ -215,9 +303,9 @@ function Guitar({
       {solid('bone', mats.bone)}
       {solid('pin', mats.pin)}
       {solid('chrome', mats.chrome)}
-      {solid('fret', mats.fret)}
-      {solid('dot', mats.dot, false)}
-      {solid('inlay', mats.inlay, false)}
+      {InstancedFrets}
+      {InstancedSideDots}
+      {InstancedFaceInlays}
       {parts.interior && <mesh geometry={parts.interior} material={mats.interior} material-side={THREE.DoubleSide} />}
       {parts.hole && <mesh geometry={parts.hole} material={mats.hole} />}
       <mesh geometry={geo.fretboard} material={fbMat} receiveShadow onClick={onFretboardClick} onDoubleClick={onFretboardDoubleClick} />
@@ -227,8 +315,12 @@ function Guitar({
           <ringGeometry args={[geo.rosette.inner, geo.rosette.outer, 128, 1]} />
         </mesh>
       )}
-      <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
-      <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
+      {staticStrings?.plain && staticStrings?.wound && (
+        <>
+          <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
+          <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
+        </>
+      )}
       {capoFret > 0 && <Capo profile={profile} fret={capoFret} />}
       <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} capoFret={capoFret} plain={mats.plainString} woundMat={mats.woundString} />
       <NoteMarkers profile={profile} notes={notes} upcoming={upcoming} beatId={beatId} beatProgress={beatProgress} />

@@ -1493,3 +1493,171 @@
   display: flex;
   gap: 4px;
 }
+
+/* ---------- Speed trainer ---------- */
+.trainer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.trainer-head h3 {
+  margin: 0;
+  font-size: var(--fs-base);
+}
+.trainer-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: var(--accent);
+}
+.trainer-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sp-2);
+}
+.trainer-section .btn {
+  margin-left: -8px;
+  flex-basis: 100%;
+  justify-content: flex-start;
+}
+.trainer-loop {
+  font-weight: var(--fw-semibold);
+}
+.trainer-streak {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.trainer-pass {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.trainer-pass.is-clean {
+  border-left-color: var(--success);
+}
+.trainer-pass:hover {
+  background: var(--surface-hover);
+}
+.trainer-pass-score {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  line-height: 1.2;
+}
+.trainer-pass-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.trainer-done {
+  color: var(--success);
+  font-weight: var(--fw-medium);
+}
+.trainer-cal {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-2);
+}
+.trainer-cal > span {
+  flex: 1;
+}
+.trainer-cal.is-warn {
+  color: var(--accent);
+}
+.trainer-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.trainer-settings > summary {
+  cursor: pointer;
+  color: var(--text-2);
+}
+.trainer-settings[open] > summary {
+  margin-bottom: var(--sp-3);
+}
+.trainer-settings > * + * {
+  margin-top: var(--sp-3);
+}
+.trainer-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trainer-tips li {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+}
+.trainer-tips li.is-bar {
+  border-left-color: var(--danger);
+}
+.trainer-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trainer-notes li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.cal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.cal-steps {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-2);
+}
+.cal-beats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cal-beats span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+}
+.cal-beats span.is-count {
+  border-style: dashed;
+}
+.cal-beats span.is-past {
+  background: var(--surface-3);
+}
+.cal-beats span.is-now {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cal-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 1.5em;
+  margin: 0;
+  font-weight: var(--fw-medium);
+}

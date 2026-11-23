@@ -634,6 +634,27 @@ export function analyzeBar(bar: SimpleBar, prevLastNotes: SimpleNote[] | null = 
   return analyzeBars([lead, bar])[1];
 }
 
+/**
+ * Notes the fretting hand lands on after a position shift of two frets or more: `beat` is the index
+ * in `bars[i].beats`. Used by the speed trainer to say "late on the position shift in bar 5".
+ */
+export function shiftLandings(bars: SimpleBar[]): { bar: number; beat: number; dist: number }[] {
+  const { events } = flatten(bars);
+  trackHand(events);
+  const out: { bar: number; beat: number; dist: number }[] = [];
+  let bi = -1;
+  let k = 0;
+  for (const e of events) {
+    if (e.bi !== bi) {
+      bi = e.bi;
+      k = 0;
+    }
+    if (e.shift && e.shift.dist >= 2) out.push({ bar: bars[e.bi].index, beat: k, dist: e.shift.dist });
+    k++;
+  }
+  return out;
+}
+
 const PRACTICE: Partial<Record<IssueKind, string>> = {
   barre: 'There are barre chords: every day spend two minutes just fretting the barre shape, playing the strings one by one and fixing the ones that don\'t ring clean.',
   shift: 'There are position shifts: practice each shift separately with the metronome, using only the departure and arrival notes.',

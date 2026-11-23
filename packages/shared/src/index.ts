@@ -27,11 +27,27 @@ export interface TabTranscriptionInfo {
 
 export type TabFormat = 'gp' | 'gp3' | 'gp4' | 'gp5' | 'gpx' | 'gp7' | 'musicxml' | 'mxl' | 'alphatex' | 'ascii';
 
+/** One speed-trainer pass through a section (`POST /api/progress/:tabId/passes`). */
+export interface SectionPass {
+  /** ISO time. */
+  at: string;
+  /** Playback speed of the pass (1 = written tempo). */
+  speed: number;
+  clean: boolean;
+  /** Scored pass (microphone): clean notes in %. Missing for manual "Clean / Not clean" passes. */
+  score?: number;
+  mode: 'mic' | 'manual';
+}
+
 export interface SectionProgress {
   startBar: number;
   endBar: number;
   bestCleanSpeed: number;
   updatedAt: string;
+  /** Written tempo of the section in BPM (for "12 BPM to go"). */
+  bpm?: number;
+  /** Speed-trainer passes, oldest first (capped on the server). */
+  history?: SectionPass[];
 }
 
 export interface TabProgress {
@@ -56,6 +72,8 @@ export interface FretNote {
   muted?: boolean;
   /** Technique hints drawn on the bubble. */
   technique?: 'hammer' | 'pull' | 'slide' | 'bend' | 'harmonic';
+  /** Speed-trainer feedback: the note was missed, late or early (drawn in that colour). */
+  tone?: 'missed' | 'late' | 'early';
 }
 
 /** What a practice session was spent on. */

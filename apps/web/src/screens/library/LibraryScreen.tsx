@@ -6,7 +6,8 @@ import { navigate, playLesson, playTab } from '../../ui/router';
 import { getRecent } from '../../ui/settings';
 import { relativeTime } from '../../ui/format';
 import { ScreenHeader } from '../AppShell';
-import { bestSpeed, deleteTab, getProgress, listTabs } from '../data';
+import { bestSpeed, deleteTab, listAllProgress, listTabs } from '../data';
+import { cleanLabel, focusSection, sectionLabel } from '../../coach/progress';
 import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
 import { SongsSection } from './SongsSection';
@@ -36,7 +37,7 @@ export function LibraryScreen() {
     listTabs()
       .then((ts) => {
         setTabs(ts);
-        ts.forEach((t) => getProgress(t.id).then((p) => setProgress((x) => ({ ...x, [t.id]: p }))).catch(() => {}));
+        listAllProgress().then((ps) => setProgress(Object.fromEntries(ps.map((p) => [p.tabId, p])))).catch(() => {});
       })
       .catch(() => {
         setTabs([]);
@@ -164,7 +165,9 @@ export function LibraryScreen() {
             <>
               <ul className="lib-grid" aria-label="Tabs">
                 {visibleTabs.map((t) => {
-                  const best = bestSpeed(progress[t.id]);
+                  const focus = focusSection(progress[t.id]);
+                  const best = focus ? focus.bestCleanSpeed || null : bestSpeed(progress[t.id]);
+                  const label = focus ? `${sectionLabel(focus)}: ${cleanLabel(focus)}` : null;
                   const played = relativeTime(recent[t.id]);
                   return (
                     <li key={t.id} className="tab-card-wrap">
@@ -180,10 +183,11 @@ export function LibraryScreen() {
                           )}
                           {played ? `Last played ${played}` : 'Not played yet'}
                         </span>
-                        <span className="tab-card-progress" aria-label={best == null ? 'No practice yet' : `Best clean speed ${Math.round(best * 100)} percent`}>
-                          <span className="bar"><span style={{ width: `${(best ?? 0) * 100}%` }} /></span>
-                          <span className="num">{best == null ? '—' : `%${Math.round(best * 100)}`}</span>
+                        <span className="tab-card-progress" aria-label={label ?? 'No practice yet'} title={label ?? undefined}>
+                          <span className="bar"><span style={{ width: `${Math.min(1, best ?? 0) * 100}%` }} /></span>
+                          <span className="num">{best == null ? '—' : `${Math.round(best * 100)}%`}</span>
                         </span>
+                        {label && <span className="tab-card-clean num">{label}</span>}
                         <span className="tab-card-play" aria-hidden><Play size={16} fill="currentColor" /></span>
                       </button>
                       <IconButton className="tab-card-del" label={`Delete tab “${t.title}”`} icon={<Trash size={16} />} size="sm" onClick={() => setConfirm(t)} />

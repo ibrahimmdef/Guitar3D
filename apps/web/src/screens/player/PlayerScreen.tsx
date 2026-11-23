@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownUp, ArrowLeft, Box, FileMusic, GraduationCap, PencilLine, Sparkles, X } from 'lucide-react';
-import type { AutoTabInfo, CameraMode, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { AutoTabInfo, CameraMode, FretNote, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import type { model } from '@coderline/alphatab';
 import { readAutoTabInfo } from '@guitar3d/shared';
-import { api as server } from '../../api';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
@@ -16,7 +15,10 @@ import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
 import { Coach } from '../../ui/Coach';
-import { LadderPanel } from '../../ui/LadderPanel';
+import { SpeedTrainerPanel } from '../../ui/SpeedTrainerPanel';
+import { useSpeedTrainer, type TrainerPass } from '../../coach/useSpeedTrainer';
+import { pickHardestSection } from '../../coach/hardest';
+import { markPassNotes, problemMarkers } from '../../coach/marks';
 import { ErrorBoundary } from '../../ui/ErrorBoundary';
 import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
@@ -26,11 +28,13 @@ import { guitarsApi } from '../../guitar-setup/api';
 import { markPlayed, useSettings } from '../../ui/settings';
 import { useHotkeys, zoomDelta } from '../../ui/shortcuts';
 import { ShortcutList } from '../../ui/ShortcutList';
-import { fetchTabFile, listTabs } from '../data';
+import { fetchTabFile, getProgress, listTabs, recordPass } from '../data';
 import { loadLesson } from '../library/lessons';
 import { CAMERA_MODES, PlayerTopBar } from './PlayerTopBar';
 import { CapoControl } from './CapoControl';
 import { FeedbackSheet } from './FeedbackSheet';
+import { CalibrationDialog } from './CalibrationDialog';
+import { TrainerFeedbackSheet } from './TrainerFeedbackSheet';
 import { CueStrip } from './CueStrip';
 import { EasierPositionPanel, ghostNotes, useEasierPosition } from './EasierPosition';
 import { StageGuitar } from './StageGuitar';
@@ -70,10 +74,18 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const [loop, setLoop] = useState<[number, number] | null>(null);
   const [abPending, setAbPending] = useState<number | null>(null);
   const [ladder, setLadder] = useState<LadderState>(() => startLadder({ start: 1, target: 1, passes: 3 }));
-  const [autoLadder, setAutoLadder] = useState(false);
   const ladderRef = useRef(ladder);
   ladderRef.current = ladder;
-  const applyPassRef = useRef<(r: 'clean' | 'miss') => void>(() => {});
+  /* Speed trainer */
+  const [trainerOn, setTrainerOn] = useState(false);
+  const trainerOnRef = useRef(trainerOn);
+  trainerOnRef.current = trainerOn;
+  const [trainerPass, setTrainerPass] = useState<TrainerPass | null>(null);
+  const [trainerSheet, setTrainerSheet] = useState(false);
+  const [awaitingVerdict, setAwaitingVerdict] = useState(false);
+  const [calOpen, setCalOpen] = useState(false);
+  const [flash, setFlash] = useState<FretNote[]>([]);
+  const [tabProgress, setTabProgress] = useState<TabProgress | null>(null);
   const [listening, setListening] = useState(false);
   const [lastPass, setLastPass] = useState<PassSummary | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -154,7 +166,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     setLoop(null);
     setAbPending(null);
     setLadder(startLadder({ start: report.suggestedStartSpeed, target: settings.ladderTarget, passes: settings.ladderPasses }));
-    setAutoLadder(false);
+    setTrainerOn(false);
     setSpeed(settings.defaultSpeed);
     if (share && state.score) {
       const last = state.score.masterBars.length - 1;
@@ -219,7 +231,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const playTuning = useMemo(() => (origin ? (tuningOverride ? getTuning(tuningOverride).midi : origin.tuning) : null), [origin, tuningOverride]);
   const easier = useEasierPosition(state.track, state.currentBar, playTuning, capo, easierOn);
   const ghosts = useMemo(() => ghostNotes(easier, state.beat), [easier, state.beat]);
-  const stageNotes = useMemo(() => withCapo(ghosts.length ? [...state.notes, ...ghosts] : state.notes, capo), [state.notes, ghosts, capo]);
+  // trainer feedback markers go first so they win over a current note on the same fret
+  const stageNotes = useMemo(() => withCapo([...flash, ...state.notes, ...ghosts], capo), [flash, state.notes, ghosts, capo]);
   // ghost markers ride along with the nearest upcoming beat (the renderer draws 'next' notes from there)
   const stageUpcoming = useMemo(() => {
     const up = ghosts.length ? [[...ghosts, ...(state.upcoming[0] ?? [])], ...state.upcoming.slice(1)] : state.upcoming;
@@ -312,8 +325,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     if (countValue != null && state.tick > countStart.current + 30) setCountValue(null);
   }, [state.tick, countValue]);
 
-  const autoRef = useRef(autoLadder);
-  autoRef.current = autoLadder;
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
@@ -326,11 +337,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     if (p.hits === 0) return;
     recorder.noteAccuracy(p.accuracy);
     setLastPass(p);
-    if (autoRef.current) {
-      // The ladder drives the loop; the summary stays one click away in the practice drawer.
-      applyPassRef.current(passResult(p.accuracy, settingsRef.current.ladderCleanAccuracy));
-      return;
-    }
     setFeedbackOpen(true);
   }, [recorder]);
   const pause = useCallback(() => api.current?.pause(), [api]);
@@ -349,9 +355,13 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   /* ---------- Actions ---------- */
   const playPause = useCallback(() => {
     if (listening) setListening(false);
+    if (trainerOn && state.playing) setTrainerOn(false);
     api.current?.playPause();
-  }, [api, listening]);
-  const stop = useCallback(() => api.current?.stop(), [api]);
+  }, [api, listening, trainerOn, state.playing]);
+  const stop = useCallback(() => {
+    setTrainerOn(false);
+    api.current?.stop();
+  }, [api]);
   /** Recording / take overlay: same position and speed, start now. */
   const playFrom = useCallback((tick: number, spd: number) => {
     const a = api.current;
@@ -392,46 +402,159 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     if (report) setSpeed(ladder.speed);
   }, [report, ladder.speed]);
 
-  const saveProgress = useCallback((best: number) => {
-    if (!tabId || !loop) return;
-    server.getProgress(tabId).then((p: TabProgress) => {
-      const others = p.sections.filter((s) => !(s.startBar === loop[0] && s.endBar === loop[1]));
-      const prev = p.sections.find((s) => s.startBar === loop[0] && s.endBar === loop[1]);
-      return server.putProgress({ tabId, sections: [...others, { startBar: loop[0], endBar: loop[1], bestCleanSpeed: Math.max(best, prev?.bestCleanSpeed ?? 0), updatedAt: new Date().toISOString() }] });
-    }).catch(() => {});
-  }, [tabId, loop]);
+  useEffect(() => {
+    let alive = true;
+    setTabProgress(null);
+    getProgress(tabKey).then((p) => alive && setTabProgress(p)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [tabKey]);
+  const loopRef = useRef(loop);
+  loopRef.current = loop;
+  const songBpm = state.score ? Math.round(state.score.tempo) : null;
 
-  /** One pass through the loop, judged clean or missed (buttons or listen-mode accuracy). */
-  const applyPass = useCallback((result: 'clean' | 'miss') => {
+  /* ---------- Speed trainer ---------- */
+  const section = useMemo(() => (loop && tabProgress ? tabProgress.sections.find((x) => x.startBar === loop[0] && x.endBar === loop[1]) ?? null : null), [loop, tabProgress]);
+
+  /** One pass through the loop, judged clean or not (microphone score or the player's own verdict). */
+  const applyPass = useCallback((result: 'clean' | 'miss', info: { score?: number; mode: 'mic' | 'manual' } = { mode: 'manual' }) => {
     const cur = ladderRef.current;
-    const { state: next, event } = ladderStep(cur, result);
+    const st = settingsRef.current;
+    const { state: next, event } = ladderStep(cur, result, { step: st.ladderStep, failPasses: st.ladderFailPasses });
     setLadder(next);
-    if (result === 'clean') recorder.noteClean(cur.speed);
-    if (event === 'up' || event === 'down') setSpeed(next.speed);
-    const pct = `%${Math.round(next.speed * 100)}`;
-    if (event === 'up') {
-      saveProgress(cur.speed);
-      toast({ tone: 'success', title: `${cur.passes} clean passes! Speed is now ${pct}.`, description: 'Try the same section at the new speed.' });
-    } else if (event === 'target') {
-      saveProgress(cur.speed);
-      toast({ tone: 'success', title: 'You reached the target speed.', description: 'This section is done. Pick the next hard bar from the map.' });
-    } else if (event === 'down' && autoRef.current) {
-      toast({ tone: 'info', title: `Speed is now ${pct}`, description: 'You got stuck on a pass; slow down a little and try again.' });
+    const played = api.current?.playbackSpeed ?? cur.speed;
+    if (result === 'clean') recorder.noteClean(played);
+    const l = loopRef.current;
+    // Prefer section-level BPM (from progress) over song-level BPM, as songs may have tempo changes
+    const passBpm = section?.bpm ?? songBpm;
+    if (l) {
+      recordPass(tabKey, { startBar: l[0], endBar: l[1], speed: played, clean: result === 'clean', mode: info.mode, ...(info.score != null ? { score: info.score } : {}), ...(passBpm ? { bpm: passBpm } : {}) })
+        .then(setTabProgress)
+        .catch(() => {});
     }
-  }, [recorder, saveProgress, toast]);
-  applyPassRef.current = applyPass;
+    if (event === 'up' || event === 'down') {
+      setSpeed(next.speed);
+      if (api.current) api.current.playbackSpeed = next.speed;
+    }
+    const pct = `${Math.round(next.speed * 100)}%`;
+    const toastBpm = passBpm;
+    if (event === 'up') {
+      toast({ tone: 'success', title: `${cur.passes} clean ${cur.passes === 1 ? 'pass' : 'passes'}! Speed is now ${pct}.`, description: toastBpm ? `${Math.round(toastBpm * next.speed)} BPM. Same section, a little faster.` : 'Same section, a little faster.' });
+    } else if (event === 'target') {
+      if (trainerOnRef.current) {
+        api.current?.pause();
+        setTrainerOn(false);
+      }
+      toast({ tone: 'success', title: `Clean at ${pct}: section done.`, description: 'Pick the next hard section, or turn on “Keep going to 110%”.' });
+    } else if (event === 'down') {
+      toast({ tone: 'info', title: `Two passes in a row weren't clean. Speed back to ${pct}.`, description: 'Slower for a moment, then climb again.' });
+    }
+  }, [recorder, toast, api, tabKey, songBpm, section]);
   const onClean = useCallback(() => applyPass('clean'), [applyPass]);
   const onStuck = useCallback(() => applyPass('miss'), [applyPass]);
+  const hardest = useMemo(() => {
+    const bars = state.track?.staves[0]?.bars;
+    if (!report || !bars) return null;
+    const dens = barDensity(bars);
+    return pickHardestSection(report.bars.map((b) => ({ bar: b.bar, score: b.score, playable: (dens[b.bar] ?? 0) > 0 })));
+  }, [report, state.track]);
 
-  const restartLadder = useCallback((cfg: { start: number; target: number; passes: number }) => {
-    const l = startLadder(cfg);
+  const restoreMarks = useRef<(() => void) | null>(null);
+  const clearMarks = useCallback(() => {
+    if (!restoreMarks.current) return;
+    restoreMarks.current();
+    restoreMarks.current = null;
+    api.current?.render();
+  }, [api]);
+  const flashTimer = useRef(0);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+  const trackRef = useRef(state.track);
+  trackRef.current = state.track;
+
+  const onTrainerPass = useCallback((p: TrainerPass) => {
+    if (!p.score) {
+      setAwaitingVerdict(true);
+      return;
+    }
+    const threshold = settingsRef.current.ladderCleanAccuracy;
+    setTrainerPass(p);
+    recorder.noteAccuracy(p.score.score);
+    applyPass(passResult(p.score.score, threshold), { score: p.score.score, mode: 'mic' });
+    const t = trackRef.current;
+    if (t) {
+      restoreMarks.current?.();
+      restoreMarks.current = markPassNotes(t, p.score.notes);
+      api.current?.render();
+    }
+    setFlash(problemMarkers(p.score.notes));
+    clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash([]), 2500);
+  }, [applyPass, recorder, api]);
+
+  const trainer = useSpeedTrainer({
+    api,
+    track: state.track,
+    loop,
+    active: trainerOn,
+    mic: settings.trainerMic,
+    latencyMs: settings.latencyMs ?? 0,
+    toleranceMs: settings.timingToleranceMs,
+    onPass: onTrainerPass,
+  });
+  useEffect(() => {
+    const st = trainer.micStatus;
+    if (trainerOn && (st === 'denied' || st === 'unsupported' || st === 'error')) {
+      setSettings({ trainerMic: false });
+      toast({ tone: 'info', title: 'No microphone: switched to manual mode.', description: st === 'denied' ? 'Allow microphone access to have each pass scored. Until then, press Clean or Not clean after each pass.' : 'Press Clean or Not clean after each pass.' });
+    }
+  }, [trainer.micStatus, trainerOn, setSettings, toast]);
+
+  const restartClimb = useCallback(() => {
+    const st = settingsRef.current;
+    const l = startLadder({ start: st.ladderStart, target: st.ladderTarget, passes: st.ladderPasses });
     setLadder(l);
     setSpeed(l.speed);
-  }, []);
-  const toggleAutoLadder = useCallback((on: boolean) => {
-    setAutoLadder(on);
-    if (on) restartLadder({ start: settings.ladderStart, target: settings.ladderTarget, passes: settings.ladderPasses });
-  }, [restartLadder, settings.ladderStart, settings.ladderTarget, settings.ladderPasses]);
+    if (api.current) api.current.playbackSpeed = l.speed;
+    setAwaitingVerdict(false);
+    setTrainerPass(null);
+  }, [api]);
+
+  const startTrainer = useCallback(() => {
+    const range = loop ?? hardest;
+    if (!range) return;
+    if (!loop) setLoop(range);
+    setAbPending(null);
+    setListening(false);
+    restartClimb();
+    clearMarks();
+    setTrainerOn(true);
+    seekBar(range[0]);
+    // after the loop range reached alphaTab
+    window.setTimeout(() => api.current?.play(), 60);
+  }, [loop, hardest, restartClimb, clearMarks, seekBar, api]);
+  const stopTrainer = useCallback(() => {
+    api.current?.pause();
+    setTrainerOn(false);
+    setAwaitingVerdict(false);
+    setFlash([]);
+  }, [api]);
+  // a new section restarts the climb
+  const loopKey = loop ? `${loop[0]}-${loop[1]}` : '';
+  useEffect(() => {
+    if (trainerOnRef.current) restartClimb();
+    clearMarks();
+  }, [loopKey, restartClimb, clearMarks]);
+  const practiceHardest = useCallback(() => {
+    if (!hardest) return;
+    setAbPending(null);
+    setLoop(hardest);
+    seekBar(hardest[0]);
+  }, [hardest, seekBar]);
+  const onManualVerdict = useCallback((clean: boolean) => {
+    setAwaitingVerdict(false);
+    applyPass(clean ? 'clean' : 'miss', { mode: 'manual' });
+  }, [applyPass]);
 
   const pickBar = useCallback((bar: number) => {
     setAbPending(null);
@@ -592,6 +715,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
                 <span key={n.id} className="hud-chip hud-note" title={n.text}>Note: {n.text}</span>
               ))}
               {listening && <span className="hud-chip hud-accent">Listening: play the note</span>}
+              {trainerOn && <span className="hud-chip hud-accent num">Speed trainer · {Math.round(ladder.speed * 100)}%{trainerPass?.score ? ` · last pass ${trainerPass.score.score}%` : ''}</span>}
               {loop && (
                 <span className="hud-chip hud-accent num">
                   Loop {loop[0] + 1}{loop[1] !== loop[0] ? `–${loop[1] + 1}` : ''}
@@ -674,13 +798,22 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
             </Button>
           )}
           {report && (
-            <LadderPanel
-              auto={autoLadder}
-              onAuto={toggleAutoLadder}
-              onRestart={restartLadder}
+            <SpeedTrainerPanel
+              active={trainerOn}
+              onStart={startTrainer}
+              onStop={stopTrainer}
               ladder={ladder}
-              listening={listening}
-              hasLoop={!!loop}
+              loop={loop}
+              onHardest={practiceHardest}
+              hardest={hardest}
+              micStatus={trainer.micStatus}
+              lastPass={trainerPass}
+              onDetails={() => setTrainerSheet(true)}
+              awaiting={awaitingVerdict}
+              onManual={onManualVerdict}
+              bpm={section?.bpm ?? songBpm}
+              section={section}
+              onCalibrate={() => setCalOpen(true)}
             />
           )}
           <Coach
@@ -752,7 +885,10 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         onMix={onMix}
         listening={listening}
         listenDisabled={!hasScore}
-        onListen={setListening}
+        onListen={(on) => {
+          if (on) setTrainerOn(false);
+          setListening(on);
+        }}
         practiceOpen={showPractice}
         onPractice={togglePractice}
       />
@@ -770,6 +906,20 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           seekBar(r[0]);
         }}
       />
+
+      <TrainerFeedbackSheet
+        open={trainerSheet}
+        onOpenChange={setTrainerSheet}
+        pass={trainerPass}
+        threshold={settings.ladderCleanAccuracy}
+        onLoop={(r) => {
+          setTrainerSheet(false);
+          setAbPending(null);
+          setLoop(r);
+          seekBar(r[0]);
+        }}
+      />
+      <CalibrationDialog open={calOpen} onOpenChange={setCalOpen} />
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} title="Keyboard shortcuts" description="You can do everything from the keyboard too.">
         <ShortcutList />

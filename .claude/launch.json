@@ -1,6 +1,9 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "guitar3d", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 }
+    { "name": "guitar3d", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
+    { "name": "stitchgrid", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "/home/ibrahim/projects/stitchgrid", "run", "dev", "--", "--port", "5181", "--strictPort"], "port": 5181 },
+    { "name": "loopchart", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "/home/ibrahim/projects/loopchart", "run", "dev", "--", "--port", "5182", "--strictPort"], "port": 5182 },
+    { "name": "stencilready", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "/home/ibrahim/projects/stencilready", "run", "dev", "--", "--port", "5183", "--strictPort"], "port": 5183 }
   ]
 }

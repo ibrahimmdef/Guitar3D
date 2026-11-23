@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, Award, Flame } from 'lucide-react';
 import { useSettings } from '../../ui/settings';
 import { ALL_BADGES, earnedBadges, weekMinutes } from './badges';
-import type { PracticeSession } from '@guitar3d/shared';
+import type { PracticeSession, SectionProgress, TabProgress } from '@guitar3d/shared';
+import { cleanLabel, cleanTempoBySession, sectionLabel, type SessionPoint } from '../../coach/progress';
+import { listAllProgress, listTabs } from '../data';
+import { listLessons } from '../library/lessons';
 import { Button, EmptyState, Spinner } from '../../ui/kit';
 import { relativeTime } from '../../ui/format';
 import { navigate, playLesson, playTab, routeHref } from '../../ui/router';
@@ -91,6 +94,8 @@ export function ProgressScreen() {
               })}
             </ul>
           </section>
+
+          <TrainerProgress />
 
           <section className="progress-card" aria-labelledby="week-title">
             <h2 id="week-title" className="eyebrow">Minutes per week</h2>
@@ -185,4 +190,104 @@ function roundedTop(x: number, base: number, w: number, h: number) {
   const r = Math.min(4, h, w / 2);
   const y = base - h;
   return `M ${x} ${base} V ${y + r} Q ${x} ${y} ${x + r} ${y} H ${x + w - r} Q ${x + w} ${y} ${x + w} ${y + r} V ${base} Z`;
+}
+
+interface TrainerRow {
+  key: string;
+  tabId: string;
+  title: string;
+  section: SectionProgress;
+}
+
+const refRoute = (tabId: string) => (tabId.startsWith('lesson:') ? playLesson(tabId.slice(7)) : playTab(tabId));
+
+/** Speed trainer: each practised section, "Clean at 85% — 12 BPM to go", and its clean tempo over sessions. */
+function TrainerProgress() {
+  const [progress, setProgress] = useState<TabProgress[] | null>(null);
+  const [titles, setTitles] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    listAllProgress().then((p) => alive && setProgress(p)).catch(() => alive && setProgress([]));
+    listTabs().then((ts) => alive && setTitles((t) => ({ ...t, ...Object.fromEntries(ts.map((x) => [x.id, x.title || x.fileName])) }))).catch(() => {});
+    listLessons().then((ls) => alive && setTitles((t) => ({ ...t, ...Object.fromEntries(ls.map((l) => [`lesson:${l.id}`, l.title])) }))).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const rows = useMemo<TrainerRow[]>(() => (progress ?? [])
+    .flatMap((p) => p.sections.filter((x) => x.history?.length || x.bestCleanSpeed > 0).map((section) => ({ key: `${p.tabId}#${section.startBar}-${section.endBar}`, tabId: p.tabId, title: titles[p.tabId] ?? (p.tabId.startsWith('lesson:') ? 'Lesson' : 'Tab'), section })))
+    .sort((a, b) => b.section.updatedAt.localeCompare(a.section.updatedAt)), [progress, titles]);
+  if (!progress || rows.length === 0) return null;
+  const sel = rows.find((r) => r.key === picked) ?? rows[0];
+  const points = cleanTempoBySession(sel.section.history);
+  return (
+    <section className="progress-card" aria-labelledby="trainer-title">
+      <h2 id="trainer-title" className="eyebrow">Speed trainer · clean tempo</h2>
+      <ul className="trainer-rows">
+        {rows.slice(0, 12).map((r) => (
+          <li key={r.key}>
+            <button type="button" className={`trainer-row${r.key === sel.key ? ' is-on' : ''}`} aria-pressed={r.key === sel.key} onClick={() => setPicked(r.key)}>
+              <span className="trainer-row-title">{r.title}<span className="subtle"> · {sectionLabel(r.section)}</span></span>
+              <span className="num small">{cleanLabel(r.section)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="trainer-chart-head">
+        <span className="small"><b>{sel.title}</b> · {sectionLabel(sel.section)}{sel.section.bpm ? ` · ${sel.section.bpm} BPM at full speed` : ''}</span>
+        <a className="small" href={routeHref(refRoute(sel.tabId))}>Practice</a>
+      </div>
+      {points.length ? <TempoChart points={points} bpm={sel.section.bpm} /> : <p className="subtle small">No speed-trainer passes yet for this section.</p>}
+    </section>
+  );
+}
+
+/** Fastest clean pass per session as a line, with full speed as a dashed reference. */
+function TempoChart({ points, bpm }: { points: SessionPoint[]; bpm?: number }) {
+  const W = 560;
+  const H = 180;
+  const left = 40;
+  const right = 16;
+  const top = 16;
+  const base = H - 26;
+  const vals = points.flatMap((p) => (p.speed != null ? [p.speed] : []));
+  const hasCleanPasses = vals.length > 0;
+  const lo = hasCleanPasses ? Math.max(0, Math.floor((Math.min(0.6, ...vals) - 0.05) * 20) / 20) : 0.5;
+  const hi = hasCleanPasses ? Math.max(1.05, Math.ceil((Math.max(...vals, 1) + 0.02) * 20) / 20) : 1.1;
+  const y = (v: number) => base - ((v - lo) / (hi - lo)) * (base - top);
+  const step = points.length > 1 ? (W - left - right) / (points.length - 1) : 0;
+  const x = (i: number) => (points.length > 1 ? left + i * step : (left + W - right) / 2);
+  const [hover, setHover] = useState<number | null>(null);
+  const path = points.reduce((d, p, i) => (p.speed == null ? d : `${d}${d && points[i - 1]?.speed != null ? ' L' : ' M'} ${x(i).toFixed(1)} ${y(p.speed).toFixed(1)}`), '').trim();
+  const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const lastClean = [...points].reverse().find((p) => p.speed != null);
+  const ticks = hasCleanPasses ? [lo, (lo + hi) / 2, 1].filter((v, i, a) => a.indexOf(v) === i) : [0.5, 0.8, 1];
+  const labelEvery = Math.max(1, Math.ceil(points.length / 6));
+  return (
+    <figure className="week-chart tempo-chart">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Clean tempo per session: ${points.map((p) => `${day(p.at)} ${p.speed != null ? `${Math.round(p.speed * 100)}%` : 'no clean pass'}`).join(', ')}`}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={left} x2={W - right} y1={y(t)} y2={y(t)} className={t === 1 ? 'tc-full' : 'tc-grid'} />
+            <text x={left - 6} y={y(t) + 4} textAnchor="end" className="wc-label">{Math.round(t * 100)}%</text>
+          </g>
+        ))}
+        {path && <path d={path} className="tc-line" />}
+        {points.map((p, i) => (
+          <g key={p.at} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+            <rect x={x(i) - Math.max(10, step / 2)} y={top - 10} width={Math.max(20, step)} height={base - top + 30} fill="transparent" />
+            {p.speed != null ? <circle cx={x(i)} cy={y(p.speed)} r={4.5} className="tc-dot" /> : <circle cx={x(i)} cy={base} r={3.5} className="tc-none" />}
+            {(hover === i || (hover == null && p === lastClean)) && (
+              <text x={Math.min(W - right - 30, Math.max(left + 30, x(i)))} y={(p.speed != null ? y(p.speed) : base) - 10} textAnchor="middle" className="wc-value">
+                {p.speed != null ? `${Math.round(p.speed * 100)}%${bpm ? ` · ${Math.round(bpm * p.speed)} BPM` : ''}` : `no clean pass (${p.passes})`}
+              </text>
+            )}
+            {(i % labelEvery === 0 || i === points.length - 1) && <text x={x(i)} y={H - 8} textAnchor="middle" className="wc-label">{day(p.at)}</text>}
+          </g>
+        ))}
+      </svg>
+      <figcaption className="subtle small">Fastest clean pass in each session; the dashed line is full speed. Hollow dots: sessions without a clean pass.</figcaption>
+    </figure>
+  );
 }

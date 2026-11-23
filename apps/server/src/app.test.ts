@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createApp } from './app.js';
-import { Store } from './store.js';
+import { MAX_PASS_HISTORY, Store } from './store.js';
 
 let app: ReturnType<typeof createApp>;
 
@@ -81,5 +81,56 @@ describe('tabs api', () => {
     await request(app).put('/api/progress/abc').send({ sections }).expect(200);
     const got = await request(app).get('/api/progress/abc');
     expect(got.body.sections).toEqual(sections);
+  });
+
+  it('records speed-trainer passes: best clean speed, bpm and history', async () => {
+    const post = (body: object, id = 'abc') => request(app).post(`/api/progress/${encodeURIComponent(id)}/passes`).send(body);
+    let r = await post({ startBar: 4, endBar: 7, speed: 0.6, clean: true, score: 94, bpm: 120 }).expect(201);
+    expect(r.body.sections).toHaveLength(1);
+    expect(r.body.sections[0]).toMatchObject({ startBar: 4, endBar: 7, bestCleanSpeed: 0.6, bpm: 120 });
+    expect(r.body.sections[0].history[0]).toMatchObject({ speed: 0.6, clean: true, score: 94, mode: 'mic' });
+    await post({ startBar: 4, endBar: 7, speed: 0.7, clean: false, score: 71 }).expect(201);
+    r = await post({ startBar: 4, endBar: 7, speed: 0.65, clean: true, mode: 'manual' }).expect(201);
+    const s = r.body.sections[0];
+    expect(s.bestCleanSpeed).toBe(0.65);
+    expect(s.bpm).toBe(120);
+    expect(s.history.map((h: { speed: number; clean: boolean; mode: string }) => [h.speed, h.clean, h.mode])).toEqual([[0.6, true, 'mic'], [0.7, false, 'mic'], [0.65, true, 'manual']]);
+    // a slower clean pass never lowers the best
+    r = await post({ startBar: 4, endBar: 7, speed: 0.6, clean: true }).expect(201);
+    expect(r.body.sections[0].bestCleanSpeed).toBe(0.65);
+    // another section of the same tab, and a lesson key
+    r = await post({ startBar: 0, endBar: 1, speed: 0.8, clean: true }).expect(201);
+    expect(r.body.sections).toHaveLength(2);
+    await post({ startBar: 0, endBar: 0, speed: 1, clean: true }, 'lesson:em-pentatonic').expect(201);
+    expect((await request(app).get(`/api/progress/${encodeURIComponent('lesson:em-pentatonic')}`)).body.sections[0].bestCleanSpeed).toBe(1);
+
+    const all = (await request(app).get('/api/progress').expect(200)).body as { tabId: string }[];
+    expect(all.map((p) => p.tabId).sort()).toEqual(['abc', 'lesson:em-pentatonic']);
+
+    // a PUT from the old best-speed-only client keeps the history
+    await request(app).put('/api/progress/abc').send({ sections: [{ startBar: 4, endBar: 7, bestCleanSpeed: 0.75, updatedAt: 'now' }] }).expect(200);
+    const kept = (await request(app).get('/api/progress/abc')).body.sections[0];
+    expect(kept.bestCleanSpeed).toBe(0.75);
+    expect(kept.history).toHaveLength(4);
+  });
+
+  it('validates passes and caps the history', async () => {
+    const post = (body: object) => request(app).post('/api/progress/t1/passes').send(body);
+    await post({ startBar: 3, endBar: 1, speed: 0.6, clean: true }).expect(400);
+    await post({ startBar: -1, endBar: 1, speed: 0.6, clean: true }).expect(400);
+    await post({ startBar: 0, endBar: 1, speed: 5, clean: true }).expect(400);
+    await post({ startBar: 0, endBar: 1, speed: 0.6, clean: 'yes' }).expect(400);
+    await post({ startBar: 0, endBar: 1, speed: 0.6, clean: true, score: 140 }).expect(400);
+    await post({ startBar: 0, endBar: 1, speed: 0.6, clean: true, mode: 'robot' }).expect(400);
+    for (let i = 0; i < MAX_PASS_HISTORY + 5; i++) await post({ startBar: 0, endBar: 1, speed: 0.5, clean: i % 2 === 0 }).expect(201);
+    const s = (await request(app).get('/api/progress/t1')).body.sections[0];
+    expect(s.history).toHaveLength(MAX_PASS_HISTORY);
+  });
+
+  it('drops progress with its tab', async () => {
+    const up = (await request(app).post('/api/tabs').send({ alphaTex: ':4 0.6 |', title: 'x' })).body;
+    await request(app).post(`/api/progress/${up.id}/passes`).send({ startBar: 0, endBar: 0, speed: 0.6, clean: true }).expect(201);
+    await request(app).delete(`/api/tabs/${up.id}`).expect(204);
+    expect((await request(app).get(`/api/progress/${up.id}`)).body.sections).toEqual([]);
   });
 });

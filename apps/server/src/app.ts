@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import type { TabFormat, TabMeta, TabProgress } from '@guitar3d/shared';
+import type { SectionPass, TabFormat, TabMeta, TabProgress } from '@guitar3d/shared';
 import { Store } from './store.js';
 import { guitarsRouter } from './guitars.js';
 import { sessionsRouter } from './sessions.js';
@@ -174,6 +174,37 @@ export function createApp(store: Store, opts: AppOptions = {}) {
 
   app.delete('/api/tabs/:id', (req, res) => {
     res.status(store.deleteTab(req.params.id) ? 204 : 404).end();
+  });
+
+  app.get('/api/progress', (_req, res) => {
+    res.json(store.listProgress());
+  });
+
+  app.post('/api/progress/:tabId/passes', (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const int = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0;
+    const num = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+    if (!int(b.startBar) || !int(b.endBar) || (b.endBar as number) < (b.startBar as number)) {
+      res.status(400).json({ error: 'startBar and endBar must be bar indexes with startBar <= endBar.' });
+      return;
+    }
+    if (!num(b.speed, 0.1, 2) || typeof b.clean !== 'boolean') {
+      res.status(400).json({ error: 'speed (0.1–2) and clean (boolean) are required.' });
+      return;
+    }
+    if ((b.score !== undefined && !num(b.score, 0, 100)) || (b.bpm !== undefined && !num(b.bpm, 1, 1000)) || (b.mode !== undefined && b.mode !== 'mic' && b.mode !== 'manual')) {
+      res.status(400).json({ error: 'score must be 0–100, bpm 1–1000 and mode "mic" or "manual".' });
+      return;
+    }
+    const pass: SectionPass = {
+      at: new Date().toISOString(),
+      speed: Math.round((b.speed as number) * 1000) / 1000,
+      clean: b.clean,
+      mode: (b.mode as SectionPass['mode']) ?? (b.score !== undefined ? 'mic' : 'manual'),
+      ...(b.score !== undefined ? { score: Math.round(b.score as number) } : {}),
+    };
+    const section = { startBar: b.startBar as number, endBar: b.endBar as number, ...(b.bpm ? { bpm: Math.round(b.bpm as number) } : {}) };
+    res.status(201).json(store.recordPass(req.params.tabId, section, pass));
   });
 
   app.get('/api/progress/:tabId', (req, res) => {

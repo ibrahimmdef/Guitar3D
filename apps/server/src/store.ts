@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppSettings, BarNote, GuitarProfile, PracticeSession, Song, TabMeta, TabProgress, TranscriptionJob } from '@guitar3d/shared';
+import type { AppSettings, BarNote, GuitarProfile, PracticeSession, SectionPass, Song, TabMeta, TabProgress, TranscriptionJob } from '@guitar3d/shared';
+
+/** Passes kept per section. */
+export const MAX_PASS_HISTORY = 500;
 import { BUILTIN_GUITAR_ID } from '@guitar3d/shared';
 
 interface DbShape {
@@ -106,9 +109,52 @@ export class Store {
   }
 
   putProgress(p: TabProgress) {
+    // a client that only knows best speeds must not wipe the pass history
+    const old = this.db.progress[p.tabId]?.sections ?? [];
+    p = {
+      ...p,
+      sections: p.sections.map((s) => {
+        const prev = old.find((o) => o.startBar === s.startBar && o.endBar === s.endBar);
+        const merged = { ...s };
+        // Preserve history from old section if the new section doesn't have its own (or has an empty array)
+        if (prev && (!s.history || s.history.length === 0)) {
+          merged.history = prev.history;
+        }
+        // Preserve bpm from old section if the new section doesn't specify one
+        if (prev && s.bpm === undefined) {
+          merged.bpm = prev.bpm;
+        }
+        return merged;
+      }),
+    };
     this.db.progress[p.tabId] = p;
     this.save();
     return p;
+  }
+
+  listProgress(): TabProgress[] {
+    return Object.values(this.db.progress);
+  }
+
+  /** Appends a speed-trainer pass to a section (created on first use) and raises its best clean speed. */
+  recordPass(tabId: string, section: { startBar: number; endBar: number; bpm?: number }, pass: SectionPass): TabProgress {
+    const p = this.getProgress(tabId);
+    const sections = [...p.sections];
+    let i = sections.findIndex((s) => s.startBar === section.startBar && s.endBar === section.endBar);
+    if (i < 0) {
+      sections.push({ startBar: section.startBar, endBar: section.endBar, bestCleanSpeed: 0, updatedAt: pass.at });
+      i = sections.length - 1;
+    }
+    const s = sections[i];
+    const history = [...(s.history ?? []), pass].slice(-MAX_PASS_HISTORY);
+    sections[i] = {
+      ...s,
+      bestCleanSpeed: pass.clean ? Math.max(s.bestCleanSpeed, pass.speed) : s.bestCleanSpeed,
+      updatedAt: pass.at,
+      ...(section.bpm ? { bpm: section.bpm } : {}),
+      history,
+    };
+    return this.putProgress({ tabId, sections });
   }
 
   // ---- practice sessions ------------------------------------------------------------------

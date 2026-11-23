@@ -562,3 +562,69 @@
     display: none;
   }
 }
+
+/* ---------- Speed trainer progress ---------- */
+.trainer-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--sp-4);
+  padding: 0;
+  list-style: none;
+}
+.trainer-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.trainer-row:hover {
+  background: var(--surface-hover);
+}
+.trainer-row.is-on {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.trainer-row-title {
+  min-width: 0;
+}
+.trainer-chart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.tc-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.tc-full {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.tc-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.tc-dot {
+  fill: var(--accent);
+  stroke: var(--surface-1);
+  stroke-width: 2;
+}
+.tc-none {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+}

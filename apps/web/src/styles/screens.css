@@ -216,7 +216,8 @@
     'ic title'
     'ic sub'
     'meta meta'
-    'prog prog';
+    'prog prog'
+    'clean clean';
   column-gap: var(--sp-3);
   row-gap: 2px;
   width: 100%;
@@ -281,6 +282,13 @@
   margin-top: var(--sp-2);
   font-size: var(--fs-sm);
   color: var(--text-2);
+}
+.tab-card-clean {
+  grid-area: clean;
+  margin-top: 2px;
+  padding-right: 40px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
 }
 .tab-card-progress .bar {
   flex: 1;

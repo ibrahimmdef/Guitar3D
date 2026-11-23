@@ -43,6 +43,12 @@ export async function uploadTab(file: File): Promise<TabMeta> {
 export const getProgress = (id: string) => fetch(`/api/progress/${encodeURIComponent(id)}`).then((r) => json<TabProgress>(r));
 
 /** Best clean speed across practised sections, or null when never practised. */
+export const listAllProgress = () => fetch('/api/progress').then((r) => json<TabProgress[]>(r));
+
+/** One speed-trainer pass (the server keeps the history and the best clean speed). */
+export const recordPass = (tabKey: string, body: { startBar: number; endBar: number; speed: number; clean: boolean; score?: number; bpm?: number; mode: 'mic' | 'manual' }) =>
+  fetch(`/api/progress/${encodeURIComponent(tabKey)}/passes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => json<TabProgress>(r));
+
 export function bestSpeed(p: TabProgress | undefined): number | null {
   if (!p || p.sections.length === 0) return null;
   return Math.max(...p.sections.map((s) => s.bestCleanSpeed));

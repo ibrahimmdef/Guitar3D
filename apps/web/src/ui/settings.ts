@@ -30,8 +30,18 @@ export interface Settings {
   ladderStart: number;
   ladderTarget: number;
   ladderPasses: number;
-  /** Listen-mode accuracy (%) that counts as a clean pass. */
+  /** Scored pass (%) that counts as clean. */
   ladderCleanAccuracy: number;
+  /** Speed change per ladder step (0.05 = 5 %). */
+  ladderStep: number;
+  /** Failed passes in a row before the speed drops (default 2). */
+  ladderFailPasses: number;
+  /** Speed trainer: judge passes with the microphone (else "Clean / Not clean" buttons). */
+  trainerMic: boolean;
+  /** Speed trainer: a note within this many ms of its time is on time. */
+  timingToleranceMs: number;
+  /** Measured input + output latency in ms (null until calibrated). */
+  latencyMs: number | null;
   /** Accessibility: stronger text and borders. */
   highContrast: boolean;
   /** Accessibility: right/wrong colours safe for red-green colour blindness (Okabe–Ito blue / vermillion). */
@@ -62,8 +72,13 @@ export const DEFAULT_SETTINGS: Settings = {
   tuningId: 'standard',
   ladderStart: 0.6,
   ladderTarget: 1,
-  ladderPasses: 3,
+  ladderPasses: 2,
   ladderCleanAccuracy: 90,
+  ladderStep: 0.05,
+  ladderFailPasses: 2,
+  trainerMic: true,
+  timingToleranceMs: 60,
+  latencyMs: null,
   highContrast: false,
   colorBlind: false,
   largeMarkers: false,
