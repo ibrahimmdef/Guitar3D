@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlphaTabApi, importer, model, PlayerMode, StaveProfile, synth } from '@coderline/alphatab';
+import { AlphaTabApi, importer, model, StaveProfile, synth } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
 import { createPositionStore } from './position';
@@ -33,33 +33,6 @@ export interface PlayerState {
 /** How the tab strip shows a track: tablature, standard notation, or both. */
 export type TabView = 'tab' | 'score' | 'both';
 export const STAVE_PROFILE: Record<TabView, StaveProfile> = { tab: StaveProfile.Tab, score: StaveProfile.Score, both: StaveProfile.ScoreTab };
-
-/** Colour of notes an auto-transcription is unsure about (amber, distinct from the cursor accent). */
-export const LOW_CONFIDENCE_COLOR = '#ff8a3d';
-
-/**
- * Colours the given notes (`[track, bar, beat, tab string]`, tab string 1 = high e) in the tab and
- * the notation. Returns how many notes were found.
- */
-export function markNotes(score: model.Score, notes: readonly (readonly [number, number, number, number])[], color = LOW_CONFIDENCE_COLOR): number {
-  const c = model.Color.fromJson(color);
-  if (!c) return 0;
-  let found = 0;
-  for (const [ti, bi, be, str] of notes) {
-    const staff = score.tracks[ti]?.staves[0];
-    const beat = staff?.bars[bi]?.voices[0]?.beats[be];
-    if (!staff || !beat) continue;
-    const modelString = staff.tuning.length - str + 1;
-    const note = beat.notes.find((n) => n.string === modelString);
-    if (!note) continue;
-    note.style ??= new model.NoteStyle();
-    note.style.colors.set(model.NoteSubElement.GuitarTabFretNumber, c);
-    note.style.colors.set(model.NoteSubElement.StandardNotationNoteHead, c);
-    note.style.colors.set(model.NoteSubElement.StandardNotationAccidentals, c);
-    found++;
-  }
-  return found;
-}
 
 /** Tab colours tuned for the dark tab panel (see styles/player.css .tabpanel). */
 const GLYPH = '#d9dbe0';
@@ -234,31 +207,6 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     a.renderScore(score, [index]);
   }, []);
 
-  /**
-   * Play an external audio source (the song a tab was transcribed from) instead of the
-   * synthesizer; null switches back. Call before loading the tab: the new player generates the
-   * MIDI (cursor timing) itself once it is ready.
-   */
-  const setExternalMedia = useCallback((handler: synth.IExternalMediaHandler | null) => {
-    const a = apiRef.current;
-    if (!a) return;
-    const mode = handler ? PlayerMode.EnabledExternalMedia : PlayerMode.EnabledSynthesizer;
-    if (a.settings.player.playerMode !== mode) {
-      a.settings.player.playerMode = mode;
-      a.updateSettings();
-    }
-    const out = a.player?.output as Partial<synth.IExternalMediaSynthOutput> | undefined;
-    if (handler && out && 'handler' in out) out.handler = handler;
-    // no sound font to wait for
-    if (handler) patch({ soundProgress: 1 });
-  }, [patch]);
-
-  /** The external media's current time (ms): moves the cursor (see setExternalMedia). */
-  const pushMediaTime = useCallback((ms: number) => {
-    const out = apiRef.current?.player?.output as Partial<synth.IExternalMediaSynthOutput> | undefined;
-    out?.updatePosition?.(ms);
-  }, []);
-
   /** Interpolated beat progress for render loops (e.g. inside useFrame). */
   const getBeatProgress = useCallback(() => {
     const c = clock.current;
@@ -317,7 +265,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (a.score) a.render();
   }, []);
 
-  return { api: apiRef, state: s, position, setExternalMedia, pushMediaTime, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
+  return { api: apiRef, state: s, position, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
 }
 
 /** True when the score has repeats, so score ticks differ from playback ticks. */

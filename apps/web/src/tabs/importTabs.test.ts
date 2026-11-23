@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { exporter, importer, LogLevel, Settings } from '@coderline/alphatab';
 import { importTabs, sniffText } from './importTabs';
+import { tabsApi } from './api';
+import { useMemoryDb } from '../storage/db';
+import { listTabs, tabFile } from '../storage/library';
 
 const RIFF = `Title: Hourglass
 e|-----------------|
@@ -33,19 +36,6 @@ function gp7Bytes() {
   return new exporter.Gp7Exporter().export(score, s);
 }
 
-/** Records requests and answers like the server would. */
-function fakeServer() {
-  const calls: { url: string; init?: RequestInit }[] = [];
-  const f = (async (url: string, init?: RequestInit) => {
-    calls.push({ url, init });
-    let body: Record<string, unknown> = {};
-    if (init?.body instanceof FormData) body = { title: init.body.get('title'), artist: init.body.get('artist'), kind: 'multipart' };
-    else if (typeof init?.body === 'string') body = { ...JSON.parse(init.body), kind: 'json' };
-    return new Response(JSON.stringify({ id: String(calls.length), fileName: 'x', uploadedAt: 'now', ...body }), { status: 201 });
-  }) as unknown as typeof fetch;
-  return { f, calls };
-}
-
 describe('sniffText', () => {
   it('tells ASCII tab, alphaTex and prose apart', () => {
     expect(sniffText(RIFF)).toBe('ascii');
@@ -55,21 +45,21 @@ describe('sniffText', () => {
 });
 
 describe('importTabs', () => {
+  beforeEach(() => void useMemoryDb());
+
   it('converts pasted ASCII tab and uploads it as alphaTex', async () => {
-    const { f, calls } = fakeServer();
-    const [r] = await importTabs(RIFF, { fetchImpl: f, ascii: { tempo: 110 } });
+    const [r] = await importTabs(RIFF, { ascii: { tempo: 110 } });
     expect(r.ok).toBe(true);
     expect(r.format).toBe('ascii');
     expect(r.title).toBe('Hourglass');
     expect(r.alphaTex).toContain('\\tempo 110');
-    expect(calls).toHaveLength(1);
-    const sent = JSON.parse(calls[0].init!.body as string);
-    expect(sent).toMatchObject({ format: 'ascii', title: 'Hourglass' });
-    expect(r.meta?.id).toBe('1');
+    const stored = await listTabs();
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ format: 'ascii', title: 'Hourglass', id: r.meta?.id });
+    expect(new TextDecoder().decode(await tabFile(stored[0].id))).toContain('\\tempo 110');
   });
 
   it('imports several files in one go and reports bad ones', async () => {
-    const { f, calls } = fakeServer();
     const files = [
       new File([RIFF.replace('Title: Hourglass\n', '')], 'my-riff.txt'),
       new File([TEX], 'etut.atex'),
@@ -79,7 +69,7 @@ describe('importTabs', () => {
       new File(['hello'], 'notes.pdf'),
       new File(['just words'], 'words.txt'),
     ];
-    const res = await importTabs(files, { fetchImpl: f });
+    const res = await importTabs(files);
     expect(res.map((r) => [r.name, r.ok])).toEqual([
       ['my-riff.txt', true],
       ['etut.atex', true],
@@ -95,9 +85,8 @@ describe('importTabs', () => {
     expect(res[3]).toMatchObject({ format: 'gp', title: 'GP Riff', artist: 'Exporter' });
     expect(res[4].error).toMatch(/Couldn't read/);
     expect(res[5].error).toMatch(/Unsupported/);
-    expect(calls).toHaveLength(4);
-    expect(calls[3].init!.body).toBeInstanceOf(FormData);
-    expect((calls[3].init!.body as FormData).get('title')).toBe('GP Riff');
+    const stored = await listTabs({ sort: 'title' });
+    expect(stored.map((t) => [t.title, t.format])).toEqual([['GP Riff', 'gp'], ['my-riff', 'ascii'], ['Tex Etude', 'alphatex'], ['XML Etude', 'musicxml']]);
   });
 
   it('can parse without uploading and reports alphaTex errors', async () => {
@@ -109,9 +98,9 @@ describe('importTabs', () => {
     expect(bad.error).toMatch(/alphaTex/);
   });
 
-  it('surfaces server errors per file', async () => {
-    const f = (async () => new Response(JSON.stringify({ error: 'Disk full' }), { status: 500 })) as unknown as typeof fetch;
-    const [r] = await importTabs([new File([TEX], 'a.tex')], { fetchImpl: f });
+  it('reports storage errors per file', async () => {
+    vi.spyOn(tabsApi, 'uploadAlphaTex').mockRejectedValueOnce(new Error('Disk full'));
+    const [r] = await importTabs([new File([TEX], 'a.tex')]);
     expect(r).toMatchObject({ ok: false, error: 'Disk full' });
   });
 });

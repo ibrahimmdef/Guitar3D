@@ -1,7 +1,7 @@
 import { importer, LogLevel, Settings } from '@coderline/alphatab';
 import type { TabFormat, TabMeta } from '@guitar3d/shared';
 import { asciiTabToAlphaTex, looksLikeAsciiTab, type AsciiTabOptions } from './asciiTab';
-import { createTabsApi } from './api';
+import { tabsApi } from './api';
 
 export const TAB_ACCEPT = '.gp,.gp3,.gp4,.gp5,.gpx,.gp7,.musicxml,.xml,.mxl,.atex,.tex,.txt';
 
@@ -12,12 +12,10 @@ const BINARY_EXT: Record<string, TabFormat> = {
 export interface ImportOptions {
   /** Rhythm/tempo overrides for ASCII tabs. */
   ascii?: AsciiTabOptions;
-  /** Upload successfully parsed tabs to the server (default true). */
+  /** Add successfully parsed tabs to the library (default true). */
   upload?: boolean;
   /** Parse every file with alphaTab before uploading to catch broken files and read title/artist (default true). */
   validate?: boolean;
-  /** Injected fetch (tests). */
-  fetchImpl?: typeof fetch;
 }
 
 export interface ImportedTab {
@@ -89,7 +87,7 @@ async function importText(name: string, text: string, kind: 'alphatex' | 'ascii'
   }
   res.alphaTex = tex;
   if (opts.upload !== false) {
-    res.meta = await createTabsApi(opts.fetchImpl).uploadAlphaTex(tex, { title: res.title, artist: res.artist, format: kind });
+    res.meta = await tabsApi.uploadAlphaTex(tex, { title: res.title, artist: res.artist, format: kind });
   }
   res.ok = true;
   return res;
@@ -118,7 +116,7 @@ async function importFile(file: File, opts: ImportOptions): Promise<ImportedTab>
       }
     }
     if (opts.upload !== false) {
-      res.meta = await createTabsApi(opts.fetchImpl).uploadFile(file, file.name, { title: res.title, artist: res.artist });
+      res.meta = await tabsApi.uploadFile(file, file.name, { title: res.title, artist: res.artist });
     }
     res.ok = true;
     return res;

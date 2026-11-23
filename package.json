@@ -6,15 +6,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
-    "test": "npm test -w apps/web && npm test -w apps/server",
-    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w apps/server",
-    "desktop": "npm run start -w apps/desktop",
-    "dist:arch": "npm run dist:arch -w apps/desktop"
+    "preview": "npm run preview -w apps/web",
+    "test": "npm test -w apps/web",
+    "typecheck": "npm run typecheck -w apps/web"
   },
   "devDependencies": {
-    "concurrently": "^10.0.7",
     "typescript": "~5.9.3"
   }
 }

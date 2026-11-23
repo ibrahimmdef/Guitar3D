@@ -3,7 +3,7 @@ import { parseShareQuery, type ShareParams } from './share';
 
 /**
  * Tiny hash router:
- *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/song/<songId> · #/guitar · #/settings
+ *   #/library · #/play/<tabId> · #/lesson/<lessonId> · #/guitar · #/settings
  *   #/chords · #/scales · #/tuner · #/progress · #/editor
  *   #/share?tab=…|lesson=…&g=&loop=&speed=&v= (read-only shared view, see share.ts)
  * Unknown (or removed) routes fall back to the library.
@@ -13,7 +13,6 @@ export type PlaySource = { kind: 'tab' | 'lesson'; id: string };
 
 export type Route =
   | { name: 'player'; source: PlaySource; share?: ShareParams }
-  | { name: 'song'; id: string }
   | { name: SimpleRouteName };
 
 /** Routes without parameters (the left navigation). */
@@ -34,8 +33,6 @@ export function parseRoute(hash: string): Route {
   switch (parts[0]) {
     case 'play':
       return !id || id === 'demo' ? { name: 'player', source: { kind: 'lesson', id: DEMO_LESSON_ID } } : { name: 'player', source: { kind: 'tab', id } };
-    case 'song':
-      return id ? { name: 'song', id } : { name: 'library' };
     case 'lesson':
       return { name: 'player', source: { kind: 'lesson', id: id || DEMO_LESSON_ID } };
     default:
@@ -55,15 +52,12 @@ export function routeHref(r: Route): string {
   switch (r.name) {
     case 'player':
       return `#/${r.source.kind === 'lesson' ? 'lesson' : 'play'}/${encodeURIComponent(r.source.id)}`;
-    case 'song':
-      return `#/song/${encodeURIComponent(r.id)}`;
     default:
       return `#/${r.name}`;
   }
 }
 
 export const playTab = (id: string): Route => ({ name: 'player', source: { kind: 'tab', id } });
-export const playSong = (id: string): Route => ({ name: 'song', id });
 export const playLesson = (id: string): Route => ({ name: 'player', source: { kind: 'lesson', id } });
 
 export function navigate(r: Route) {

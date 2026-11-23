@@ -1,21 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { CloudDownload, CloudUpload, Download, Upload } from 'lucide-react';
-import { listSnapshots, loadSnapshot, makeBundle, parseBundle, restoreBundle, saveSnapshot, type BackupBundle } from '../../ui/backup';
-import { relativeTime } from '../../ui/format';
+import { useRef, useState } from 'react';
+import { Download, Upload } from 'lucide-react';
+import { makeBackup, parseBackup, restoreBackup, type BackupFile, type OldBackup } from '../../storage/backup';
 import { Button, Card, Dialog, useToast } from '../../ui/kit';
 
-/** Settings section: export/import everything as one file, or keep snapshots on the server. */
+/** Settings section: export everything to one file, or restore from one (also old server backups). */
 export function BackupSection() {
   const toast = useToast();
   const file = useRef<HTMLInputElement>(null);
-  const [snaps, setSnaps] = useState<{ name: string; createdAt: string; size: number }[]>([]);
-  const [pending, setPending] = useState<BackupBundle | null>(null);
+  const [pending, setPending] = useState<BackupFile | OldBackup | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const refresh = () => listSnapshots().then(setSnaps).catch(() => setSnaps([]));
-  useEffect(() => {
-    void refresh();
-  }, []);
 
   const run = async (fn: () => Promise<void>, fail: string) => {
     setBusy(true);
@@ -29,7 +22,7 @@ export function BackupSection() {
   };
 
   const exportFile = () => run(async () => {
-    const b = await makeBundle();
+    const b = await makeBackup();
     const url = URL.createObjectURL(new Blob([JSON.stringify(b)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
@@ -43,7 +36,7 @@ export function BackupSection() {
     setPending(null);
     if (!b) return;
     void run(async () => {
-      await restoreBundle(b);
+      await restoreBackup(b);
       toast({ tone: 'success', title: 'Backup restored.', description: 'Reloading the page…' });
       setTimeout(() => location.reload(), 800);
     }, 'Couldn\'t restore.');
@@ -54,8 +47,8 @@ export function BackupSection() {
       <h2 id="set-backup" className="eyebrow">Backup and transfer</h2>
       <Card className="settings-card">
         <p className="setting-desc">
-          Guitars, tabs, practice history, notes, assignments and this device's settings in a single file. Audio recordings aren't included.
-          To move to another device, import the file there. Accounts and automatic multi-device sync are coming later.
+          Everything is stored in this browser. Export your tabs, guitars, practice history, notes and settings to a single file to keep a copy or to
+          move them to another browser or computer.
         </p>
         <div className="ti-row">
           <Button icon={<Download size={15} />} onClick={exportFile} disabled={busy}>Export to file</Button>
@@ -70,43 +63,19 @@ export function BackupSection() {
               e.target.value = '';
               if (!f) return;
               try {
-                setPending(parseBundle(await f.text()));
+                setPending(parseBackup(await f.text()));
               } catch (err) {
                 toast({ tone: 'danger', title: 'Couldn\'t read the backup.', description: (err as Error).message });
               }
             }}
           />
         </div>
-        <hr />
-        <div className="ti-row">
-          <Button icon={<CloudUpload size={15} />} disabled={busy} onClick={() => run(async () => {
-            await saveSnapshot();
-            await refresh();
-            toast({ tone: 'success', title: 'Backed up to the server.' });
-          }, 'Couldn\'t back up.')}>Back up to server</Button>
-          <span className="subtle small">The last 10 backups are kept on the server.</span>
-        </div>
-        {snaps.length > 0 && (
-          <ul className="rec-list">
-            {snaps.map((s) => (
-              <li key={s.name}>
-                <span className="rec-text">
-                  <span>{relativeTime(s.createdAt) ?? s.createdAt}</span>
-                  <span className="subtle small num">{(s.size / 1024 / 1024).toFixed(1)} MB</span>
-                </span>
-                <Button size="sm" variant="ghost" icon={<CloudDownload size={14} />} disabled={busy} onClick={() => run(async () => setPending(await loadSnapshot(s.name)), 'Couldn\'t load the backup.')}>
-                  Restore
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
       </Card>
       <Dialog
         open={!!pending}
         onOpenChange={(o) => !o && setPending(null)}
         title="Restore this backup?"
-        description="All tabs, guitars and history on the server, plus this device's settings, will be replaced with the ones in the backup. This can't be undone."
+        description="All tabs, guitars, history and settings in this browser will be replaced with the ones in the backup. This can't be undone."
         size="sm"
         footer={
           <>

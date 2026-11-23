@@ -3,8 +3,7 @@
  * a string/fret position and a left-hand finger so the hand moves as little as possible. Dynamic
  * programming (Viterbi) over the candidate positions of each beat.
  *
- * Shared by the web app ("easier position" in the player) and the server (auto-transcription
- * assigns strings and frets to detected pitches).
+ * Used by the player's "easier position" and the tab tools.
  */
 
 /** Frets the hand covers beyond the index finger without stretching: one finger per fret, a bit more high up. */

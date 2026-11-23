@@ -7,13 +7,8 @@ import { uploadTab } from '../data';
 /**
  * INTEGRATION POINT (workstream B).
  *
- * Placeholder for B's `TabImportDropzone` (apps/web/src/tabs/). The library screen renders
- * <TabImportSlot onImported onError />. When B lands, replace this component's body with
- *
- *   return <TabImportDropzone onImported={onImported} onError={onError} />;
- *
- * (adapting prop names if B's differ). Until then it uploads Guitar Pro / MusicXML files to
- * POST /api/tabs, one request per file.
+ * Drop zone / file picker of the library: adds Guitar Pro, MusicXML and alphaTex files to the
+ * library (screens/data.ts → storage/library.ts), one file at a time.
  */
 export interface TabImportSlotProps {
   onImported: (tabs: TabMeta[]) => void;

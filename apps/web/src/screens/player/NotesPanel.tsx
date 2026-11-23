@@ -2,20 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { BarNote } from '@guitar3d/shared';
 import { Button, IconButton } from '../../ui/kit';
+import { addNote, deleteNote, listNotes } from '../../storage/library';
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `HTTP ${res.status}`);
-  return res.json() as Promise<T>;
-}
+const notesApi = { list: listNotes, add: addNote, remove: deleteNote };
 
-const notesApi = {
-  list: (tabKey: string) => fetch(`/api/notes?tabKey=${encodeURIComponent(tabKey)}`).then((r) => json<BarNote[]>(r)),
-  add: (n: Pick<BarNote, 'tabKey' | 'bar' | 'text'>) =>
-    fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(n) }).then((r) => json<BarNote>(r)),
-  remove: (id: string) => fetch(`/api/notes/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-};
-
-/** Bar notes of one tab (server-side). */
+/** Bar notes of one tab. */
 export function useBarNotes(tabKey: string) {
   const [notes, setNotes] = useState<BarNote[]>([]);
   const refresh = useCallback(() => notesApi.list(tabKey).then(setNotes).catch(() => setNotes([])), [tabKey]);
@@ -45,7 +36,7 @@ export function NotesPanel({ tabKey, notes, refresh, currentBar, onSeekBar }: Pr
       setText('');
       refresh();
     } catch {
-      /* server unavailable: keep the text */
+      /* not saved (storage unavailable): keep the text */
     } finally {
       setBusy(false);
     }

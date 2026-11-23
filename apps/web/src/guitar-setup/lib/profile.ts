@@ -47,7 +47,7 @@ export function defaultHeadstock(nutWidthCm: number) {
   return { lengthCm: len, profile, tunersLowE: [5, 9, 13], tunersHighE: [5, 9, 13], angleDeg: 14 };
 }
 
-/** Profile without `id` (the server assigns it) and with empty textures (uploaded separately). */
+/** Profile without `id` (assigned when saved) and with empty textures (uploaded separately). */
 export function assembleProfile(p: ProfileParts): Omit<GuitarProfile, 'id'> {
   const fretCount = p.fretCount ?? 20;
   // The neck joins the body where the body outline ends.

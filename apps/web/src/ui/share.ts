@@ -3,7 +3,7 @@ import type { PlaySource } from './router';
 /**
  * Share links: `#/share?tab=<id>` or `?lesson=<id>`, plus optional `g` (guitar id), `loop=3-6`
  * (1-based bars) and `speed=80` (%). Built-in lessons work on
- * any Guitar3D; uploaded tabs and custom guitars only on the server they live on.
+ * any Guitar3D; uploaded tabs and custom guitars only in the browser that stores them.
  */
 export interface ShareParams {
   source: PlaySource;

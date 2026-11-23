@@ -6,7 +6,6 @@
 @import './learn.css';
 @import './p2.css';
 @import './p3.css';
-@import './songs.css';
 
 /* Inter, served with the app (no render-blocking request to Google Fonts). Variable weight 400–700. */
 @font-face {

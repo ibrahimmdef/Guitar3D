@@ -1661,11 +1661,3 @@
   margin: 0;
   font-weight: var(--fw-medium);
 }
-
-/* Sound button with the song mix name (tab playing along with its recording) */
-.tp-song-btn {
-  gap: 6px;
-  padding-inline: 10px;
-  font-size: var(--fs-md);
-  white-space: nowrap;
-}

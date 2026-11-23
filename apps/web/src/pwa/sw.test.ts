@@ -22,13 +22,8 @@ describe('service worker strategies', () => {
     expect(sw.strategyFor('GET', 'https://fonts.gstatic.com/s/inter/x.woff2', O)?.kind).toBe('cache-first');
     expect(sw.strategyFor('GET', 'https://fonts.googleapis.com/css2?family=Inter', O)?.kind).toBe('stale');
   });
-  it('keeps API reads for offline but never touches writes or foreign hosts', () => {
-    expect(at('/api/tabs')?.kind).toBe('network-first');
-    expect(at('/api/tabs', 'cors', 'POST')).toBeNull();
-    expect(at('/api/backup')).toBeNull();
-    expect(at('/api/songs')).toBeNull();
-    expect(at('/api/songs/x/stems/guitar')).toBeNull();
-    expect(at('/api/backups/x.json')).toBeNull();
+  it('never touches writes or foreign hosts', () => {
+    expect(at('/assets/index-abc123.js', 'cors', 'POST')).toBeNull();
     expect(sw.strategyFor('GET', 'https://example.com/x.js', O)).toBeNull();
   });
   it('precaches the essentials', () => {

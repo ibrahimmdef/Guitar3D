@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Mic, Play, Search, Sparkles, Trash, Upload } from 'lucide-react';
+import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Play, Search, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
 import { navigate, playLesson, playTab } from '../../ui/router';
@@ -10,8 +10,6 @@ import { bestSpeed, deleteTab, listAllProgress, listTabs } from '../data';
 import { cleanLabel, focusSection, sectionLabel } from '../../coach/progress';
 import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
-import { SongsSection } from './SongsSection';
-import { RecordTranscribeDialog } from './RecordTranscribe';
 
 // The import dialogs preview tabs with alphaTab (1.2 MB): load them only when one is opened.
 const TextImportDialog = lazy(() => import('./TextImport').then((m) => ({ default: m.TextImportDialog })));
@@ -32,7 +30,7 @@ export function LibraryScreen() {
   const [sort, setSort] = useState<Sort>('recent');
   const [confirm, setConfirm] = useState<TabMeta | null>(null);
   const recent = useMemo(() => getRecent(), []);
-  const [importMode, setImportMode] = useState<'text' | 'image' | 'record' | null>(null);
+  const [importMode, setImportMode] = useState<'text' | 'image' | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
 
   const load = useCallback(() => {
@@ -44,7 +42,7 @@ export function LibraryScreen() {
       })
       .catch(() => {
         setTabs([]);
-        setError('Couldn\'t reach the server, so your own tabs can\'t be shown right now. Lessons still work.');
+        setError('Couldn\'t open this browser\'s storage, so your own tabs can\'t be shown right now. Lessons still work.');
       });
   }, []);
   useEffect(load, [load]);
@@ -100,7 +98,6 @@ export function LibraryScreen() {
     <div className="lib-import-row">
       <Button variant="secondary" icon={<FileText size={15} />} onClick={() => setImportMode('text')}>Import from text</Button>
       <Button variant="secondary" icon={<ImageIcon size={15} />} onClick={() => { setImportFile(null); setImportMode('image'); }}>From PDF / image</Button>
-      <Button variant="secondary" icon={<Mic size={15} />} onClick={() => setImportMode('record')}>Transcribe my playing</Button>
     </div>
     </>
   );
@@ -179,11 +176,6 @@ export function LibraryScreen() {
                         <span className="tab-card-title">{t.title || t.fileName}</span>
                         <span className="tab-card-sub">{t.artist || 'Unknown artist'}</span>
                         <span className="tab-card-meta">
-                          {t.transcription && (
-                            <span className="tab-card-auto" title={t.transcription.detected}>
-                              <Sparkles size={12} aria-hidden /> Auto{t.transcription.lowConfidence ? ` · ${t.transcription.lowConfidence} to check` : ''} ·{' '}
-                            </span>
-                          )}
                           {played ? `Last played ${played}` : 'Not played yet'}
                         </span>
                         <span className="tab-card-progress" aria-label={label ?? 'No practice yet'} title={label ?? undefined}>
@@ -204,8 +196,6 @@ export function LibraryScreen() {
           )}
         </section>
       )}
-
-      <SongsSection />
 
       <section className="lib-sec" aria-labelledby="sec-lessons">
         <div className="sec-head">
@@ -261,7 +251,6 @@ export function LibraryScreen() {
 
       <Suspense fallback={null}>
       {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
-      {importMode === 'record' && <RecordTranscribeDialog open onOpenChange={(o) => !o && setImportMode(null)} />}
       {importMode === 'image' && <ImageImportDialog open initialFile={importFile} onOpenChange={(o) => { if (!o) { setImportMode(null); setImportFile(null); } }} onSaved={savedImport} />}
       </Suspense>
 

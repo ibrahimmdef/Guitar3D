@@ -1,22 +1,13 @@
 import type { NewPracticeSession, PracticeSession } from '@guitar3d/shared';
+import { addSession, listSessions as list } from '../../storage/library';
 import { SESSION_SAVED_EVENT } from './badges';
 
-/** Client for `GET/POST /api/sessions`. */
-export async function listSessions(since?: Date): Promise<PracticeSession[]> {
-  const q = since ? `?since=${encodeURIComponent(since.toISOString())}` : '';
-  const r = await fetch(`/api/sessions${q}`);
-  if (!r.ok) throw new Error(`Couldn't load sessions (HTTP ${r.status}).`);
-  return r.json();
-}
+/** Practice sessions (stored in this browser, see storage/library.ts). */
+export const listSessions = (since?: Date): Promise<PracticeSession[]> => list(since);
 
-/** Posts a session; with `beacon` it uses sendBeacon so it survives closing the tab. */
-export function saveSession(s: NewPracticeSession, beacon = false): Promise<void> {
-  const body = JSON.stringify(s);
-  if (beacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
-    navigator.sendBeacon('/api/sessions', new Blob([body], { type: 'application/json' }));
-    return Promise.resolve();
-  }
-  return fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })
+/** Saves a session and tells the badge watcher. Never throws: a lost session must not break the player. */
+export function saveSession(s: NewPracticeSession): Promise<void> {
+  return addSession(s)
     .then(() => {
       if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_SAVED_EVENT));
     })

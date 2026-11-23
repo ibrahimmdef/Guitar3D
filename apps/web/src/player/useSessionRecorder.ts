@@ -34,7 +34,7 @@ export function useSessionRecorder({ active, kind, refId, title }: Args) {
     }
   }, [active]);
 
-  const flush = useCallback((beacon: boolean) => {
+  const flush = useCallback(() => {
     const a = acc.current;
     const now = Date.now();
     const ms = a.ms + (a.since ? now - a.since : 0);
@@ -49,17 +49,17 @@ export function useSessionRecorder({ active, kind, refId, title }: Args) {
         seconds: Math.round(ms / 1000),
         bestCleanSpeed: a.best,
         accuracy: a.accuracy,
-      }, beacon);
+      });
     }
     acc.current = { ms: 0, since: a.since ? now : 0, startedAt: a.since ? new Date(now).toISOString() : '', best: undefined, accuracy: undefined };
   }, []);
 
   useEffect(() => {
-    const onHide = () => flush(true);
+    const onHide = () => flush();
     window.addEventListener('pagehide', onHide);
     return () => {
       window.removeEventListener('pagehide', onHide);
-      flush(false);
+      flush();
     };
   }, [flush]);
 

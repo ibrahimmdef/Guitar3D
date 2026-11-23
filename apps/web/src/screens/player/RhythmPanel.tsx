@@ -27,8 +27,6 @@ interface Props {
   playing: boolean;
   /** Called when the practice loop starts, to pause the main playback. */
   onPracticeStart?: () => void;
-  /** Song screen: play the song's drums along at the practice tempo. */
-  onPlayAlong?: (bpm: number) => void;
   onClose?: () => void;
   className?: string;
 }
@@ -70,7 +68,7 @@ const TOKEN_LABEL: Record<StrumToken, string> = { D: 'down', U: 'up', X: 'chuck'
  * The rhythm part as a strum lane: chords above big down / up arrows (X = muted chuck, dot = no
  * strum) over the count, following playback, plus a practice loop of the pattern with a click.
  */
-export function RhythmPanel({ analysis, pos, playing, onPracticeStart, onPlayAlong, onClose, className }: Props) {
+export function RhythmPanel({ analysis, pos, playing, onPracticeStart, onClose, className }: Props) {
   const main = analysis.pattern;
   const [practiceOpen, setPracticeOpen] = useState(false);
   const songBpm = Math.max(30, Math.round(analysis.tempo || 90));
@@ -195,11 +193,6 @@ export function RhythmPanel({ analysis, pos, playing, onPracticeStart, onPlayAlo
                 <Toggle checked={click} onChange={setClick} label="Click" />
                 <Toggle checked={chord} onChange={setChord} label="Chord" />
                 <Toggle checked={accent} onChange={setAccent} label="Accents" />
-                {onPlayAlong && (
-                  <Button size="sm" icon={<Drum size={14} />} onClick={() => { practice.stop(); onPlayAlong(bpm); }}>
-                    Play along with the drums
-                  </Button>
-                )}
               </div>
             </>
           )}

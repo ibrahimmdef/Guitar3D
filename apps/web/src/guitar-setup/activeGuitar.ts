@@ -5,8 +5,8 @@ import { preloadProfile } from '../fretboard/profile';
 import { guitarsApi } from './api';
 
 /**
- * App-wide "which guitar is on stage" store. The id lives on the server (/api/settings) with a
- * localStorage copy so it survives a missing server; the profile is cached per id so switching back
+ * App-wide "which guitar is on stage" store. The id is saved with the guitars (storage/guitars.ts)
+ * and in localStorage, which is read synchronously at start; the profile is cached per id so switching back
  * and forth is instant. Every StageGuitar subscribes, so a switch shows up everywhere at once.
  */
 export interface ActiveGuitarState {
@@ -35,7 +35,7 @@ function writeLocal(id: string) {
   try {
     localStorage.setItem(KEY, id);
   } catch {
-    /* private mode: the server copy still works */
+    /* private mode: the stored copy still works */
   }
 }
 
@@ -73,7 +73,7 @@ async function show(id: string, fresh = false) {
   }
 }
 
-/** First subscriber: ask the server which guitar is active (localStorage id meanwhile). */
+/** First subscriber: read which guitar is active (the localStorage id meanwhile). */
 function start() {
   if (started) return;
   started = true;
@@ -88,11 +88,11 @@ function start() {
       }
     })
     .catch(() => {
-      /* no server: keep the local choice */
+      /* storage unavailable: keep the local choice */
     });
 }
 
-/** Makes `id` the active guitar everywhere; persists on the server with a localStorage fallback. */
+/** Makes `id` the active guitar everywhere and remembers it. */
 export async function setActiveGuitar(id: string, profile?: GuitarProfile) {
   started = true;
   if (profile) cache.set(id, profile);
@@ -101,7 +101,7 @@ export async function setActiveGuitar(id: string, profile?: GuitarProfile) {
   try {
     await api.setActiveGuitar(id);
   } catch {
-    /* server unavailable (or offline-only guitar): localStorage keeps the choice */
+    /* storage unavailable: localStorage keeps the choice */
   }
   await shown;
 }

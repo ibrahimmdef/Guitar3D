@@ -18,7 +18,6 @@ const ProgressScreen = lazy(() => import('./screens/progress/ProgressScreen').th
 const EditorScreen = lazy(() => import('./screens/editor/EditorScreen').then((m) => ({ default: m.EditorScreen })));
 const PlayerScreen = lazy(() => import('./screens/player/PlayerScreen').then((m) => ({ default: m.PlayerScreen })));
 const SettingsScreen = lazy(() => import('./screens/settings/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
-const SongScreen = lazy(() => import('./screens/song/SongScreen').then((m) => ({ default: m.SongScreen })));
 
 /** Same steps as the player's own loading screen, so opening a tab shows one continuous bar. */
 const PLAYER_FALLBACK = (
@@ -59,7 +58,6 @@ export function App() {
             {route.name === 'tuner' && <TunerScreen />}
             {route.name === 'progress' && <ProgressScreen />}
             {route.name === 'editor' && <EditorScreen />}
-            {route.name === 'song' && <SongScreen key={route.id} id={route.id} />}
             </Suspense>
           </AppShell>
         )}

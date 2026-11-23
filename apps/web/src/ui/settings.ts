@@ -2,8 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import type { CameraMode, GuitarView } from '@guitar3d/shared';
 
 /**
- * User preferences, persisted in localStorage. When the server grows /api/settings
- * (workstream B), sync can be added here without touching the screens.
+ * User preferences, persisted in localStorage (included in backups, see storage/backup.ts).
  */
 export interface Settings {
   defaultSpeed: number;

@@ -4,3 +4,5 @@ data/
 .env
 *.log
 .claude/worktrees/
+.claude/
+apps/desktop/

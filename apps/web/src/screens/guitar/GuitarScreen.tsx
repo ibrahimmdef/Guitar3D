@@ -122,7 +122,7 @@ export function GuitarScreen() {
               </button>
             </li>
           </ul>
-          {offline && <p className="lib-note subtle small">Couldn't reach the server; only the built-in Veston is shown. Your choice is saved in this browser.</p>}
+          {offline && <p className="lib-note subtle small">Couldn't open this browser's storage (private mode?); only the built-in Veston is shown.</p>}
 
           <h2 className="gg-h">Templates</h2>
           <ul className="gg-grid" aria-label="Templates">
@@ -255,7 +255,7 @@ function AddChooser({ onPick, offline }: { onPick: (m: AddMode) => void; offline
           </span>
         </button>
       ))}
-      {offline && <p className="gs-error">The server needs to be running to save guitars.</p>}
+      {offline && <p className="gs-error">This browser doesn't allow saving data (private mode?), so guitars can't be saved.</p>}
     </div>
   );
 }

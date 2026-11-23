@@ -141,9 +141,9 @@ export interface GuitarProfile {
   textures: GuitarTextures;
   /** Free-form note about where measurements came from. */
   source?: string;
-  /** True for profiles shipped with the app (read-only on the server, e.g. 'veston'). */
+  /** True for profiles shipped with the app (read-only, e.g. 'veston'). */
   builtIn?: boolean;
-  /** ISO timestamps maintained by the server. */
+  /** ISO timestamps set when the guitar is saved. */
   createdAt?: string;
   updatedAt?: string;
 }
@@ -152,11 +152,11 @@ export interface GuitarProfile {
 export const BUILTIN_GUITAR_ID = 'veston';
 export const BUILTIN_GUITAR_PROFILE_URL = '/guitar/veston.profile.json';
 
-/** Texture slots accepted by `PUT /api/guitars/:id/textures/:name`. */
+/** Photo slots of a guitar (storage/guitars.ts `putTexture`). */
 export type GuitarTextureName = 'bodyTop' | 'fretboard' | 'headstock' | 'bodyBack';
 export const GUITAR_TEXTURE_NAMES: GuitarTextureName[] = ['bodyTop', 'fretboard', 'headstock', 'bodyBack'];
 
-/** Row of `GET /api/guitars`. Built-in entries carry `builtIn: true` and no measurements. */
+/** Row of the guitar list. Built-in entries carry `builtIn: true` and no measurements. */
 export interface GuitarSummary {
   id: string;
   name: string;
@@ -168,7 +168,7 @@ export interface GuitarSummary {
   thumbnail?: string;
 }
 
-/** `GET/PUT /api/settings`. */
+/** Which guitar is on stage (storage/guitars.ts). */
 export interface AppSettings {
   activeGuitarId: string;
 }

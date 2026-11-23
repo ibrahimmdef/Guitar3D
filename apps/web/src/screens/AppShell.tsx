@@ -33,8 +33,8 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Nav entry a route belongs to (a song opened from the library keeps "Library" highlighted). */
-const navOf = (route: Route) => (route.name === 'song' ? 'library' : route.name);
+/** Nav entry a route belongs to. */
+const navOf = (route: Route) => route.name;
 
 /** Shell for the non-player screens: sidebar on wide screens, bottom tab bar on phones. */
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {

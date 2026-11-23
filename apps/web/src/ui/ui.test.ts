@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatPercent, formatTime, relativeTime } from './format';
 import { ladderAfter, practiceStep } from './practiceFlow';
-import { parseRoute, playLesson, playSong, playTab, routeHref } from './router';
+import { parseRoute, playLesson, playTab, routeHref } from './router';
 import { hotkeyName, zoomDelta } from './shortcuts';
 
 describe('router', () => {
@@ -24,14 +24,8 @@ describe('router', () => {
     expect(parseRoute('#/play')).toEqual(playLesson('warmup'));
   });
 
-  it('parses audio songs', () => {
-    expect(parseRoute('#/song/s1')).toEqual(playSong('s1'));
-    expect(routeHref(playSong('s1'))).toBe('#/song/s1');
-    expect(parseRoute('#/song')).toEqual({ name: 'library' });
-  });
-
   it('round-trips ids with special characters', () => {
-    for (const r of [playTab('a b/é?'), playLesson('x%y'), playSong('ñ ?')]) expect(parseRoute(routeHref(r))).toEqual(r);
+    for (const r of [playTab('a b/é?'), playLesson('x%y')]) expect(parseRoute(routeHref(r))).toEqual(r);
   });
 
   it('survives malformed escapes', () => {
