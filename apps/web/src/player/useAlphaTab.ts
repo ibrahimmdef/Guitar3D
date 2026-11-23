@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlphaTabApi, importer, model, StaveProfile, synth } from '@coderline/alphatab';
+import { AlphaTabApi, importer, model, PlayerMode, StaveProfile, synth } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
 import { createPositionStore } from './position';
@@ -234,6 +234,31 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     a.renderScore(score, [index]);
   }, []);
 
+  /**
+   * Play an external audio source (the song a tab was transcribed from) instead of the
+   * synthesizer; null switches back. Call before loading the tab: the new player generates the
+   * MIDI (cursor timing) itself once it is ready.
+   */
+  const setExternalMedia = useCallback((handler: synth.IExternalMediaHandler | null) => {
+    const a = apiRef.current;
+    if (!a) return;
+    const mode = handler ? PlayerMode.EnabledExternalMedia : PlayerMode.EnabledSynthesizer;
+    if (a.settings.player.playerMode !== mode) {
+      a.settings.player.playerMode = mode;
+      a.updateSettings();
+    }
+    const out = a.player?.output as Partial<synth.IExternalMediaSynthOutput> | undefined;
+    if (handler && out && 'handler' in out) out.handler = handler;
+    // no sound font to wait for
+    if (handler) patch({ soundProgress: 1 });
+  }, [patch]);
+
+  /** The external media's current time (ms): moves the cursor (see setExternalMedia). */
+  const pushMediaTime = useCallback((ms: number) => {
+    const out = apiRef.current?.player?.output as Partial<synth.IExternalMediaSynthOutput> | undefined;
+    out?.updatePosition?.(ms);
+  }, []);
+
   /** Interpolated beat progress for render loops (e.g. inside useFrame). */
   const getBeatProgress = useCallback(() => {
     const c = clock.current;
@@ -292,7 +317,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (a.score) a.render();
   }, []);
 
-  return { api: apiRef, state: s, position, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
+  return { api: apiRef, state: s, position, setExternalMedia, pushMediaTime, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
 }
 
 /** True when the score has repeats, so score ticks differ from playback ticks. */

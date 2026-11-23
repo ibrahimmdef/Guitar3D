@@ -226,6 +226,17 @@ export interface AutoTabInfo {
   low: [number, number, number, number][];
   /** Strum pattern of the "Rhythm" track (bars match the tab's bars). */
   strum?: StrumAnalysis;
+  /**
+   * Start of every bar in the source audio, in seconds (one more entry than bars: the last is the
+   * end of the last bar). Lets the player follow the real song instead of a fixed tempo.
+   */
+  barTimes?: number[];
+}
+
+/** Bar start times of an auto tab: the dedicated list, else the strum analysis' (older tabs). */
+export function autoBarTimes(info: AutoTabInfo | null | undefined): number[] | null {
+  const t = info?.barTimes ?? info?.strum?.barTimes;
+  return t && t.length >= 2 ? t : null;
 }
 
 /** The `AutoTabInfo` header of an auto-transcribed alphaTex, or null for any other text. */

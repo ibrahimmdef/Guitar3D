@@ -4,6 +4,14 @@ import { Button, IconButton, Popover, SegmentedControl, Slider, Toggle, Tooltip 
 import { formatPercent, formatTime } from '../../ui/format';
 import { Scrubber } from './Scrubber';
 import { usePosition, type PositionStore } from '../../player/position';
+import type { PresetId } from '../../songs/mixer';
+
+/** What to hear when the tab plays along with its song. */
+export const SONG_MIXES: { value: PresetId; label: string }[] = [
+  { value: 'all', label: 'Full song' },
+  { value: 'playalong', label: 'Play along' },
+  { value: 'guitar-only', label: 'Guitar only' },
+];
 
 export const SPEED_PRESETS = [0.5, 0.75, 0.9, 1] as const;
 
@@ -62,6 +70,13 @@ export interface TransportProps {
   program: number;
   onProgram: (p: number) => void;
   onMix: (m: Mix) => void;
+  /** Speed slider limits (default 25–150 %). */
+  speedRange?: readonly [number, number];
+  /**
+   * The tab plays along with the song it was transcribed from: the sound menu picks the song mix
+   * instead of the synthesized guitar.
+   */
+  song?: { preset: PresetId; onPreset: (p: PresetId) => void } | null;
 
   listening: boolean;
   listenDisabled?: boolean;
@@ -104,7 +119,7 @@ export function Transport(p: TransportProps) {
       <div className="tp-group tp-tools">
         <div className="tp-tempo" role="group" aria-label="Tempo">
           <IconButton label="Slow down" shortcut="-" size="sm" icon={<Minus size={15} />} onClick={() => p.onSpeed(p.speed - 0.05)} disabled={p.speed <= 0.25} />
-          <Slider label="Speed" compact min={0.25} max={1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={pct} className="tp-tempo-slider tp-hide-md" />
+          <Slider label="Speed" compact min={p.speedRange?.[0] ?? 0.25} max={p.speedRange?.[1] ?? 1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={pct} className="tp-tempo-slider tp-hide-md" />
           <IconButton label="Speed up" shortcut="+" size="sm" icon={<Plus size={15} />} onClick={() => p.onSpeed(p.speed + 0.05)} disabled={p.speed >= 1.5} />
           <Popover
             label="Speed"
@@ -124,7 +139,7 @@ export function Transport(p: TransportProps) {
                 onChange={(v) => p.onSpeed(Number(v))}
                 options={SPEED_PRESETS.map((v) => ({ value: String(v), label: pct(v) }))}
               />
-              <Slider label="Speed" min={0.25} max={1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={(v) => `${pct(v)}${p.bpm ? ` · ${Math.round(p.bpm * v)} BPM` : ''}`} />
+              <Slider label="Speed" min={p.speedRange?.[0] ?? 0.25} max={p.speedRange?.[1] ?? 1.5} step={0.05} value={p.speed} onChange={p.onSpeed} format={(v) => `${pct(v)}${p.bpm ? ` · ${Math.round(p.bpm * v)} BPM` : ''}`} />
             </div>
           </Popover>
         </div>
@@ -138,23 +153,48 @@ export function Transport(p: TransportProps) {
           pressed={p.metronome}
           onClick={() => p.onMetronome(!p.metronome)}
         />
-        <IconButton
-          label={p.countIn ? 'Count-in: on' : 'Count-in: off'}
-          icon={<Timer size={18} />}
-          pressed={p.countIn}
-          onClick={() => p.onCountIn(!p.countIn)}
-          className="tp-hide-sm"
-        />
+        {/* the recording has its own intro: no count-in with a song */}
+        {!p.song && (
+          <IconButton
+            label={p.countIn ? 'Count-in: on' : 'Count-in: off'}
+            icon={<Timer size={18} />}
+            pressed={p.countIn}
+            onClick={() => p.onCountIn(!p.countIn)}
+            className="tp-hide-sm"
+          />
+        )}
         <Popover
           label="Sound"
           trigger={
             <Tooltip content="Sound">
-                <button type="button" className={`btn btn-ghost btn-md icon-btn${p.muted ? ' is-pressed' : ''}`} aria-label={p.muted ? 'Sound: guitar muted' : 'Sound and instrument'}>
-                  {p.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
+                {p.song ? (
+                  <button type="button" className="btn btn-ghost btn-md tp-song-btn" aria-label={`Sound: ${SONG_MIXES.find((m) => m.value === p.song!.preset)?.label}`}>
+                    <Volume2 size={18} />
+                    <span>{SONG_MIXES.find((m) => m.value === p.song!.preset)?.label}</span>
+                  </button>
+                ) : (
+                  <button type="button" className={`btn btn-ghost btn-md icon-btn${p.muted ? ' is-pressed' : ''}`} aria-label={p.muted ? 'Sound: guitar muted' : 'Sound and instrument'}>
+                    {p.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  </button>
+                )}
             </Tooltip>
           }
         >
+          {p.song ? (
+            <div className="pop-stack">
+              <div className="pop-title">Sound</div>
+              <p className="muted small">The tab follows the original recording.</p>
+              <SegmentedControl<PresetId>
+                aria-label="What to hear"
+                size="sm"
+                value={p.song.preset}
+                onChange={(v) => v && p.song!.onPreset(v)}
+                options={SONG_MIXES}
+                className="tp-mix"
+              />
+              <Slider label="Metronome" min={0} max={1} step={0.05} value={p.metroVol} onChange={(v) => { p.onMetroVol(v); if (v > 0) p.onMetronome(true); }} format={pct} />
+            </div>
+          ) : (
           <div className="pop-stack">
             <div className="pop-title">Sound</div>
             <SegmentedControl<Mix | ''>
@@ -184,6 +224,7 @@ export function Transport(p: TransportProps) {
             <Slider label="Metronome" min={0} max={1} step={0.05} value={p.metroVol} onChange={(v) => { p.onMetroVol(v); if (v > 0) p.onMetronome(true); }} format={pct} />
             <Toggle label="Count-in" description="Counts one bar before playing." checked={p.countIn} onChange={p.onCountIn} />
           </div>
+          )}
         </Popover>
 
         <span className="tp-sep" aria-hidden />

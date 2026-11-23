@@ -1,5 +1,5 @@
 import type { AutoTabInfo, StrumAnalysis, TranscriptionSummary } from '@guitar3d/shared';
-import { barOrigin, chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, type RawTranscription } from './grid.js';
+import { barOrigin, chooseDownbeat, fixedGrid, quantize, toBars, trackedGrid, SLOTS_PER_BAR, SLOTS_PER_BEAT, type RawTranscription } from './grid.js';
 import { analyzeStrums, applyStrums } from './strum.js';
 import { cleanNotes } from './clean.js';
 import { buildAlphaTex, groupEvents, LEAD_NAME, placeEvents, RHYTHM_NAME, splitLeadRhythm, type TrackPart } from './tab.js';
@@ -65,7 +65,9 @@ export function buildAutoTab(raw: RawTranscription, opts: BuildOptions): AutoTab
 
   const cents = Math.round(raw.cents ?? 0);
   const detected = tuningLabel(tuning, cents, capo);
-  const { tex, info } = buildAlphaTex({ title: opts.title, artist: opts.artist, tempo: grid.tempo, tuning: tuning.midi, capo, parts, detected, barCount: strum?.bars.length, strum });
+  const origin = barOrigin(q, downbeat, grid.fixedDownbeat);
+  const barTime = (bar: number) => grid.toTime((origin + bar * SLOTS_PER_BAR) / SLOTS_PER_BEAT);
+  const { tex, info } = buildAlphaTex({ title: opts.title, artist: opts.artist, tempo: grid.tempo, tuning: tuning.midi, capo, parts, detected, barCount: strum?.bars.length, strum, barTime });
   const last = Math.max(...parts.flatMap((p) => p.events.map((e) => e.slot)));
   return {
     tex,

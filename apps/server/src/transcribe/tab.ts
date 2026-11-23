@@ -169,6 +169,8 @@ export interface TexInput {
   barCount?: number;
   /** Strum pattern of the rhythm part, stored in the info header. */
   strum?: StrumAnalysis;
+  /** Time (s) of a bar line in the source audio, bar 0 = first bar of the tab; stored as `barTimes`. */
+  barTime?: (bar: number) => number;
 }
 
 /** The whole auto-transcribed tab, starting with the `AUTO_TEX_TAG` info line. */
@@ -182,6 +184,7 @@ export function buildAlphaTex(input: TexInput): { tex: string; info: AutoTabInfo
     notes: tracks.reduce((s, t) => s + t.r.notes, 0),
     low: tracks.flatMap((t, ti) => t.r.low.map(([bar, beat, string]) => [ti, bar, beat, string] as [number, number, number, number])),
     ...(input.strum ? { strum: input.strum } : {}),
+    ...(input.barTime ? { barTimes: Array.from({ length: barCount + 1 }, (_, b) => Math.round(input.barTime!(b) * 1000) / 1000) } : {}),
   };
   const head = [
     `${AUTO_TEX_TAG}${JSON.stringify(info)}`,

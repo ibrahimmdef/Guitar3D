@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownUp, ArrowLeft, Box, FileMusic, GraduationCap, PencilLine, Sparkles, X } from 'lucide-react';
 import type { AutoTabInfo, CameraMode, FretNote, GuitarProfile, GuitarView, TabMeta, TabProgress } from '@guitar3d/shared';
 import type { model } from '@coderline/alphatab';
-import { readAutoTabInfo } from '@guitar3d/shared';
+import { autoBarTimes, readAutoTabInfo } from '@guitar3d/shared';
 import type { Mix } from '../../audio/sounds';
 import { barDensity, normalize } from '../../player/beats';
 import { computeSections, nextSectionIndex, sectionAt } from '../../player/sections';
@@ -12,6 +12,8 @@ import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
 import { barRange, hasRepeats, markNotes, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
 import { usePosition } from '../../player/position';
+import { useSongAudio } from '../../player/useSongAudio';
+import { syncPointsFor } from '../../player/songSync';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
@@ -48,19 +50,27 @@ import { NotesPanel, useBarNotes } from './NotesPanel';
 import { RhythmPanel, type StrumPos } from './RhythmPanel';
 import { strumFromScore } from '../../player/strumScore';
 
-const clampSpeed = (v: number) => Math.min(1.5, Math.max(0.25, Math.round(v * 100) / 100));
+type SpeedRange = readonly [number, number];
+const SYNTH_SPEEDS: SpeedRange = [0.25, 1.5];
+/** The recording time-stretches cleanly only between half and full speed (see StemEngine). */
+const SONG_SPEEDS: SpeedRange = [0.5, 1];
+const clampSpeed = (v: number, [lo, hi]: SpeedRange = SYNTH_SPEEDS) => Math.min(hi, Math.max(lo, Math.round(v * 100) / 100));
 
 export function PlayerScreen({ source, share }: { source: PlaySource; share?: ShareParams }) {
   const tabId = source.kind === 'tab' ? source.id : null;
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const { api, state, position, getBeatProgress, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView } = useAlphaTab(host, scroller);
+  const { api, state, position, setExternalMedia, pushMediaTime, getBeatProgress, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
   const [meta, setMeta] = useState<Pick<TabMeta, 'title' | 'artist'> | null>(null);
   const [guitarReady, setGuitarReady] = useState(false);
+  // Auto tab made from a song: play the recording itself, the tab follows it bar by bar.
+  const [songSrc, setSongSrc] = useState<{ songId: string; barTimes: number[] } | null>(null);
+  const songAudio = useSongAudio(songSrc?.songId ?? null, songSrc?.barTimes ?? null);
+  const speedRange = songSrc ? SONG_SPEEDS : SYNTH_SPEEDS;
   // guitar photos (textures) downloaded so far, from three.js' loading manager
   const textureProgress = useProgress((p) => (p.total ? p.loaded / p.total : 0));
   const [fetching, setFetching] = useState(false);
@@ -121,6 +131,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     setAuto(null);
     setAutoHidden(false);
     setRhythmHidden(false);
+    setSongSrc(null);
     api.current?.stop();
     setFetching(true);
     markPlayed(source.kind === 'lesson' ? `lesson:${source.id}` : source.id);
@@ -132,37 +143,69 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           .then(({ meta: m, content }) => {
             if (!alive) return;
             setMeta(m ? { title: m.title, artist: '' } : null);
+            setExternalMedia(null);
             if (content.kind === 'tex') loadTex(content.tex);
             else loadBuffer(content.data);
           })
           .catch((e: Error) => alive && setLoadErr(e.message))
           .finally(done);
       } else {
-        fetchTabFile(source.id)
-          .then((buf) => {
+        // the tab's metadata says whether it came from a song (needed before loading it)
+        Promise.all([fetchTabFile(source.id), listTabs().catch(() => [] as TabMeta[])])
+          .then(([buf, tabs]) => {
             if (!alive) return;
+            const m = tabs.find((x) => x.id === source.id) ?? null;
+            setMeta(m);
             // Auto-transcribed alphaTex starts with an info comment: colour the notes it is unsure about.
             const head = new Uint8Array(buf, 0, Math.min(2, buf.byteLength));
             const text = head[0] === 0x2f && head[1] === 0x2f ? new TextDecoder().decode(buf) : '';
             const info = text ? readAutoTabInfo(text) : null;
             if (info) {
               setAuto(info);
+              const barTimes = autoBarTimes(info);
+              const songId = m?.transcription?.songId;
+              const withSong = !!(songId && barTimes);
+              setSongSrc(withSong ? { songId: songId!, barTimes: barTimes! } : null);
+              setExternalMedia(withSong ? songAudio.media : null);
               loadTex(text, (score) => {
                 markNotes(score, info.low);
+                if (withSong) score.applyFlatSyncPoints(syncPointsFor(barTimes!, score.masterBars.length));
                 return info.strum?.pattern ? strummedTrack(score) : undefined;
               });
-            } else loadBuffer(buf);
+            } else {
+              setExternalMedia(null);
+              loadBuffer(buf);
+            }
           })
           .catch((e: Error) => alive && setLoadErr(e.message))
           .finally(done);
-        listTabs().then((ts) => alive && setMeta(ts.find((x) => x.id === source.id) ?? null)).catch(() => {});
       }
     }, 0);
     return () => {
       alive = false;
       clearTimeout(t);
     };
-  }, [source.kind, source.id, loadTex, loadBuffer, api]);
+  }, [source.kind, source.id, loadTex, loadBuffer, api, setExternalMedia, songAudio.media]);
+
+  /* ---------- Song audio (auto tabs made from a song) ---------- */
+  // the recording's clock moves the tab cursor and drives the beat-accurate metronome
+  useEffect(() => {
+    songAudio.media.onTime = (t) => {
+      pushMediaTime(t * 1000);
+      songAudio.tickClicks(t);
+    };
+  });
+  useEffect(() => {
+    songAudio.setMetronome(metronome && !!songSrc);
+    songAudio.setMetroVolume(metroVol);
+  }, [metronome, metroVol, songSrc, songAudio]);
+  // the song could not be loaded: fall back to the synthesized tab
+  useEffect(() => {
+    if (songAudio.status !== 'error' || !songSrc) return;
+    setSongSrc(null);
+    setExternalMedia(null);
+    toast({ tone: 'danger', title: 'Couldn\'t load the song.', description: 'Playing the tab with the guitar sound instead.' });
+  }, [songAudio.status, songSrc, setExternalMedia, toast]);
 
   const report = useMemo(() => (state.score && state.track ? analyze(toSimpleBars(state.track, state.score.tempo)) : null), [state.score, state.track]);
 
@@ -185,6 +228,12 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report]);
 
+  // keep the speed inside what the current sound can play (defaults and shared links may be outside)
+  useEffect(() => {
+    const ok = clampSpeed(speed, speedRange);
+    if (ok !== speed) setSpeed(ok);
+  }, [speed, speedRange]);
+
   /* ---------- Push state into alphaTab ---------- */
   useEffect(() => {
     if (api.current) api.current.playbackSpeed = speed;
@@ -193,8 +242,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     if (api.current) api.current.metronomeVolume = metronome ? metroVol : 0;
   }, [metronome, metroVol, api, state.ready, state.midiGen]);
   useEffect(() => {
-    if (api.current) api.current.countInVolume = countIn ? 1 : 0;
-  }, [countIn, api, state.ready, state.midiGen]);
+    if (api.current) api.current.countInVolume = countIn && !songSrc ? 1 : 0;
+  }, [countIn, songSrc, api, state.ready, state.midiGen]);
   useEffect(() => {
     const a = api.current;
     if (!a || !state.track) return;
@@ -311,7 +360,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
       setCountValue(null);
       return;
     }
-    if (was || !countIn || listening || !state.score) return;
+    if (was || !countIn || songSrc || listening || !state.score) return;
     const mb = state.score.masterBars[state.currentBar] ?? state.score.masterBars[0];
     const beats = mb?.timeSignatureNumerator || 4;
     const unitMs = (60000 / ((state.score.tempo || 120) * speed)) * (4 / (mb?.timeSignatureDenominator || 4));
@@ -600,7 +649,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const speedKey = (d: number) => (e: KeyboardEvent) => {
     const z = zoomDelta(e);
     if (z) zoomBy(z);
-    else setSpeed((s) => clampSpeed(s + d * 0.05));
+    else setSpeed((s) => clampSpeed(s + d * 0.05, speedRange));
   };
 
   const setView = (v: GuitarView) => setSettings({ view: v });
@@ -621,7 +670,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     s: nextSection,
     f: fs.toggle,
     n: () => setFocus(focus === 'tab' ? 'neck' : 'tab'),
-    '=': () => setSpeed((s) => clampSpeed(s + 0.05)),
+    '=': () => setSpeed((s) => clampSpeed(s + 0.05, speedRange)),
     '1': () => setCamera(CAMERA_MODES[0].value),
     '2': () => setCamera(CAMERA_MODES[1].value),
     '3': () => setCamera(CAMERA_MODES[2].value),
@@ -653,12 +702,15 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const hasScore = !!state.score && !loadErr;
   const failed = !!(loadErr || state.error);
   // One loading state for the whole stage: tab, guitar (incl. textures) and sound.
-  const loadingLabel = failed ? null : busy || !state.score ? 'Loading tab…' : !guitarReady ? 'Preparing guitar…' : !state.ready ? 'Preparing sound…' : null;
+  const songLoading = !!songSrc && songAudio.status === 'loading';
+  const loadingLabel = failed ? null : busy || !state.score ? 'Loading tab…' : !guitarReady ? 'Preparing guitar…' : !state.ready || songLoading ? 'Preparing sound…' : null;
   // The loading screen's steps run in parallel; the bar is their weighted sum.
   const loadSteps: LoadStep[] = [
     { label: 'Loading tab', progress: hasScore ? 1 : busy ? 0.4 : 0.1, weight: 1 },
     { label: 'Building your guitar', progress: guitarReady ? 1 : 0.1 + 0.75 * textureProgress, weight: 2 },
-    { label: 'Loading sounds', progress: state.ready ? 1 : 0.95 * state.soundProgress, weight: 2 },
+    songSrc
+      ? { label: 'Loading the song', progress: songLoading ? 0.3 : 1, weight: 2 }
+      : { label: 'Loading sounds', progress: state.ready ? 1 : 0.95 * state.soundProgress, weight: 2 },
   ];
 
   return (
@@ -875,7 +927,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         onSeek={seekTick}
         onStepBar={stepBar}
         speed={speed}
-        onSpeed={(v) => setSpeed(clampSpeed(v))}
+        onSpeed={(v) => setSpeed(clampSpeed(v, speedRange))}
+        speedRange={speedRange}
         bpm={state.score ? state.score.tempo : null}
         metronome={metronome}
         onMetronome={setMetronome}
@@ -898,6 +951,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         program={program}
         onProgram={(v) => setSettings({ program: v })}
         onMix={onMix}
+        song={songSrc ? { preset: songAudio.preset, onPreset: songAudio.setPreset } : null}
         listening={listening}
         listenDisabled={!hasScore}
         onListen={(on) => {

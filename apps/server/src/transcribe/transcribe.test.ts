@@ -200,6 +200,18 @@ describe('buildAutoTab', () => {
     expect(auto.info.low).toEqual([[0, 0, 4, 5]]);
   });
 
+  it('stores where every bar starts in the audio, following drifting beats', () => {
+    // beats slow down from 0.5 s to 0.6 s apart: bar lines must follow them, not a fixed tempo
+    const beats: number[] = [1];
+    for (let i = 1; i < 24; i++) beats.push(beats[i - 1] + (i < 12 ? 0.5 : 0.6));
+    const raw = { duration: 15, beats, tempo: 110, notes: beats.slice(0, 20).map((b, i) => note(b + 0.01, i % 4 === 0 ? 40 : 47)) };
+    const { info, summary } = buildAutoTab(raw, { title: 'x' });
+    expect(info.barTimes).toHaveLength(summary.bars + 1);
+    expect(info.barTimes![0]).toBe(1);
+    // bar lines on every 4th beat of the tracked grid
+    for (let b = 0; b < info.barTimes!.length && b * 4 < beats.length; b++) expect(info.barTimes![b]).toBeCloseTo(beats[b * 4], 3);
+  });
+
   it('uses tracked beats when no tempo is given and rejects silence', () => {
     const beats = Array.from({ length: 16 }, (_, i) => 0.3 + i * 0.5);
     const raw = { duration: 8, beats, tempo: 120, notes: beats.slice(0, 8).map((b, i) => note(b + 0.01, [40, 43, 45, 47][i % 4])) };
