@@ -112,10 +112,11 @@ function markerMaterial(kind: number, label: string | null, color: string) {
   });
 }
 
+// Not disposed on purpose: these materials come and go every beat, and disposing the last user of a
+// shader makes three.js delete the GPU program, so the next beat recompiles it (a visible hitch).
+// Undisposed materials are garbage-collected; their label textures are shared (labelCache).
 function useMarkerMaterial(kind: number, label: string | null, color: string) {
-  const mat = useMemo(() => markerMaterial(kind, label, color), [kind, label, color]);
-  useEffect(() => () => mat.dispose(), [mat]);
-  return mat;
+  return useMemo(() => markerMaterial(kind, label, color), [kind, label, color]);
 }
 
 const planeGeo = new THREE.PlaneGeometry(1, 1);
@@ -139,186 +140,45 @@ const TONE_COLOR = { missed: '#f2666b', late: '#8fa3c7', early: '#f5b83d' } as c
 /** Okabe–Ito safe palette for color-blind mode. */
 const TONE_COLOR_CB = { missed: '#e36b1f', late: '#56b4e9', early: '#f0e442' } as const;
 
-// Marker animation state managed by a single frame loop
-interface MarkerAnimState {
-  currentMarkers: Map<string, { ref: THREE.Group; mat: THREE.ShaderMaterial; startTime: number; chipRef?: THREE.Group; chipMat?: THREE.ShaderMaterial }>;
-  nextMarkers: Map<string, { ref: THREE.Group; mat: THREE.ShaderMaterial; scale: number }>;
-  ghostMarkers: Map<string, { ref: THREE.Group; mat: THREE.ShaderMaterial; born: number }>;
-  hopPaths: Map<string, { geo: THREE.BufferGeometry; mat: THREE.ShaderMaterial; rank: number; progress: number; a: V3; b: V3 }>;
-  hopBubbles: Map<string, { groupRef: THREE.Group; shadowRef: THREE.Mesh; mat: THREE.ShaderMaterial; shadowMat: THREE.MeshBasicMaterial; sm: { current: number }; up: V3; h: number; a: V3; b: V3; label: string }>;
-  fretJumpChips: Map<string, { ref: THREE.Group; mat: THREE.ShaderMaterial; up: V3; h: number; a: V3; b: V3 }>;
-}
-
-const markerAnimState: MarkerAnimState = {
-  currentMarkers: new Map(),
-  nextMarkers: new Map(),
-  ghostMarkers: new Map(),
-  hopPaths: new Map(),
-  hopBubbles: new Map(),
-  fretJumpChips: new Map(),
-};
-
-function updateCurrentMarkers(camera: THREE.Camera, size: { width: number; height: number }, clock: THREE.Clock) {
-  for (const [, marker] of markerAnimState.currentMarkers) {
-    if (!marker.ref) continue;
-    if (marker.startTime < 0) marker.startTime = clock.elapsedTime;
-    const t = clock.elapsedTime - marker.startTime;
-    marker.ref.scale.setScalar(diameterAt(marker.ref, camera, size.height) * popScale(t));
-    marker.mat.uniforms.uPop.value = popRing(t);
-    if (marker.chipRef) {
-      marker.chipRef.scale.setScalar(diameterAt(marker.chipRef, camera, size.height) * 0.5);
-    }
-  }
-}
-
-function updateNextMarkers(camera: THREE.Camera, size: { width: number; height: number }) {
-  for (const [, marker] of markerAnimState.nextMarkers) {
-    if (marker.ref) {
-      marker.ref.scale.setScalar(diameterAt(marker.ref, camera, size.height) * 0.94 * marker.scale);
-    }
-  }
-}
-
-function updateGhostMarkers(camera: THREE.Camera, size: { width: number; height: number }, clock: THREE.Clock) {
-  const toDelete: string[] = [];
-  for (const [key, marker] of markerAnimState.ghostMarkers) {
-    if (!marker.ref) { toDelete.push(key); continue; }
-    const t = clock.elapsedTime - marker.born;
-    marker.mat.uniforms.uOpacity.value = ghostOpacity(t);
-    marker.ref.visible = t < GHOST_TIME;
-    marker.ref.scale.setScalar(diameterAt(marker.ref, camera, size.height) * (1 + 0.15 * Math.min(1, t / GHOST_TIME)));
-    if (t >= GHOST_TIME) toDelete.push(key);
-  }
-  for (const key of toDelete) markerAnimState.ghostMarkers.delete(key);
-}
-
-function updateHopPaths(camera: THREE.Camera, size: { width: number; height: number }, gl: THREE.WebGLRenderer) {
-  for (const [, hp] of markerAnimState.hopPaths) {
-    if (!hp.geo || !hp.mat) continue;
-    const up: V3 = [0, 0, 1];
-    hopUp(camera, null, up);
-    const pos = hp.geo.getAttribute('position') as THREE.BufferAttribute;
-    const ts = hp.geo.getAttribute('aT') as THREE.BufferAttribute;
-    const n = pos.count;
-    const t0 = 0.12;
-    for (let i = 0; i < n; i++) {
-      const t = t0 + ((1 - 2 * t0) * i) / (n - 1);
-      const q = hopPoint(hp.a, hp.b, t, up, hopHeight(hp.a, hp.b));
-      pos.setXYZ(i, q[0], q[1], q[2]);
-      ts.setX(i, t);
-    }
-    pos.needsUpdate = true;
-    ts.needsUpdate = true;
-    hp.geo.computeBoundingSphere();
-    const dpr = gl.getPixelRatio();
-    hp.mat.uniforms.uPx.value = (hp.rank === 0 ? 10 : 6.5) * dpr;
-    hp.mat.uniforms.uOpacity.value = arrowOpacity(hp.rank, hp.progress);
-    hp.mat.uniforms.uBall.value = hp.rank === 0 && hp.progress > 0.42 ? hopT(hp.progress) : -1;
-  }
-}
-
-function updateHopBubbles(camera: THREE.Camera, size: { width: number; height: number }) {
-  for (const [, hb] of markerAnimState.hopBubbles) {
-    if (!hb.groupRef || !hb.shadowRef) continue;
-    const t = hopT(hb.sm.current);
-    const flying = hb.sm.current > 0.42;
-    const up: V3 = [0, 0, 1];
-    hopUp(camera, hb.groupRef, up);
-    const q = hopPoint(hb.a, hb.b, t, up, hb.h);
-    hb.groupRef.position.set(q[0], q[1], q[2] + 0.05);
-    hb.groupRef.visible = flying;
-    hb.shadowRef.visible = flying;
-    const lift = 4 * t * (1 - t);
-    const d = diameterAt(hb.groupRef, camera, size.height);
-    hb.groupRef.scale.set(d * (0.86 + 0.06 * lift), d * (0.8 + 0.14 * lift), 1);
-    hb.mat.uniforms.uOpacity.value = Math.min(1, (hb.sm.current - 0.42) * 8) * 0.92;
-    hb.shadowRef.position.set(hb.a[0] + (hb.b[0] - hb.a[0]) * t, hb.a[1] + (hb.b[1] - hb.a[1]) * t, Math.min(hb.a[2], hb.b[2]) - 0.35);
-    hb.shadowRef.scale.setScalar(d * (0.75 - 0.3 * lift));
-    if (hb.shadowRef.material && !Array.isArray(hb.shadowRef.material)) {
-      hb.shadowRef.material.opacity = 0.38 * (1 - 0.6 * lift);
-    }
-  }
-}
-
-function updateFretJumpChips(camera: THREE.Camera, size: { width: number; height: number }) {
-  for (const [, chip] of markerAnimState.fretJumpChips) {
-    if (!chip.ref) continue;
-    const up: V3 = [0, 0, 1];
-    hopUp(camera, chip.ref, up);
-    const q = hopPoint(chip.a, chip.b, 0.5, up, chip.h + 1.1);
-    chip.ref.position.set(q[0], q[1], q[2]);
-    chip.ref.scale.setScalar(diameterAt(chip.ref, camera, size.height) * 0.6);
-  }
-}
-
-// Cleanup functions
-function clearCurrentMarker(key: string) {
-  markerAnimState.currentMarkers.delete(key);
-}
-function clearNextMarker(key: string) {
-  markerAnimState.nextMarkers.delete(key);
-}
-function clearGhostMarker(key: string) {
-  markerAnimState.ghostMarkers.delete(key);
-}
-function clearHopPath(key: string) {
-  markerAnimState.hopPaths.delete(key);
-}
-function clearHopBubble(key: string) {
-  markerAnimState.hopBubbles.delete(key);
-}
-function clearFretJumpChip(key: string) {
-  markerAnimState.fretJumpChips.delete(key);
-}
-
-function CurrentMarker({ profile, note, beatId }: { profile: GuitarProfile; note: FretNote; beatId: number }) {
+function CurrentMarker({ profile, note }: { profile: GuitarProfile; note: FretNote }) {
   const pos = markerPosition(profile, note.string, note.fret);
   const colorBlind = typeof document !== 'undefined' && document.documentElement.dataset.palette === 'cb';
   const toneColor = colorBlind ? TONE_COLOR_CB : TONE_COLOR;
   const mat = useMarkerMaterial(note.muted ? KIND.muted : KIND.now, note.muted ? null : markerLabel(note), note.tone ? toneColor[note.tone] : ACCENT);
   const chip = useMarkerMaterial(KIND.chip, note.technique ? TECH_GLYPH[note.technique] : null, NEXT_OUTLINE);
   const g = useRef<THREE.Group>(null);
-  const chipRef = useRef<THREE.Group>(null);
-  const key = `c${beatId}-${noteKey(note)}`;
-
-  useEffect(() => {
-    markerAnimState.currentMarkers.set(key, { ref: g.current!, mat, startTime: -1, chipRef: chipRef.current ?? undefined, chipMat: chip });
-    return () => clearCurrentMarker(key);
-  }, [key, mat, chip]);
-
+  const start = useRef(-1);
+  useFrame(({ camera, size, clock }) => {
+    if (!g.current) return;
+    if (start.current < 0) start.current = clock.elapsedTime;
+    const t = clock.elapsedTime - start.current;
+    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * popScale(t));
+    mat.uniforms.uPop.value = popRing(t);
+  });
   return (
     <Billboard position={pos}>
       <group ref={g}>
         <mesh geometry={planeGeo} material={mat} scale={QUAD} renderOrder={12} />
-        {note.technique && <group ref={chipRef}><mesh geometry={planeGeo} material={chip} scale={0.5} position={[0.78, 0.78, 0.01]} renderOrder={13} /></group>}
+        {note.technique && <mesh geometry={planeGeo} material={chip} scale={0.5} position={[0.78, 0.78, 0.01]} renderOrder={13} />}
       </group>
     </Billboard>
   );
 }
 
-function NextMarker({ profile, m, progress }: { profile: GuitarProfile; m: UpcomingMarker; progress: number }) {
+/** Beat progress (0..1), written once per frame by NoteMarkers and read by the markers in their frame loop. */
+type ProgressRef = { readonly current: number };
+
+function NextMarker({ profile, m, progress }: { profile: GuitarProfile; m: UpcomingMarker; progress: ProgressRef }) {
   const pos = markerPosition(profile, m.note.string, m.note.fret);
   const label = m.note.muted ? null : markerLabel(m.note);
   const mat = useMarkerMaterial(m.note.muted ? KIND.muted : KIND.ring, label, NEXT_OUTLINE);
-  const fade = upcomingFade(m.rank, progress);
-  mat.uniforms.uOpacity.value = fade.opacity;
-  mat.uniforms.uProgress.value = fade.arc ? Math.min(1, Math.max(0, progress)) : -1;
-  const scale = useRef(fade.scale);
-  scale.current = fade.scale;
   const g = useRef<THREE.Group>(null);
-  const key = `n${m.rank}-${m.key}`;
-
-  useEffect(() => {
-    markerAnimState.nextMarkers.set(key, { ref: g.current!, mat, scale: fade.scale });
-    return () => clearNextMarker(key);
-  }, [key, mat]);
-
-  // Update scale when fade changes
-  useEffect(() => {
-    const entry = markerAnimState.nextMarkers.get(key);
-    if (entry) entry.scale = fade.scale;
-  }, [key, fade.scale]);
-
+  useFrame(({ camera, size }) => {
+    const fade = upcomingFade(m.rank, progress.current);
+    mat.uniforms.uOpacity.value = fade.opacity;
+    mat.uniforms.uProgress.value = fade.arc ? progress.current : -1;
+    if (g.current) g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * 0.94 * fade.scale);
+  });
   return (
     <Billboard position={pos}>
       <group ref={g}>
@@ -337,12 +197,13 @@ interface Ghost {
 function GhostMarker({ ghost }: { ghost: Ghost }) {
   const mat = useMarkerMaterial(KIND.ghost, null, ACCENT);
   const g = useRef<THREE.Group>(null);
-
-  useEffect(() => {
-    markerAnimState.ghostMarkers.set(ghost.key, { ref: g.current!, mat, born: ghost.born });
-    return () => clearGhostMarker(ghost.key);
-  }, [ghost.key, mat]);
-
+  useFrame(({ camera, size, clock }) => {
+    if (!g.current) return;
+    const t = clock.elapsedTime - ghost.born;
+    mat.uniforms.uOpacity.value = ghostOpacity(t);
+    g.current.visible = t < GHOST_TIME;
+    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * (1 + 0.15 * Math.min(1, t / GHOST_TIME)));
+  });
   return (
     <Billboard position={ghost.pos}>
       <group ref={g}>
@@ -423,7 +284,7 @@ function Ribbon({ pts, width, color, opacity, dash = 0 }: { pts: [number, number
   );
   mat.uniforms.uOpacity.value = opacity;
   useEffect(() => () => geometry.dispose(), [geometry]);
-  useEffect(() => () => mat.dispose(), [mat]);
+  // material not disposed: see useMarkerMaterial
   return <mesh geometry={geometry} material={mat} renderOrder={8} />;
 }
 
@@ -477,7 +338,7 @@ void main() {
 }`;
 
 /** Dotted arc showing where the hand hops next (screen-up, so it always reads as a jump). */
-function HopPath({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progress: number }) {
+function HopPath({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progress: ProgressRef }) {
   const n = Math.round(Math.min(34, Math.max(12, Math.hypot(b[0] - a[0], b[1] - a[1]) * 1.6)));
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -494,31 +355,38 @@ function HopPath({ a, b, rank, progress }: { a: V3; b: V3; rank: number; progres
     depthTest: false,
     toneMapped: false,
   }), [rank]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  // material not disposed: see useMarkerMaterial
   const sm = useSmoothProgress(progress);
+  const up = useRef<V3>([0, 0, 1]);
+  const pts = useRef<THREE.Points>(null);
   const h = hopHeight(a, b);
-  const key = `hp${rank}-${a[0].toFixed(2)}-${a[1].toFixed(2)}-${b[0].toFixed(2)}-${b[1].toFixed(2)}`;
-
-  useEffect(() => {
-    markerAnimState.hopPaths.set(key, { geo, mat, rank, progress: sm.current, a, b });
-    return () => clearHopPath(key);
-  }, [key, geo, mat, rank, a, b]);
-
-  // Update progress
-  useEffect(() => {
-    const entry = markerAnimState.hopPaths.get(key);
-    if (entry) entry.progress = sm.current;
-  }, [key, sm.current]);
-
-  useEffect(() => () => { geo.dispose(); mat.dispose(); }, [geo, mat]);
-
-  return <points geometry={geo} material={mat} renderOrder={8 - rank} frustumCulled={false} />;
+  useFrame(({ camera, gl }) => {
+    hopUp(camera, pts.current, up.current);
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const ts = geo.getAttribute('aT') as THREE.BufferAttribute;
+    // keep clear of both bubbles: skip the ends of the arc
+    const t0 = 0.12;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + ((1 - 2 * t0) * i) / (n - 1);
+      const q = hopPoint(a, b, t, up.current, h);
+      pos.setXYZ(i, q[0], q[1], q[2]);
+      ts.setX(i, t);
+    }
+    pos.needsUpdate = true;
+    ts.needsUpdate = true;
+    geo.computeBoundingSphere();
+    const dpr = gl.getPixelRatio();
+    mat.uniforms.uPx.value = (rank === 0 ? 10 : 6.5) * dpr;
+    mat.uniforms.uOpacity.value = arrowOpacity(rank, sm.current);
+    mat.uniforms.uBall.value = rank === 0 && sm.current > 0.42 ? hopT(sm.current) : -1;
+  });
+  return <points ref={pts} geometry={geo} material={mat} renderOrder={8 - rank} frustumCulled={false} />;
 }
 
-/** beatProgress arrives every ~50 ms; smooth it per frame and restart cleanly when a new beat begins. */
-function useSmoothProgress(progress: number) {
-  const shown = useRef(progress);
-  const target = useRef(progress);
-  target.current = progress;
+/** Smooth the beat progress per frame and restart cleanly when a new beat begins. */
+function useSmoothProgress(target: ProgressRef) {
+  const shown = useRef(target.current);
   useFrame((_, dt) => {
     if (target.current < shown.current - 0.3) shown.current = target.current;
     else shown.current += (target.current - shown.current) * Math.min(1, dt * 14);
@@ -533,32 +401,32 @@ const shadowGeo = new THREE.CircleGeometry(0.5, 32);
  * on the next note just as it is due (the next marker then pops). A soft shadow on the fretboard
  * shows how high it is.
  */
-function HopBubble({ a, b, label, progress, beatId }: { a: V3; b: V3; label: string; progress: number; beatId: number }) {
+function HopBubble({ a, b, label, progress }: { a: V3; b: V3; label: string; progress: ProgressRef }) {
   const mat = useMarkerMaterial(KIND.now, label, ACCENT);
   const shadowMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, depthWrite: false, toneMapped: false }), []);
-  useEffect(() => () => shadowMat.dispose(), [shadowMat]);
   const sm = useSmoothProgress(progress);
   const g = useRef<THREE.Group>(null);
   const sh = useRef<THREE.Mesh>(null);
+  const up = useRef<V3>([0, 0, 1]);
   const h = hopHeight(a, b);
-  const key = `hb${beatId}-${a[0].toFixed(2)}-${a[1].toFixed(2)}-${b[0].toFixed(2)}-${b[1].toFixed(2)}`;
-
-  useEffect(() => {
-    markerAnimState.hopBubbles.set(key, {
-      groupRef: g.current!,
-      shadowRef: sh.current!,
-      mat,
-      shadowMat,
-      sm,
-      up: [0, 0, 1],
-      h,
-      a,
-      b,
-      label
-    });
-    return () => clearHopBubble(key);
-  }, [key, mat, shadowMat, sm, h, a, b, label]);
-
+  useFrame(({ camera, size }) => {
+    if (!g.current || !sh.current) return;
+    const t = hopT(sm.current);
+    const flying = sm.current > 0.42;
+    hopUp(camera, g.current, up.current);
+    const q = hopPoint(a, b, t, up.current, h);
+    g.current.position.set(q[0], q[1], q[2] + 0.05);
+    g.current.visible = flying;
+    sh.current.visible = flying;
+    const lift = 4 * t * (1 - t); // 0 on the notes, 1 at the top
+    // squash a little at take-off and landing, stretch in flight
+    const d = diameterAt(g.current, camera, size.height);
+    g.current.scale.set(d * (0.86 + 0.06 * lift), d * (0.8 + 0.14 * lift), 1);
+    mat.uniforms.uOpacity.value = Math.min(1, (sm.current - 0.42) * 8) * 0.92;
+    sh.current.position.set(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, Math.min(a[2], b[2]) - 0.35);
+    sh.current.scale.setScalar(d * (0.75 - 0.3 * lift));
+    shadowMat.opacity = 0.38 * (1 - 0.6 * lift);
+  });
   return (
     <>
       <mesh ref={sh} geometry={shadowGeo} material={shadowMat} renderOrder={7} visible={false} />
@@ -576,14 +444,15 @@ function FretJumpChip({ a, b, delta }: { a: V3; b: V3; delta: number }) {
   const label = delta > 0 ? `+${delta}` : `−${-delta}`;
   const mat = useMarkerMaterial(KIND.chip, label, ACCENT);
   const g = useRef<THREE.Group>(null);
+  const up = useRef<V3>([0, 0, 1]);
   const h = hopHeight(a, b);
-  const key = `fjc-${a[0].toFixed(2)}-${a[1].toFixed(2)}-${b[0].toFixed(2)}-${b[1].toFixed(2)}`;
-
-  useEffect(() => {
-    markerAnimState.fretJumpChips.set(key, { ref: g.current!, mat, up: [0, 0, 1], h, a, b });
-    return () => clearFretJumpChip(key);
-  }, [key, mat, h, a, b]);
-
+  useFrame(({ camera, size }) => {
+    if (!g.current) return;
+    hopUp(camera, g.current, up.current);
+    const q = hopPoint(a, b, 0.5, up.current, h + 1.1);
+    g.current.position.set(q[0], q[1], q[2]);
+    g.current.scale.setScalar(diameterAt(g.current, camera, size.height) * 0.6);
+  });
   return (
     <group ref={g}>
       <Billboard>
@@ -595,13 +464,22 @@ function FretJumpChip({ a, b, delta }: { a: V3; b: V3; delta: number }) {
 
 /* ------------------------------------------------------------------ all markers */
 
-export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: {
+export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress, getBeatProgress }: {
   profile: GuitarProfile;
   notes: FretNote[];
   upcoming?: FretNote[][];
   beatId: number;
   beatProgress: number;
+  /** When given, read every frame instead of `beatProgress` (no React re-render needed). */
+  getBeatProgress?: () => number;
 }) {
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v || 0));
+  const progress = useRef(clamp01(beatProgress));
+  if (!getBeatProgress) progress.current = clamp01(beatProgress);
+  // negative priority: runs before the markers' own frame callbacks (and keeps automatic rendering)
+  useFrame(() => {
+    if (getBeatProgress) progress.current = clamp01(getBeatProgress());
+  }, -1);
   const current = useMemo(() => currentNotes(notes), [notes]);
   const next = useMemo(() => upcomingMarkers(notes, upcoming), [notes, upcoming]);
   const arrows = useMemo(() => {
@@ -640,19 +518,7 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
     return pts.length >= 2 ? pts : null;
   }, [current, profile]);
 
-  // Unified frame callback to drive all marker animations
-  const { camera, size, gl } = useThree();
-  useFrame((_, dt) => {
-    const clk = clock;
-    updateCurrentMarkers(camera, size, clk);
-    updateNextMarkers(camera, size);
-    updateGhostMarkers(camera, size, clk);
-    updateHopPaths(camera, size, gl);
-    updateHopBubbles(camera, size);
-    updateFretJumpChips(camera, size);
-  });
-
-  const p = Math.min(1, Math.max(0, beatProgress || 0));
+  const p = progress;
   return (
     <>
       {ghosts.map((g) => <GhostMarker key={g.key} ghost={g} />)}
@@ -662,10 +528,10 @@ export function NoteMarkers({ profile, notes, upcoming, beatId, beatProgress }: 
         <FretJumpChip key={`j${ar.key}`} a={ar.a} b={ar.b} delta={ar.to.fret - ar.from.fret} />
       ))}
       {arrows.filter((ar) => ar.rank === 0).map((ar) => (
-        <HopBubble key={`h${beatId}-${ar.key}`} a={ar.a} b={ar.b} label={String(ar.to.fret)} progress={p} beatId={beatId} />
+        <HopBubble key={`h${beatId}-${ar.key}`} a={ar.a} b={ar.b} label={String(ar.to.fret)} progress={p} />
       ))}
       {next.map((m) => <NextMarker key={`n${m.rank}-${m.key}`} profile={profile} m={m} progress={p} />)}
-      {current.map((n) => <CurrentMarker key={`c${beatId}-${noteKey(n)}`} profile={profile} note={n} beatId={beatId} />)}
+      {current.map((n) => <CurrentMarker key={`c${beatId}-${noteKey(n)}`} profile={profile} note={n} />)}
     </>
   );
 }

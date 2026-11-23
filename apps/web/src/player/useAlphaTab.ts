@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlphaTabApi, importer, model, StaveProfile, synth } from '@coderline/alphatab';
 import type { FretNote } from '@guitar3d/shared';
 import { beatToNotes, upcomingFretNotes } from './beats';
+import { createPositionStore } from './position';
 
 export interface PlayerState {
   ready: boolean;
@@ -18,21 +19,14 @@ export interface PlayerState {
   midiGen: number;
   beatId: number;
   currentBar: number;
-  timeMs: number;
-  endMs: number;
-  /** Playback position in MIDI ticks (repeats unrolled) and the song's end tick. */
-  tick: number;
-  endTick: number;
-  /**
-   * Fraction (0..1) of the current beat that has elapsed, i.e. how close the next beat is.
-   * Updated on every player position event (~every 50 ms); for per-frame smoothness use
-   * `getBeatProgress()` returned by the hook.
-   */
-  beatProgress: number;
+  // Time, tick and beat progress change ~20 times a second: they live in the `position` store the
+  // hook returns (see position.ts), not here, so a position event does not re-render the player.
   /** Metronome position: beat within the bar (0-based), beats per bar, and a counter bumped on every beat. */
   beatInBar: number;
   beatsPerBar: number;
   pulse: number;
+  /** Sound font download, 0..1 (the "Loading sounds" step of the loading screen). */
+  soundProgress: number;
   error: string | null;
 }
 
@@ -94,10 +88,11 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
   const wantTrack = useRef(0);
   const [s, setS] = useState<PlayerState>({
     ready: false, loading: false, playing: false, score: null, track: null, notes: [], upcoming: [], beat: null, midiGen: 0, beatId: 0, currentBar: 0,
-    timeMs: 0, endMs: 0, tick: 0, endTick: 0, beatProgress: 0, beatInBar: 0, beatsPerBar: 4, pulse: 0, error: null,
+    beatInBar: 0, beatsPerBar: 4, pulse: 0, soundProgress: 0, error: null,
   });
   // Last known beat window, used to interpolate beatProgress between position events.
   const clock = useRef({ progress: 0, durationMs: 0, at: 0, playing: false });
+  const [position] = useState(createPositionStore);
   const patch = useCallback((p: Partial<PlayerState>) => setS((o) => ({ ...o, ...p })), []);
 
   useEffect(() => {
@@ -139,7 +134,12 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
       stringCount = track.staves[0]?.tuning.length || 6;
       patch({ score, track, loading: false, notes: [], upcoming: [], beat: null, currentBar: 0, error: null });
     });
-    api.playerReady.on(() => patch({ ready: true }));
+    api.soundFontLoad.on((e) => {
+      const f = e.total > 0 ? Math.min(1, e.loaded / e.total) : 0;
+      // only re-render on visible steps (2 %)
+      setS((o) => (f - o.soundProgress >= 0.02 || (f >= 1 && o.soundProgress < 1) ? { ...o, soundProgress: f } : o));
+    });
+    api.playerReady.on(() => patch({ ready: true, soundProgress: 1 }));
     api.midiLoaded.on(() => setS((o) => ({ ...o, midiGen: o.midiGen + 1 })));
     api.playerStateChanged.on((e) => {
       const playing = e.state === synth.PlayerState.Playing;
@@ -149,77 +149,42 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     let beatId = 0;
     let lastBeat: model.Beat | null = null;
 
-    // Memoized beat -> FretNote conversion cache (keyed by beat identity + stringCount)
-    const beatCache = new Map<model.Beat, { notes: FretNote[]; upcoming: FretNote[][] }>();
-
-    const getBeatData = (beat: model.Beat, sc: number) => {
-      const cached = beatCache.get(beat);
-      if (cached) return cached;
-      const upcoming = upcomingFretNotes(beat, sc, 3);
-      const notes = beatToNotes(beat, sc, upcoming);
-      const result = { notes, upcoming };
-      beatCache.set(beat, result);
-      // Keep cache small (max 200 entries)
-      if (beatCache.size > 200) {
-        const firstKey = beatCache.keys().next().value;
-        if (firstKey) beatCache.delete(firstKey);
-      }
-      return result;
-    };
-
     const showBeat = (beat: model.Beat) => {
       if (beat === lastBeat) return;
       lastBeat = beat;
       beatId += 1;
-      const { notes, upcoming } = getBeatData(beat, stringCount);
-      patch({ notes, upcoming, beat, beatId, currentBar: beat.voice.bar.index });
+      const upcoming = upcomingFretNotes(beat, stringCount, 3);
+      patch({ notes: beatToNotes(beat, stringCount, upcoming), upcoming, beat, beatId, currentBar: beat.voice.bar.index });
     };
     api.playedBeatChanged.on(showBeat);
-
-    // Debounced position updates: alphaTab fires playerPositionChanged ~every 50ms.
-    // We batch state updates to avoid cascading React renders on every event.
-    let positionFrame = 0;
-    let pendingPosition: { e: { currentTime: number; endTime: number; currentTick: number; endTick: number }; hit: { beat: model.Beat; start: number; end: number; duration: number; masterBar: { masterBar: model.MasterBar; start: number } } | null } | null = null;
-    const flushPosition = () => {
-      if (!pendingPosition) return;
-      const { e, hit } = pendingPosition;
-      pendingPosition = null;
-      let beatProgress = 0;
-      let metro: Pick<PlayerState, 'beatInBar' | 'beatsPerBar'> | null = null;
-      if (hit) {
-        const mb = hit.masterBar.masterBar;
-        const unit = 3840 / (mb.timeSignatureDenominator || 4);
-        metro = { beatInBar: Math.max(0, Math.floor((e.currentTick - hit.masterBar.start) / unit)), beatsPerBar: mb.timeSignatureNumerator || 4 };
-        const span = hit.end - hit.start;
-        beatProgress = span > 0 ? Math.min(1, Math.max(0, (e.currentTick - hit.start) / span)) : 0;
-        clock.current = { ...clock.current, progress: beatProgress, durationMs: hit.duration, at: performance.now() };
-      }
-      setS((o) => {
-        const next = { ...o, timeMs: e.currentTime, endMs: e.endTime, tick: e.currentTick, endTick: e.endTick, beatProgress };
-        if (metro && (metro.beatInBar !== o.beatInBar || hit!.masterBar.masterBar.index !== o.currentBar)) Object.assign(next, metro, { pulse: o.pulse + 1 });
-        return next;
-      });
-      if (hit) showBeat(hit.beat);
-    };
+    // Seeking while paused does not emit playedBeatChanged, so resolve the beat from the tick cache.
     api.playerPositionChanged.on((e) => {
       const track = api.tracks[0];
       const hit = track && api.tickCache ? api.tickCache.findBeat(new Set([track.index]), e.currentTick) : null;
-      pendingPosition = { e, hit };
-      if (!positionFrame) {
-        positionFrame = requestAnimationFrame(() => {
-          positionFrame = 0;
-          flushPosition();
-        });
+      let beatProgress = 0;
+      if (hit) {
+        const mb = hit.masterBar.masterBar;
+        const unit = 3840 / (mb.timeSignatureDenominator || 4);
+        const beatInBar = Math.max(0, Math.floor((e.currentTick - hit.masterBar.start) / unit));
+        const beatsPerBar = mb.timeSignatureNumerator || 4;
+        const span = hit.end - hit.start;
+        beatProgress = span > 0 ? Math.min(1, Math.max(0, (e.currentTick - hit.start) / span)) : 0;
+        clock.current = { ...clock.current, progress: beatProgress, durationMs: hit.duration, at: performance.now() };
+        // React state only changes on a new metronome beat (a few times a second at most)
+        setS((o) => (beatInBar !== o.beatInBar || beatsPerBar !== o.beatsPerBar || mb.index !== o.currentBar
+          ? { ...o, beatInBar, beatsPerBar, pulse: o.pulse + 1 }
+          : o));
+        showBeat(hit.beat);
       }
+      position.set({ timeMs: e.currentTime, endMs: e.endTime, tick: e.currentTick, endTick: e.endTick, beatProgress });
     });
     api.error.on((e) => patch({ error: String((e as Error)?.message ?? e), loading: false }));
 
     return () => {
-      if (positionFrame) cancelAnimationFrame(positionFrame);
       api.destroy();
       apiRef.current = null;
     };
-  }, [host, scroller, patch]);
+  }, [host, scroller, patch, position]);
 
   /**
    * Parses the file here, picks the guitar track and hands alphaTab only that track. `prepare` may
@@ -327,7 +292,7 @@ export function useAlphaTab(host: React.RefObject<HTMLDivElement | null>, scroll
     if (a.score) a.render();
   }, []);
 
-  return { api: apiRef, state: s, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
+  return { api: apiRef, state: s, position, loadBuffer, loadTex, selectTrack, getBeatProgress, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView };
 }
 
 /** True when the score has repeats, so score ticks differ from playback ticks. */

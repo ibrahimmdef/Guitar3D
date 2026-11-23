@@ -569,3 +569,111 @@
 .dialog:focus-visible {
   outline: none;
 }
+
+/* ---------- Loading progress (ui/LoadingProgress.tsx) ---------- */
+.loadp {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.loadp-title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loadp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-size: var(--fs-md);
+}
+.loadp-now { color: var(--text-2); }
+.loadp-pct { color: var(--text); font-weight: 600; }
+.loadp-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.loadp-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.2s ease-out;
+}
+.loadp-steps {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+}
+.loadp-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+}
+.loadp-step.is-active { color: var(--text); }
+.loadp-step.is-done { color: var(--text-2); }
+.loadp-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  border: 1.5px solid var(--border-strong);
+}
+.loadp-step.is-active .loadp-dot {
+  border-color: var(--accent);
+  animation: loadp-pulse 1.2s ease-in-out infinite;
+}
+.loadp-step.is-done .loadp-dot {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--bg);
+}
+@keyframes loadp-pulse {
+  50% { box-shadow: 0 0 0 4px var(--accent-soft); }
+}
+.loadp-note {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+/* Full-screen loading (player opening, lazy screens) */
+.load-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* above alphaTab's cursor and the player's own layers */
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: var(--bg);
+  transition: opacity 0.3s ease, visibility 0.3s;
+}
+.load-screen.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.load-screen-back {
+  position: absolute;
+  top: var(--sp-4);
+  left: var(--sp-4);
+}
+/* While the player loads, its UI keeps laying out and rendering underneath but is not shown
+   (alphaTab's cursor layer could otherwise show through the loading screen). */
+.player.is-loading > :not(.load-screen) {
+  visibility: hidden;
+}

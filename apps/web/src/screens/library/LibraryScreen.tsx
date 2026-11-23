@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowRight, CloudOff, FileMusic, FileText, GraduationCap, Image as ImageIcon, Guitar, Mic, Play, Search, Sparkles, Trash, Upload } from 'lucide-react';
 import type { TabMeta, TabProgress } from '@guitar3d/shared';
 import { Button, Dialog, EmptyState, IconButton, SegmentedControl, Spinner, useToast } from '../../ui/kit';
@@ -11,8 +11,11 @@ import { cleanLabel, focusSection, sectionLabel } from '../../coach/progress';
 import { groupByLevel, groupByRank, LEVEL_LABEL, listLessons, type LessonMeta } from './lessons';
 import { TabImportSlot } from './TabImportSlot';
 import { SongsSection } from './SongsSection';
-import { ImageImportDialog, TextImportDialog } from './TextImport';
 import { RecordTranscribeDialog } from './RecordTranscribe';
+
+// The import dialogs preview tabs with alphaTab (1.2 MB): load them only when one is opened.
+const TextImportDialog = lazy(() => import('./TextImport').then((m) => ({ default: m.TextImportDialog })));
+const ImageImportDialog = lazy(() => import('./TextImport').then((m) => ({ default: m.ImageImportDialog })));
 
 type Sort = 'recent' | 'title' | 'added';
 
@@ -256,9 +259,11 @@ export function LibraryScreen() {
         </section>
       )}
 
+      <Suspense fallback={null}>
       {importMode === 'text' && <TextImportDialog open onOpenChange={(o) => !o && setImportMode(null)} onSaved={savedImport} />}
       {importMode === 'record' && <RecordTranscribeDialog open onOpenChange={(o) => !o && setImportMode(null)} />}
       {importMode === 'image' && <ImageImportDialog open initialFile={importFile} onOpenChange={(o) => { if (!o) { setImportMode(null); setImportFile(null); } }} onSaved={savedImport} />}
+      </Suspense>
 
       <Dialog
         open={!!confirm}

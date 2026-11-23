@@ -12,6 +12,7 @@
     '/icons/icon.svg',
     '/icons/icon-192.png',
     '/soundfont/sonivox.sf2',
+    '/font/inter-latin.woff2',
     '/font/Bravura.woff2',
     '/font/Bravura.woff',
     '/guitar/veston.profile.json',

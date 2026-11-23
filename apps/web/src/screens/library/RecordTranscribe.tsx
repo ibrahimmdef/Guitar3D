@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Mic, Play, RotateCcw, Square } from 'lucide-react';
 import type { TranscriberStatus, TranscriptionJob } from '@guitar3d/shared';
-import { Button, Dialog, Slider, Spinner, Toggle } from '../../ui/kit';
+import { Button, Dialog, Slider, Toggle } from '../../ui/kit';
 import { navigate, playTab } from '../../ui/router';
 import { startTake, MAX_TAKE_SECONDS, type TakeRecorder } from '../../audio/takeRecorder';
-import { isActiveJob, jobProgressLabel, useTranscriptionJob } from '../../songs/useTranscription';
+import { LoadingProgress } from '../../ui/LoadingProgress';
+import { transcriptionSteps } from '../../songs/loadSteps';
+import { isActiveJob, useTranscriptionJob } from '../../songs/useTranscription';
 import { retryTranscription, transcribeRecording, transcriberStatus } from '../data';
 
 type Phase = 'setup' | 'countdown' | 'recording' | 'uploading' | 'job' | 'error';
@@ -173,10 +175,8 @@ export function RecordTranscribeDialog({ open, onOpenChange }: { open: boolean; 
       )}
 
       {(phase === 'uploading' || (phase === 'job' && isActiveJob(job))) && (
-        <div className="rec-live" role="status" aria-live="polite">
-          <Spinner label="Transcribing" />
-          <span>{phase === 'uploading' ? 'Uploading…' : jobProgressLabel(job as TranscriptionJob)}</span>
-          {phase === 'job' && job && <span className="song-progress"><span style={{ width: `${Math.round(job.progress * 100)}%` }} /></span>}
+        <div className="rec-live">
+          <LoadingProgress steps={transcriptionSteps(phase === 'job' ? (job as TranscriptionJob) : null, phase === 'uploading' ? 'running' : 'done')} />
         </div>
       )}
 

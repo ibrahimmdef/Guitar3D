@@ -11,6 +11,7 @@ import { useSessionRecorder } from '../../player/useSessionRecorder';
 import { useTabSetup } from '../../player/tabSetup';
 import { ladderStep, passResult, startLadder, type LadderState } from '../../player/tempoLadder';
 import { barRange, hasRepeats, markNotes, useAlphaTab, playableTracks } from '../../player/useAlphaTab';
+import { usePosition } from '../../player/position';
 import { useListenMode, type PassSummary } from '../../player/useListenMode';
 import { analyze } from '../../tips/analyze';
 import { toSimpleBars } from '../../tips/model';
@@ -20,7 +21,9 @@ import { useSpeedTrainer, type TrainerPass } from '../../coach/useSpeedTrainer';
 import { pickHardestSection } from '../../coach/hardest';
 import { markPassNotes, problemMarkers } from '../../coach/marks';
 import { ErrorBoundary } from '../../ui/ErrorBoundary';
-import { Button, Dialog, Drawer, EmptyState, Spinner, useToast } from '../../ui/kit';
+import { LoadingProgress, type LoadStep } from '../../ui/LoadingProgress';
+import { useProgress } from '@react-three/drei';
+import { Button, Dialog, Drawer, EmptyState, IconButton, useToast } from '../../ui/kit';
 import { DEMO_LESSON_ID, navigate, playLesson, type PlaySource } from '../../ui/router';
 import { buildShareHash, type ShareParams } from '../../ui/share';
 import { getActiveGuitar } from '../../guitar-setup/activeGuitar';
@@ -52,12 +55,14 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const host = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
-  const { api, state, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView } = useAlphaTab(host, scroller);
+  const { api, state, position, getBeatProgress, loadBuffer, loadTex, selectTrack, seekTick, seekBar, seekBeat, setProgram, setTabScale, setTabView } = useAlphaTab(host, scroller);
   const [settings, setSettings] = useSettings();
   const toast = useToast();
 
   const [meta, setMeta] = useState<Pick<TabMeta, 'title' | 'artist'> | null>(null);
   const [guitarReady, setGuitarReady] = useState(false);
+  // guitar photos (textures) downloaded so far, from three.js' loading manager
+  const textureProgress = useProgress((p) => (p.total ? p.loaded / p.total : 0));
   const [fetching, setFetching] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -267,9 +272,11 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   /* ---------- Strum pattern ---------- */
   // Auto-transcribed tabs carry the analysis; Guitar Pro files with strokes get it from the score.
   const strum = useMemo(() => auto?.strum ?? (state.score ? strumFromScore(state.score)?.analysis ?? null : null), [auto, state.score]);
-  const strumPos = useMemo<StrumPos | null>(() => {
+  // Bar and 16th slot as one number (bar * 16 + slot), so the player re-renders 16 times a bar
+  // while a strum pattern is shown, not on every position event.
+  const strumSlot = usePosition(position, (pos) => {
     const score = state.score;
-    if (!strum || !score) return null;
+    if (!strum || !score) return -1;
     let bar = state.currentBar;
     let rel: number;
     if (barTicks) {
@@ -278,17 +285,17 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
       let hi = barTicks.length - 1;
       while (lo < hi) {
         const mid = (lo + hi + 1) >> 1;
-        if (barTicks[mid] <= state.tick) lo = mid;
+        if (barTicks[mid] <= pos.tick) lo = mid;
         else hi = mid - 1;
       }
       bar = lo;
-      rel = state.tick - barTicks[bar];
+      rel = pos.tick - barTicks[bar];
     } else rel = state.beat?.playbackStart ?? 0;
     const mb = score.masterBars[bar];
-    if (!mb) return null;
-    const slot = Math.min(15, Math.max(0, Math.floor(rel / (mb.calculateDuration() / 16))));
-    return { bar, slot };
-  }, [strum, state.score, state.currentBar, state.tick, state.beat, barTicks]);
+    if (!mb) return -1;
+    return bar * 16 + Math.min(15, Math.max(0, Math.floor(rel / (mb.calculateDuration() / 16))));
+  });
+  const strumPos = useMemo<StrumPos | null>(() => (strumSlot < 0 ? null : { bar: Math.floor(strumSlot / 16), slot: strumSlot % 16 }), [strumSlot]);
   const density = useMemo(() => {
     const bars = state.track?.staves[0]?.bars;
     return bars && barTicks && bars.length === barTicks.length ? normalize(barDensity(bars)) : null;
@@ -308,7 +315,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     const mb = state.score.masterBars[state.currentBar] ?? state.score.masterBars[0];
     const beats = mb?.timeSignatureNumerator || 4;
     const unitMs = (60000 / ((state.score.tempo || 120) * speed)) * (4 / (mb?.timeSignatureDenominator || 4));
-    countStart.current = state.tick;
+    countStart.current = position.get().tick;
     let left = beats;
     setCountValue(left);
     const id = window.setInterval(() => {
@@ -321,9 +328,14 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.playing]);
   // Hide as soon as the song itself moves.
+  const counting = countValue != null;
   useEffect(() => {
-    if (countValue != null && state.tick > countStart.current + 30) setCountValue(null);
-  }, [state.tick, countValue]);
+    if (!counting) return;
+    return position.subscribe(() => {
+      if (position.get().tick > countStart.current + 30) setCountValue(null);
+    });
+  }, [counting, position]);
+  const pausedMidSong = usePosition(position, (p) => p.timeMs > 500);
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -642,9 +654,20 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
   const failed = !!(loadErr || state.error);
   // One loading state for the whole stage: tab, guitar (incl. textures) and sound.
   const loadingLabel = failed ? null : busy || !state.score ? 'Loading tab…' : !guitarReady ? 'Preparing guitar…' : !state.ready ? 'Preparing sound…' : null;
+  // The loading screen's steps run in parallel; the bar is their weighted sum.
+  const loadSteps: LoadStep[] = [
+    { label: 'Loading tab', progress: hasScore ? 1 : busy ? 0.4 : 0.1, weight: 1 },
+    { label: 'Building your guitar', progress: guitarReady ? 1 : 0.1 + 0.75 * textureProgress, weight: 2 },
+    { label: 'Loading sounds', progress: state.ready ? 1 : 0.95 * state.soundProgress, weight: 2 },
+  ];
 
   return (
-    <div ref={root} className={`player${showPractice ? ' practice-open' : ''}${focus === 'tab' && showTab ? ' focus-tab' : ''}`}>
+    <div ref={root} className={`player${showPractice ? ' practice-open' : ''}${focus === 'tab' && showTab ? ' focus-tab' : ''}${loadingLabel ? ' is-loading' : ''}`}>
+      {/* One loading screen over the whole player until tab, guitar and sound are ready (no half-built UI). */}
+      <div className={`load-screen${loadingLabel ? '' : ' is-done'}`} aria-hidden={!loadingLabel}>
+        <IconButton className="load-screen-back" label="Back to library" icon={<ArrowLeft size={18} />} onClick={() => navigate({ name: 'library' })} />
+        <LoadingProgress title={title} steps={loadSteps} />
+      </div>
       <PlayerTopBar
         title={title}
         subtitle={subtitle}
@@ -696,7 +719,8 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
               profile={sharedGuitar}
               notes={stageNotes}
               beatId={state.beatId}
-              beatProgress={state.beatProgress}
+              getBeatProgress={getBeatProgress}
+              playing={state.playing}
               upcoming={stageUpcoming}
               capoFret={capo}
               zoom={stageZoom}
@@ -724,7 +748,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
               {speed !== 1 && <span className="hud-chip num">{Math.round(speed * 100)}% speed</span>}
               {capo > 0 && <span className="hud-chip hud-capo num">Capo fret {capo}</span>}
               {tuningOverride && tuningOverride !== 'standard' && <span className="hud-chip">{getTuning(tuningOverride).label}</span>}
-              {!state.playing && state.timeMs > 500 && <span className="hud-chip">Paused</span>}
+              {!state.playing && pausedMidSong && <span className="hud-chip">Paused</span>}
             </div>
           )}
 
@@ -765,12 +789,6 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
             />
           )}
 
-          {loadingLabel && (
-            <div className="stage-loading" role="status" aria-live="polite">
-              <Spinner label={loadingLabel} />
-              <span>{loadingLabel}</span>
-            </div>
-          )}
           {failed && (
             <div className="stage-center">
               <div className="stage-card">
@@ -832,7 +850,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
           />
           {report && <EasierPositionPanel on={easierOn} onToggle={setEasierOn} bar={state.currentBar} data={easier} />}
           {hasScore && <NotesPanel tabKey={tabKey} notes={barNotes.notes} refresh={barNotes.refresh} currentBar={state.currentBar} onSeekBar={seekBar} />}
-          {hasScore && <RecordPanel tabKey={tabKey} playing={state.playing} tick={state.tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
+          {hasScore && <RecordPanel tabKey={tabKey} playing={state.playing} getTick={() => position.get().tick} speed={speed} onPlayFrom={playFrom} onPause={pause} />}
         </Drawer>
       </div>
 
@@ -846,10 +864,7 @@ export function PlayerScreen({ source, share }: { source: PlaySource; share?: Sh
         ready={state.ready && !loadingLabel}
         hasScore={hasScore}
         playing={state.playing}
-        timeMs={state.timeMs}
-        endMs={state.endMs}
-        tick={state.tick}
-        endTick={state.endTick}
+        position={position}
         barTicks={barTicks}
         loopTicks={loopTicks}
         density={density}

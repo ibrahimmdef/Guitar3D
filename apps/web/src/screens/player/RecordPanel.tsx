@@ -7,7 +7,8 @@ import { Button, IconButton, useToast } from '../../ui/kit';
 interface Props {
   tabKey: string;
   playing: boolean;
-  tick: number;
+  /** Current playback tick, read when recording starts. */
+  getTick: () => number;
   speed: number;
   /** Set speed, seek to tick and start the tab. */
   onPlayFrom: (tick: number, speed: number) => void;
@@ -20,7 +21,7 @@ const secs = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms /
  * Record yourself while the tab plays, then hear the take on top of the original at the same
  * position and speed. Takes stay in this browser (IndexedDB).
  */
-export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause }: Props) {
+export function RecordPanel({ tabKey, playing, getTick, speed, onPlayFrom, onPause }: Props) {
   const toast = useToast();
   const [takes, setTakes] = useState<TakeMeta[]>([]);
   const [recording, setRecording] = useState(false);
@@ -67,6 +68,7 @@ export function RecordPanel({ tabKey, playing, tick, speed, onPlayFrom, onPause 
     }
     const mime = pickMime((m) => MediaRecorder.isTypeSupported(m));
     const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const tick = getTick();
     const r = { mr, stream, chunks: [] as Blob[], started: performance.now(), startTick: tick, speed };
     mr.ondataavailable = (e) => e.data.size && r.chunks.push(e.data);
     mr.onstop = () => {

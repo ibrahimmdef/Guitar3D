@@ -6,7 +6,9 @@ import { Button, EmptyState, IconButton, Slider, Spinner, useToast } from '../..
 import { navigate, playTab, routeHref } from '../../ui/router';
 import { useHotkeys } from '../../ui/shortcuts';
 import { getSong, listTranscriptions, retrySong, retryTranscription, separatorStatus, stemUrl, transcribeSong, transcriberStatus } from '../data';
-import { isActiveJob, jobProgressLabel, useTranscriptionJob } from '../../songs/useTranscription';
+import { LoadingProgress } from '../../ui/LoadingProgress';
+import { separationSteps, transcriptionSteps } from '../../songs/loadSteps';
+import { isActiveJob, useTranscriptionJob } from '../../songs/useTranscription';
 import { StemEngine } from '../../songs/stemEngine';
 import { RhythmPanel, type StrumPos } from '../player/RhythmPanel';
 import {
@@ -123,15 +125,13 @@ function SeparationStatus({ song, sep, onRetried }: { song: Song; sep: Separator
       </section>
     );
   }
-  const pct = Math.round(song.progress * 100);
   return (
-    <section className="song-status" role="status" aria-live="polite">
-      <Spinner label="Separating" />
-      <div className="song-status-body">
-        <p className="song-status-title">{song.status === 'queued' ? 'Waiting in the queue…' : song.status === 'downloading' ? `Downloading the audio… ${pct}%` : `Splitting the instruments… ${pct}%`}</p>
-        <p className="muted small">Guitar, vocals, bass, drums, piano and other go to separate tracks. This can take a few minutes depending on the song length; you can leave this page.</p>
-        <span className="song-progress"><span style={{ width: `${pct}%` }} /></span>
-      </div>
+    <section className="song-status" aria-label="Preparing the song">
+      <LoadingProgress
+        title="Preparing the song"
+        steps={separationSteps(song)}
+        note="Guitar, vocals, bass, drums, piano and other go to separate tracks. This can take a few minutes; you can leave this page."
+      />
     </section>
   );
 }
@@ -304,7 +304,7 @@ function SongTabPanel({ song, onStrum }: { song: Song; onStrum: (s: StrumAnalysi
 
   return (
     <section className="song-tab" aria-label="Tab from the guitar track" aria-live="polite">
-      {isActiveJob(job) ? <Spinner label="Transcribing" /> : <FileMusic size={20} aria-hidden />}
+      {!isActiveJob(job) && <FileMusic size={20} aria-hidden />}
       <div className="song-tab-body">
         {!job && (
           <>
@@ -315,9 +315,7 @@ function SongTabPanel({ song, onStrum }: { song: Song; onStrum: (s: StrumAnalysi
         )}
         {job && isActiveJob(job) && (
           <>
-            <p className="song-tab-title">{jobProgressLabel(job)}</p>
-            <p className="muted small">Usually under a minute; you can leave this page.</p>
-            <span className="song-progress"><span style={{ width: `${Math.round(job.progress * 100)}%` }} /></span>
+            <LoadingProgress title="Getting the tab" steps={transcriptionSteps(job)} note="Usually under a minute; you can leave this page." />
           </>
         )}
         {job?.status === 'ready' && s && (

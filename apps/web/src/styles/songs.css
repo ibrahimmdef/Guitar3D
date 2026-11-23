@@ -450,3 +450,11 @@
 .tab-card-auto {
   color: #ff8a3d;
 }
+
+/* Loading progress inside the song cards and the recording dialog */
+.song-status .loadp,
+.song-tab .loadp,
+.rec-live .loadp {
+  width: 100%;
+  max-width: 560px;
+}

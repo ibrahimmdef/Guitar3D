@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { InstancedMesh } from 'three';
 import type { GuitarProfile, Point2 } from '@guitar3d/shared';
 import {
   bodyDepthAt, ccw, FB_THICK, FB_TOP, FRET_HEIGHT, fretboardEndX, fretboardWidth, fretX, interpTable,
@@ -19,25 +18,14 @@ export type Part =
   | 'top' | 'sides' | 'back' | 'binding' | 'neck' | 'headstock' | 'pickguard' | 'bridge' | 'bone' | 'pin'
   | 'chrome' | 'fret' | 'interior' | 'hole' | 'dot' | 'inlay';
 
-type NonNullPart = Exclude<Part, 'fret' | 'dot' | 'inlay'>;
-
-/** Instance data for GPU instancing of static elements (frets, dots, inlays). */
-export interface InstancedData {
-  frets: { count: number; matrices: Float32Array; radii: Float32Array };
-  sideDots: { count: number; matrices: Float32Array };
-  faceInlays: { count: number; matrices: Float32Array };
-}
-
 export interface GuitarGeometry {
-  parts: Partial<Record<Part, THREE.BufferGeometry | undefined>>;
+  parts: Partial<Record<Part, THREE.BufferGeometry>>;
   fretboard: THREE.BufferGeometry;
   headstockFace: THREE.BufferGeometry;
   rosette: { x: number; y: number; outer: number; inner: number };
   strings: StringPath[];
   /** Headstock frame: world = headstockMatrix * (d along, y, z from face). */
   headstockMatrix: THREE.Matrix4;
-  /** GPU instance data for static elements (frets, dots, inlays). */
-  instanced?: InstancedData;
 }
 
 export interface StringPath {
@@ -127,7 +115,6 @@ function at(g: THREE.BufferGeometry, x: number, y: number, z: number, rx = 0, ry
 }
 
 function merge(list: THREE.BufferGeometry[]) {
-  if (list.length === 0) return undefined;
   const clean = list.map((g) => {
     const n = g.index ? g.toNonIndexed() : g;
     for (const k of Object.keys(n.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') n.deleteAttribute(k);
@@ -195,7 +182,7 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
   const fp = floor.attributes.position;
   for (let i = 0; i < fp.count; i++) fp.setZ(i, -bodyDepthAt(p, fp.getX(i)) + 0.35);
   const innerSides = loft(outline, normals, (i) => [[-0.3, -depth(i) + 0.35], [-0.3, -0.35]]);
-  parts.interior = merge([floor, innerSides])!;
+  parts.interior = merge([floor, innerSides]);
   }
 
   // pickguard (thin, glossy)
@@ -261,7 +248,7 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
       pinX = br.x - br.lengthCm / 2 + 0.85;
       for (let s = 1; s <= 6; s++) anchors.push(new THREE.Vector3(pinX, stringY(p, s, -p.scaleLengthCm), 1.28));
     }
-    parts.bridge = merge(pieces)!;
+    parts.bridge = merge(pieces);
     // saddle (bone), slanted for compensation
     saddle = new RoundedBoxGeometry(0.3, span, 0.9, 2, 0.12);
     at(saddle, (sx1 + sx6) / 2, 0, SADDLE_TOP - 0.45, 0, 0, tie ? 0 : -slant);
@@ -278,7 +265,7 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
       const y = stringY(p, s, -p.scaleLengthCm) * 1.02;
       pins.push(at(pinHead.clone(), pinX, y, BRIDGE_TOP, Math.PI / 2, 0, 0));
     }
-    parts.pin = merge(pins)!;
+    parts.pin = merge(pins);
   }
 
   // tail strap pin
@@ -297,8 +284,7 @@ function buildBody(p: GuitarProfile, parts: GuitarGeometry['parts']) {
   for (let i = 0; i < cp.count; i++) cp.setZ(i, -bodyDepthAt(p, cp.getX(i)) - 0.01);
   cap.setIndex(Array.from(cap.index!.array).reverse());
   cap.computeVertexNormals();
-  const bindingMerge = merge([parts.binding!, cap]);
-  if (bindingMerge) parts.binding = bindingMerge!;
+  parts.binding = merge([parts.binding, cap]);
 
   return { saddle, strap, pinX, anchors, chrome, dark };
 }
@@ -457,34 +443,26 @@ function buildFretboard(p: GuitarProfile) {
   bb.quad(e[0], e[1], e[2], e[3]);
   const binding = bb.build();
 
-  // frets: crowned nickel wire with rounded ends - prepare instanced data
-  const fretMatrices: number[] = [];
-  const fretRadii: number[] = [];
+  // frets: crowned nickel wire with rounded ends
+  const frets: THREE.BufferGeometry[] = [];
   for (let n = 1; n <= p.fretCount; n++) {
     const x = fretX(L, n);
     const w = fretboardWidth(p, x) - 0.08;
-    const m = new THREE.Matrix4().makeTranslation(x, 0, FB_TOP - 0.01);
-    m.scale(new THREE.Vector3(1, (w - 0.2) / 2, FRET_HEIGHT / 0.1));
-    fretMatrices.push(...m.elements);
-    fretRadii.push(0.1); // capsule radius
+    const g = new THREE.CapsuleGeometry(0.1, w - 0.2, 3, 10);
+    g.scale(1, 1, FRET_HEIGHT / 0.1);
+    frets.push(at(g, x, 0, FB_TOP - 0.01, 0, 0, 0));
   }
-  const fretCount = p.fretCount;
-
-  // side dots on the low-E edge (faces the player) - prepare instanced data
-  const sideDotMatrices: number[] = [];
+  // side dots on the low-E edge (faces the player)
+  const dots: THREE.BufferGeometry[] = [];
   const marks: [number, number][] = [[3, 0], [5, 0], [7, 0], [9, 0], [12, 0.45], [12, -0.45], [15, 0], [17, 0], [19, 0]];
   for (const [n, off] of marks) {
     if (n > p.fretCount) continue;
     const xm = (fretX(L, n - 1) + fretX(L, n)) / 2 + off;
     const w = fretboardWidth(p, xm) / 2;
-    const m = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(new THREE.Matrix4().makeTranslation(xm, w + 0.003, FB_TOP - 0.24));
-    m.scale(new THREE.Vector3(0.09, 0.09, 0.09));
-    sideDotMatrices.push(...m.elements);
+    dots.push(at(new THREE.CircleGeometry(0.09, 14), xm, w + 0.003, FB_TOP - 0.24, -Math.PI / 2, 0, 0));
   }
-  const sideDotCount = sideDotMatrices.length / 16;
-
-  // face inlays, only when there is no fretboard photo (the photo already shows them) - prepare instanced data
-  const inlayMatrices: number[] = [];
+  // face inlays, only when there is no fretboard photo (the photo already shows them)
+  const inlays: THREE.BufferGeometry[] = [];
   const style = p.inlay ?? 'dots';
   if (!tex && style !== 'none') {
     for (const n of [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]) {
@@ -495,50 +473,18 @@ function buildFretboard(p: GuitarProfile) {
       const w = fretboardWidth(p, xm);
       const dbl = n % 12 === 0;
       if (style === 'blocks') {
-        const scaleX = (a - c) * (dbl ? 0.62 : 0.5);
-        const scaleY = w * 0.66;
-        const m = new THREE.Matrix4().makeTranslation(xm, 0, FB_TOP + 0.002);
-        m.scale(new THREE.Vector3(scaleX, scaleY, 1));
-        inlayMatrices.push(...m.elements);
-        if (dbl) {
-          const m2 = new THREE.Matrix4().makeTranslation(xm, 0, FB_TOP + 0.002);
-          m2.scale(new THREE.Vector3(scaleX, scaleY, 1));
-          inlayMatrices.push(...m2.elements);
-        }
+        const g = new THREE.PlaneGeometry((a - c) * (dbl ? 0.62 : 0.5), w * 0.66);
+        inlays.push(at(g, xm, 0, FB_TOP + 0.002));
       } else {
         const r = Math.min(0.32, (a - c) * 0.16);
-        for (const y of dbl ? [-w * 0.2, w * 0.2] : [0]) {
-          const m = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(new THREE.Matrix4().makeTranslation(xm, y, FB_TOP + 0.002));
-          m.scale(new THREE.Vector3(r, r, r));
-          inlayMatrices.push(...m.elements);
-        }
+        for (const y of dbl ? [-w * 0.2, w * 0.2] : [0]) inlays.push(at(new THREE.CircleGeometry(r, 28), xm, y, FB_TOP + 0.002));
       }
     }
   }
-  const inlayCount = inlayMatrices.length / 16;
-
   // nut
   const nut = new RoundedBoxGeometry(NUT_LENGTH, p.nutWidthCm + 0.05, 0.78, 2, 0.1);
   at(nut, NUT_LENGTH / 2, 0, FB_TOP - FB_THICK + 0.39 + 0.02);
-
-  // Build instanced data for GPU rendering
-  const instanced: InstancedData = {
-    frets: {
-      count: fretCount,
-      matrices: new Float32Array(fretMatrices),
-      radii: new Float32Array(fretRadii),
-    },
-    sideDots: {
-      count: sideDotCount,
-      matrices: new Float32Array(sideDotMatrices),
-    },
-    faceInlays: {
-      count: inlayCount,
-      matrices: new Float32Array(inlayMatrices),
-    },
-  };
-
-  return { surface, binding, frets: undefined, dots: undefined, nut, inlays: undefined, instanced };
+  return { surface, binding, frets: merge(frets), dots, nut, inlays };
 }
 
 /* ------------------------------------------------------------------ headstock */
@@ -668,9 +614,9 @@ function buildHeadstock(p: GuitarProfile, hsm: THREE.Matrix4) {
     chrome.push(at(shaft.clone(), q.d - 0.6, side * (h - 0.25), zs));
     chrome.push(at(button.clone(), q.d - 0.6, side * (h + 1.0), zs, 0, 0, side > 0 ? 0 : Math.PI));
   }
-  const hw = merge(chrome)!;
+  const hw = merge(chrome);
   hw.applyMatrix4(hsm);
-  const rollers = bone.length ? merge(bone)!.applyMatrix4(hsm) : null;
+  const rollers = bone.length ? merge(bone).applyMatrix4(hsm) : null;
   return { face, plank, chrome: hw, posts, rollers };
 }
 
@@ -792,10 +738,9 @@ export function buildGuitar(p: GuitarProfile): GuitarGeometry {
   parts.bone = merge([fb.nut, ...(body.saddle ? [body.saddle] : []), ...(head.rollers ? [head.rollers] : [])]);
   parts.chrome = merge([head.chrome, ...body.chrome]);
   if (body.dark.length) parts.pickguard = merge([...(parts.pickguard ? [parts.pickguard] : []), ...body.dark]);
-  // Note: frets, dots, and inlays are now rendered via GPU instancing (fb.instanced)
   parts.fret = fb.frets;
-  parts.dot = fb.dots;
-  parts.inlay = fb.inlays;
+  parts.dot = merge(fb.dots);
+  if (fb.inlays.length) parts.inlay = merge(fb.inlays);
   parts.sides = merge([parts.sides!, body.strap]);
   const sh = p.body.soundhole;
   return {
@@ -805,6 +750,5 @@ export function buildGuitar(p: GuitarProfile): GuitarGeometry {
     rosette: { x: sh.x, y: sh.y, outer: sh.radiusCm / ROSETTE_INNER, inner: sh.radiusCm },
     strings: buildStrings(p, hsm, body.pinX, body.anchors, head.posts),
     headstockMatrix: hsm,
-    instanced: fb.instanced,
   };
 }

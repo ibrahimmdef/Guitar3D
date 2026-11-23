@@ -3,6 +3,7 @@ import { GUITAR_SOUNDS, MIXES, mixOf, type Mix } from '../../audio/sounds';
 import { Button, IconButton, Popover, SegmentedControl, Slider, Toggle, Tooltip } from '../../ui/kit';
 import { formatPercent, formatTime } from '../../ui/format';
 import { Scrubber } from './Scrubber';
+import { usePosition, type PositionStore } from '../../player/position';
 
 export const SPEED_PRESETS = [0.5, 0.75, 0.9, 1] as const;
 
@@ -20,10 +21,8 @@ export interface TransportProps {
   ready: boolean;
   hasScore: boolean;
   playing: boolean;
-  timeMs: number;
-  endMs: number;
-  tick: number;
-  endTick: number;
+  /** Playback time and tick: read here, so a position event re-renders only the clock and scrubber. */
+  position: PositionStore;
   barTicks: number[] | null;
   loopTicks: [number, number] | null;
   density: number[] | null;
@@ -99,21 +98,7 @@ export function Transport(p: TransportProps) {
       </div>
 
       <div className="tp-group tp-position">
-        <span className="tp-time num" aria-hidden>{fmtTime(p.timeMs)}</span>
-        <Scrubber
-          tick={p.tick}
-          endTick={p.endTick}
-          barTicks={p.barTicks}
-          loopTicks={p.loopTicks}
-          density={p.density}
-          currentBar={p.currentBar}
-          barCount={p.barCount}
-          disabled={!p.hasScore}
-          onSeek={p.onSeek}
-          onStepBar={p.onStepBar}
-          valueText={`Bar ${p.currentBar + 1} / ${p.barCount}, ${fmtTime(p.timeMs)}`}
-        />
-        <span className="tp-time num subtle" aria-hidden>{fmtTime(p.endMs)}</span>
+        <TransportPosition p={p} />
       </div>
 
       <div className="tp-group tp-tools">
@@ -263,5 +248,33 @@ export function Transport(p: TransportProps) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Clock and scrubber: the only part of the transport that follows the playback position. */
+function TransportPosition({ p }: { p: TransportProps }) {
+  // whole seconds for the clock, a fine tick for the scrubber (it moves smoothly)
+  const sec = usePosition(p.position, (x) => Math.floor(x.timeMs / 1000));
+  const endSec = usePosition(p.position, (x) => Math.floor(x.endMs / 1000));
+  const tick = usePosition(p.position, (x) => x.tick);
+  const endTick = usePosition(p.position, (x) => x.endTick);
+  return (
+    <>
+      <span className="tp-time num" aria-hidden>{fmtTime(sec * 1000)}</span>
+      <Scrubber
+        tick={tick}
+        endTick={endTick}
+        barTicks={p.barTicks}
+        loopTicks={p.loopTicks}
+        density={p.density}
+        currentBar={p.currentBar}
+        barCount={p.barCount}
+        disabled={!p.hasScore}
+        onSeek={p.onSeek}
+        onStepBar={p.onStepBar}
+        valueText={`Bar ${p.currentBar + 1} / ${p.barCount}, ${fmtTime(sec * 1000)}`}
+      />
+      <span className="tp-time num subtle" aria-hidden>{fmtTime(endSec * 1000)}</span>
+    </>
   );
 }

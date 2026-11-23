@@ -1,10 +1,10 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { CameraControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { CameraMode, FretNote, GuitarProfile, GuitarView } from '@guitar3d/shared';
-import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry, type InstancedData } from './build';
+import { buildGuitar, buildStaticStrings, segmentPoints, tube, type GuitarGeometry } from './build';
 import {
   bodyDepthAt, capoLayout, followTarget, guitarXRange, hitToFret, speakingFraction,
 } from './geometry';
@@ -18,6 +18,17 @@ export interface Guitar3DProps {
   beatId: number;
   /** 0..1: how far we are towards the next note (drives the approach arc of 'next' markers). */
   beatProgress?: number;
+  /**
+   * Per-frame beat progress (read inside the render loop). Prefer it while playing: the player then
+   * does not have to re-render ~20 times a second to move the approach arcs.
+   */
+  getBeatProgress?: () => number;
+  /**
+   * Playback is running: render every frame. Otherwise the scene renders only when something
+   * changes (and for a moment after, so markers and strings can settle), which keeps an idle
+   * player from holding the GPU at full load.
+   */
+  playing?: boolean;
   /**
    * Beats after the current one, nearest first (up to 3 are drawn, fading with distance in time).
    * Without it the notes with state 'next' form the only upcoming beat.
@@ -124,56 +135,22 @@ function useGuitarTextures(profile: GuitarProfile): Textures {
     if (profile.textures.fretboard?.inlayMask) u.inlayMask = profile.textures.fretboard.inlayMask;
     return u;
   }, [profile]);
-
-  // Lazy texture loading: don't suspend, load progressively
-  const [textures, setTextures] = useState<Textures>({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadTex = async () => {
-      const tex: Textures = {};
-      const keys = Object.keys(urls);
-      for (const key of keys) {
-        if (cancelled) return;
-        const url = urls[key];
-        const t = await new Promise<THREE.Texture>((resolve, reject) => {
-          const loader = new THREE.TextureLoader();
-          loader.load(url, resolve, undefined, reject);
-        });
-        if (!cancelled) {
-          t.colorSpace = key === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
-          t.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-          t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-          t.needsUpdate = true;
-          tex[key as keyof Textures] = t;
-          setTextures({ ...tex });
-        }
-      }
-      if (!cancelled) setLoading(false);
-    };
-    if (Object.keys(urls).length > 0) {
-      loadTex();
-    } else {
-      setLoading(false);
+  // useTexture suspends: the guitar appears only once every texture is decoded.
+  const tex = useTexture(urls) as unknown as Textures;
+  useLayoutEffect(() => {
+    const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    for (const [k, t] of Object.entries(tex) as [string, THREE.Texture][]) {
+      t.colorSpace = k === 'inlayMask' ? THREE.NoColorSpace : THREE.SRGBColorSpace;
+      t.anisotropy = aniso;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      t.needsUpdate = true;
     }
-    return () => { cancelled = true; };
-  }, [urls, gl]);
-
-  // Return procedural fallbacks while loading
-  const result = useMemo(() => ({
-    fretboard: textures.fretboard,
-    headstock: textures.headstock,
-    rosette: textures.rosette,
-    bodyTop: textures.bodyTop,
-    inlayMask: textures.inlayMask,
-  }), [textures]);
-
-  return result;
+  }, [tex, gl]);
+  return tex;
 }
 
 function Guitar({
-  profile, geo, notes, upcoming, showFretNumbers, beatId, beatProgress, onFretboardClick, onFretboardDoubleClick, capoFret,
+  profile, geo, notes, upcoming, showFretNumbers, beatId, beatProgress, getBeatProgress, onFretboardClick, onFretboardDoubleClick, capoFret,
 }: {
   capoFret: number;
   profile: GuitarProfile;
@@ -183,6 +160,7 @@ function Guitar({
   showFretNumbers: boolean;
   beatId: number;
   beatProgress: number;
+  getBeatProgress?: () => number;
   onFretboardClick: (e: ThreeEvent<MouseEvent>) => void;
   onFretboardDoubleClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
@@ -227,68 +205,14 @@ function Guitar({
   }, [roseMat, tex.rosette]);
   const staticStrings = useMemo(() => buildStaticStrings(geo.strings), [geo]);
   useEffect(() => () => {
-    if (staticStrings?.plain && staticStrings?.wound) {
-      staticStrings.plain.dispose();
-      staticStrings.wound.dispose();
-    }
+    staticStrings.plain.dispose();
+    staticStrings.wound.dispose();
   }, [staticStrings]);
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
 
   const parts = geo.parts;
   const solid = (k: keyof typeof parts, mat: THREE.Material, cast = true) =>
     parts[k] ? <mesh key={k} geometry={parts[k]} material={mat} castShadow={cast} receiveShadow /> : null;
-
-  // GPU Instanced components for static elements (frets, side dots, face inlays)
-  const InstancedFrets = useMemo(() => {
-    if (!geo.instanced?.frets.count) return null;
-    const geometry = new THREE.CapsuleGeometry(0.1, 1, 3, 10); // radius 0.1, height 1 (will be scaled by instance matrix)
-    const mesh = new THREE.InstancedMesh(geometry, mats.fret, geo.instanced.frets.count);
-    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.frets.matrices, 16);
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.frustumCulled = false;
-    return (
-      <primitive object={mesh} dispose={null} onDispose={() => {
-        geometry.dispose();
-        mesh.dispose();
-      }} />
-    );
-  }, [geo.instanced?.frets.count, mats.fret]);
-
-  const InstancedSideDots = useMemo(() => {
-    if (!geo.instanced?.sideDots.count) return null;
-    const geometry = new THREE.CircleGeometry(1, 14); // radius 1 (will be scaled by instance matrix)
-    const mesh = new THREE.InstancedMesh(geometry, mats.dot, geo.instanced.sideDots.count);
-    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.sideDots.matrices, 16);
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.castShadow = false;
-    mesh.receiveShadow = false;
-    mesh.frustumCulled = false;
-    return (
-      <primitive object={mesh} dispose={null} onDispose={() => {
-        geometry.dispose();
-        mesh.dispose();
-      }} />
-    );
-  }, [geo.instanced?.sideDots.count, mats.dot]);
-
-  const InstancedFaceInlays = useMemo(() => {
-    if (!geo.instanced?.faceInlays.count) return null;
-    const geometry = new THREE.CircleGeometry(1, 28); // radius 1 (will be scaled by instance matrix)
-    const mesh = new THREE.InstancedMesh(geometry, mats.inlay, geo.instanced.faceInlays.count);
-    mesh.instanceMatrix = new THREE.InstancedBufferAttribute(geo.instanced.faceInlays.matrices, 16);
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.castShadow = false;
-    mesh.receiveShadow = false;
-    mesh.frustumCulled = false;
-    return (
-      <primitive object={mesh} dispose={null} onDispose={() => {
-        geometry.dispose();
-        mesh.dispose();
-      }} />
-    );
-  }, [geo.instanced?.faceInlays.count, mats.inlay]);
 
   return (
     <group>
@@ -303,9 +227,9 @@ function Guitar({
       {solid('bone', mats.bone)}
       {solid('pin', mats.pin)}
       {solid('chrome', mats.chrome)}
-      {InstancedFrets}
-      {InstancedSideDots}
-      {InstancedFaceInlays}
+      {solid('fret', mats.fret)}
+      {solid('dot', mats.dot, false)}
+      {solid('inlay', mats.inlay, false)}
       {parts.interior && <mesh geometry={parts.interior} material={mats.interior} material-side={THREE.DoubleSide} />}
       {parts.hole && <mesh geometry={parts.hole} material={mats.hole} />}
       <mesh geometry={geo.fretboard} material={fbMat} receiveShadow onClick={onFretboardClick} onDoubleClick={onFretboardDoubleClick} />
@@ -315,15 +239,11 @@ function Guitar({
           <ringGeometry args={[geo.rosette.inner, geo.rosette.outer, 128, 1]} />
         </mesh>
       )}
-      {staticStrings?.plain && staticStrings?.wound && (
-        <>
-          <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
-          <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
-        </>
-      )}
+      <mesh geometry={staticStrings.plain} material={mats.plainString} castShadow />
+      <mesh geometry={staticStrings.wound} material={mats.woundString} castShadow />
       {capoFret > 0 && <Capo profile={profile} fret={capoFret} />}
       <SpeakingStrings geo={geo} profile={profile} notes={notes} beatId={beatId} capoFret={capoFret} plain={mats.plainString} woundMat={mats.woundString} />
-      <NoteMarkers profile={profile} notes={notes} upcoming={upcoming} beatId={beatId} beatProgress={beatProgress} />
+      <NoteMarkers profile={profile} notes={notes} upcoming={upcoming} beatId={beatId} beatProgress={beatProgress} getBeatProgress={getBeatProgress} />
       {showFretNumbers && <FretNumbers profile={profile} />}
     </group>
   );
@@ -430,6 +350,67 @@ function Capo({ profile, fret }: { profile: GuitarProfile; fret: number }) {
 }
 
 /** Mounted inside the Suspense boundary: fires after the first frame that contains the textured guitar. */
+/**
+ * Shows its children only once their shaders are compiled. Compiling the guitar's ~15 programs on
+ * the first frame blocks the page for 0.5–1 s on laptop GPUs; `compileAsync` (KHR_parallel_shader_compile)
+ * compiles them off the main thread while the empty stage keeps rendering.
+ */
+function CompileGate({ children, whenShown }: { children: ReactNode; whenShown?: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  const { gl, scene, camera } = useThree();
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => {
+    const g = ref.current;
+    if (!g) return;
+    let live = true;
+    g.visible = true; // compileAsync only collects visible objects (synchronously, below)
+    const done = gl.compileAsync(scene, camera);
+    g.visible = false;
+    done.catch(() => {}).then(() => live && setReady(true));
+    return () => { live = false; };
+  }, [gl, scene, camera]);
+  return (
+    <>
+      <group ref={ref} visible={ready}>{children}</group>
+      {ready && whenShown}
+    </>
+  );
+}
+
+/**
+ * With frameloop "demand": every render of Guitar3D (new notes, capo, view, zoom…) asks for frames
+ * for the next two seconds, long enough for marker pops, ghost fades and string vibration to finish.
+ */
+function SettleFrames() {
+  const invalidate = useThree((st) => st.invalidate);
+  const until = useRef(0);
+  useEffect(() => {
+    until.current = performance.now() + 2000;
+    invalidate();
+  });
+  useFrame(() => {
+    if (performance.now() < until.current) invalidate();
+  });
+  return null;
+}
+
+/**
+ * The guitar does not move, so its shadow map (4096², soft) is drawn only when the guitar, capo or
+ * view changes, not on every frame.
+ */
+function StaticShadows({ stamp }: { stamp: unknown }) {
+  const { gl, invalidate } = useThree();
+  useLayoutEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    return () => { gl.shadowMap.autoUpdate = true; };
+  }, [gl]);
+  useEffect(() => {
+    gl.shadowMap.needsUpdate = true;
+    invalidate();
+  }, [gl, invalidate, stamp]);
+  return null;
+}
+
 function ReadySignal({ onReady }: { onReady: () => void }) {
   const frames = useRef(0);
   useFrame(() => {
@@ -557,7 +538,7 @@ function CameraRig({
 /* ------------------------------------------------------------------ public component */
 
 export function Guitar3D({
-  profile, notes, upcoming, beatId, beatProgress = 0, zoom = 1, showFretNumbers = true, view, cameraMode, onCameraModeChange, onFretClick, onReady, className, capoFret = 0 }: Guitar3DProps) {
+  profile, notes, upcoming, beatId, beatProgress = 0, getBeatProgress, playing = false, zoom = 1, showFretNumbers = true, view, cameraMode, onCameraModeChange, onFretClick, onReady, className, capoFret = 0 }: Guitar3DProps) {
   const capo = Math.max(0, Math.min(profile.fretCount - 1, Math.round(capoFret) || 0));
   const readyCb = useRef(onReady);
   readyCb.current = onReady;
@@ -574,6 +555,8 @@ export function Guitar3D({
     geo.headstockFace.dispose();
   }, [geo]);
   const frame = useFrame3(profile, view);
+  // a new object whenever something that casts or receives the shadow changes
+  const shadowStamp = useMemo(() => ({}), [geo, capo, frame.rot, frame.cx]); // eslint-disable-line react-hooks/exhaustive-deps
   const focusRef = useRef<((p: THREE.Vector3) => void) | null>(null);
   const guitarRef = useRef<THREE.Group>(null);
   const modeCb = useRef(onCameraModeChange);
@@ -597,12 +580,19 @@ export function Guitar3D({
     <div className={className} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
         shadows
-        dpr={[1, 2]}
+        frameloop={playing ? 'always' : 'demand'}
+        dpr={[1, 1.5]}
         camera={{ fov: FOV, near: 1, far: 3000, position: [0, -60, 260] }}
         gl={{ antialias: true, alpha: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+        onCreated={({ gl }) => {
+          // Reading the shader info logs makes every compile synchronous (~0.7 s of blocked main
+          // thread on first paint). Without the check the GPU process compiles them in parallel.
+          gl.debug.checkShaderErrors = import.meta.env.DEV;
+        }}
       >
         <Studio depth={maxDepth} rot={frame.rot} />
         <Suspense fallback={null}>
+          <CompileGate whenShown={<><ReadySignal onReady={signalReady} /><StaticShadows stamp={shadowStamp} /></>}>
           <group rotation={[0, 0, frame.rot]}>
             <group ref={guitarRef} position={[-frame.cx, 0, 0]}>
               <Guitar
@@ -613,14 +603,16 @@ export function Guitar3D({
                 showFretNumbers={showFretNumbers}
                 beatId={beatId}
                 beatProgress={beatProgress}
+                getBeatProgress={getBeatProgress}
                 onFretboardClick={onFretboardClick}
                 onFretboardDoubleClick={onFretboardDoubleClick}
                 capoFret={capo}
               />
             </group>
           </group>
-          <ReadySignal onReady={signalReady} />
+          </CompileGate>
         </Suspense>
+        <SettleFrames />
         <CameraRig profile={profile} view={view} mode={cameraMode} notes={notes} zoom={clampZoom(zoom)} onUserMove={onUserMove} focusRef={focusRef} />
       </Canvas>
     </div>
