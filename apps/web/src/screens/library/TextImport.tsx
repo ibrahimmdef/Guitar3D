@@ -113,7 +113,7 @@ export function TextImportDialog({ open, onOpenChange, onSaved, initialText = ''
               </p>
               {result.warnings.length > 0 && (
                 <ul className="ti-warn">
-                  {[...new Set(result.warnings)].slice(0, 5).map((w) => <li key={w}>{w}</li>)}
+                  {result.warnings.slice(0, 5).map((w) => <li key={w}>{w}</li>)}
                 </ul>
               )}
               <details>
