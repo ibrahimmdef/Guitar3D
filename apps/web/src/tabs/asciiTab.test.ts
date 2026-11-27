@@ -161,6 +161,14 @@ describe('asciiTabToAlphaTex → alphaTab', () => {
     expect(barSixteenths(score, 0)).toBe(16);
   });
 
+  it('reads a "Time: 6/8" line as the time signature', () => {
+    const text = 'Time: 6/8\ne|------------------|\nB|-6--8--6--8--6----|\nG|-7----------------|\nD|------------------|\nA|------------------|\nE|------------------|';
+    const score = load(asciiTabToAlphaTex(text).alphaTex);
+    expect(score.masterBars[0].timeSignatureNumerator).toBe(6);
+    expect(score.masterBars[0].timeSignatureDenominator).toBe(8);
+    expect(score.tracks[0].staves[0].bars[0].voices[0].beats.filter((b) => b.notes.length)).toHaveLength(5);
+  });
+
   it('keeps techniques and the tempo line', () => {
     const r = asciiTabToAlphaTex(TECHNIQUES, { quantize: 16 });
     expect(r.tempo).toBe(132);

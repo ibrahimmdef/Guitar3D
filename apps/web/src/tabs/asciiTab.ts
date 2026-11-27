@@ -367,7 +367,9 @@ export function asciiTabToAlphaTex(text: string, opts: AsciiTabOptions = {}): As
   const systems = findTabSystems(text, warnings).map((s) => orientSystem(s, warnings));
   if (!systems.length) throw new Error('No 6-string ASCII tab found in the text (e.g. lines like "e|--0--3--|").');
 
-  const [num, den] = opts.timeSignature ?? [4, 4];
+  // A "Time: 6/8" (or "Time signature 3/4") line in the text sets the meter when no option is given.
+  const ts = /time(?:\s*signature)?\s*[:=]?\s*(\d{1,2})\s*\/\s*(2|4|8|16)\b/i.exec(text);
+  const [num, den] = opts.timeSignature ?? (ts ? [Number(ts[1]), Number(ts[2])] : [4, 4]);
   const q = opts.quantize ?? 16;
   const units = Math.round((num * q) / den);
   const unitLen = 16 / q;
